@@ -201,9 +201,11 @@ async def ae_presets(project: str, filter: str = "", limit: Annotated[int, Field
 @mcp.tool(annotations=WRITES)
 async def ae_preset_apply(project: str, comp: str, layer: models.Layer, preset: str,
                           time: Annotated[float, Field(ge=0)] = 0) -> models.Script:
-    """Apply an animation preset (name, Category/Name or absolute .ffx path) to a layer at `time` seconds."""
-    path = await asyncio.to_thread(host.resolve_preset, preset)
-    return await scene("ae_preset_apply", project, {"comp": comp, "layer": layer, "path": str(path), "time": time})
+    """Refused: layer.applyPreset exits headless After Effects. Resolves `preset` first, so bad names fail clearly."""
+    await asyncio.to_thread(host.resolve_preset, preset)
+    raise ValueError("Refused: applying an animation preset (layer.applyPreset) exits headless After Effects "
+                     "(measured with two presets); build the look with ae_effect_add, ae_keyframes and "
+                     "ae_text_animator instead")
 
 
 @mcp.tool(annotations=READ_ONLY)

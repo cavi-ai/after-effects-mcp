@@ -37,7 +37,7 @@ The server speaks MCP over stdio. Client configuration:
 | `ae_footage_replace` | Replaces a footage item's source file in place (`item.replace`); every layer using the item updates. |
 | `ae_render_queue_set` | Adds comps to the render queue with output module template and file, sets render on/off and comp label, and lists the queue. `locked` is render off with label 0. |
 | `ae_presets` | Lists render settings templates, output module templates (read from a render queue item) and installed `.ffx` animation presets by category and name; `filter` narrows the presets. |
-| `ae_preset_apply` | Applies an animation preset (name, `Category/Name` or absolute `.ffx` path) to a layer at a time with `layer.applyPreset`. |
+| `ae_preset_apply` | Refuses: `layer.applyPreset` exits headless After Effects (note 12). It still resolves the preset name or path first. |
 | `ae_transitions` | Lists the transition kinds and whether this install has each effect. |
 | `ae_transition` | Keys Transition Completion of a wipe or dissolve effect, an opacity cross-fade or a dip to a color, between two layers (starting at the second layer's in point) or on one layer's in or out point; duration in seconds or frames. |
 
@@ -118,7 +118,10 @@ Measured with After Effects 2026 on macOS.
     CC Line Sweep is not installed here.
 11. `aerender` skips a queue entry with render off, and renders the others in the saved project, so a
     queue holding other comps renders them too.
-12. `aerender` can crash mid-queue and still exit 0, so every output's frame count is checked.
+12. `layer.applyPreset` of a `.ffx` animation preset exits the headless instance within two seconds
+    (measured with `3D Basic Position Z Cascade In` and `Center Spiral In`); the call fails with the
+    exited-during-the-call error of note 7.
+13. `aerender` can crash mid-queue and still exit 0, so every output's frame count is checked.
    A ProRes movie with a timecode track lists `nb_frames` twice in `ffprobe`; the first value is
    the video stream's.
 

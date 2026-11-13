@@ -74,6 +74,18 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(reply.is_error, name)
                 self.assertIn(message, reply.content[0].text, name)
 
+    async def test_preset_apply_is_refused_for_an_existing_preset(self):
+        with tempfile.TemporaryDirectory() as folder:
+            preset = Path(folder) / "look.ffx"
+            preset.write_bytes(b"")
+            params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
+            async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
+                await client.initialize()
+                reply = await client.call_tool("ae_preset_apply", {"project": "/x.aep", "comp": "a",
+                                                                   "layer": 1, "preset": str(preset)})
+                self.assertTrue(reply.is_error)
+                self.assertIn("exits headless After Effects", reply.content[0].text)
+
 
 if __name__ == "__main__":
     unittest.main()
