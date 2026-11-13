@@ -33,26 +33,19 @@ function shapeRect(comp, a) {
 
 function textLayer(comp, a) {
     var layer = a.box ? comp.layers.addBoxText(a.box, a.text) : comp.layers.addText(a.text), source, doc;
-    var just = {LEFT: ParagraphJustification.LEFT_JUSTIFY, CENTER: ParagraphJustification.CENTER_JUSTIFY,
-        RIGHT: ParagraphJustification.RIGHT_JUSTIFY, FULL: ParagraphJustification.FULL_JUSTIFY_LASTLINE_LEFT};
     source = layer.property("ADBE Text Properties").property("ADBE Text Document");
     doc = source.value;
     doc.resetCharStyle();
     doc.resetParagraphStyle();
-    doc.font = a.font;
-    doc.fontSize = a.size;
-    doc.applyFill = a.fill !== null;
-    if (a.fill) { doc.fillColor = a.fill; }
-    doc.applyStroke = a.stroke !== null;
-    if (a.stroke) { doc.strokeColor = a.stroke; doc.strokeWidth = a.stroke_width; }
-    doc.tracking = a.tracking;
-    doc.justification = caviEnum(just, a.justification, "justification");
+    doc.applyFill = false;
+    doc.applyStroke = false;
+    caviTextStyle(doc, a);
     source.setValue(doc);
     return layer;
 }
 
 (function () {
-    var a = CAVI_ARGS, comp = caviComp(a.comp), layer, kind = a.kind, item, lights, w, h;
+    var a = CAVI_ARGS, comp = caviComp(a.comp), layer, kind = a.kind, item, lights, w, h, rect, fitted = null;
     if (kind === "solid" || kind === "adjustment") {
         w = a.width || comp.width; h = a.height || comp.height;
         layer = comp.layers.addSolid(a.color, a.name, w, h, 1, comp.duration);
@@ -62,6 +55,21 @@ function textLayer(comp, a) {
     } else if (kind === "footage") {
         item = footageItem(a.file);
         layer = comp.layers.add(item);
+    } else if (kind === "comp") {
+        if (a.source === comp.name) { caviFail("A comp cannot contain itself"); }
+        layer = comp.layers.add(caviComp(a.source));
+    } else if (kind === "model") {
+        if (comp.renderer !== "ADBE Calder") {
+            caviFail("3D model layers need the Advanced 3D renderer; comp " + comp.name + " uses " + comp.renderer);
+        }
+        layer = comp.layers.add(footageItem(a.file));
+        layer.outPoint = comp.duration;
+        if (a.fit) {
+            rect = layer.sourceRectAtTime(0, false);
+            fitted = 0.6 * comp.height / (Math.max(rect.width, rect.height) * Math.sqrt(3)) * 100;
+            layer.property("ADBE Transform Group").property("ADBE Position").setValue([comp.width / 2, comp.height / 2, 0]);
+            layer.property("ADBE Transform Group").property("ADBE Scale").setValue([fitted, fitted, fitted]);
+        }
     } else if (kind === "shape_rect") {
         layer = shapeRect(comp, a);
     } else if (kind === "null") {
@@ -69,7 +77,8 @@ function textLayer(comp, a) {
     } else if (kind === "camera") {
         layer = comp.layers.addCamera(a.name, a.position ? [a.position[0], a.position[1]] : [comp.width / 2, comp.height / 2]);
     } else if (kind === "light") {
-        lights = {POINT: LightType.POINT, SPOT: LightType.SPOT, PARALLEL: LightType.PARALLEL, AMBIENT: LightType.AMBIENT};
+        lights = {POINT: LightType.POINT, SPOT: LightType.SPOT, PARALLEL: LightType.PARALLEL, AMBIENT: LightType.AMBIENT,
+            ENVIRONMENT: LightType.ENVIRONMENT};
         layer = comp.layers.addLight(a.name, [comp.width / 2, comp.height / 2]);
         layer.lightType = caviEnum(lights, a.light_type, "light type");
     } else {
@@ -92,6 +101,6 @@ function textLayer(comp, a) {
             caviEnum(TrackMatteType, a.track_matte.type, "track matte type"));
     }
     caviReport({comp: comp.name, layer: {index: layer.index, name: layer.name, kind: kind, three_d: caviIs3D(layer),
-        in_point: layer.inPoint, out_point: layer.outPoint, parent: layer.parent ? layer.parent.name : null},
+        in_point: layer.inPoint, out_point: layer.outPoint, parent: layer.parent ? layer.parent.name : null, fit_scale: fitted},
         errors: []});
 })();

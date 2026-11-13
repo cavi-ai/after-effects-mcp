@@ -11,7 +11,10 @@ from mcp.client.stdio import stdio_client
 TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effects_render", "ae_inspect",
          "ae_comp_new", "ae_layer_add", "ae_keyframes", "ae_effect_add", "ae_text_animator",
          "ae_footage_replace", "ae_render_queue_set", "ae_presets", "ae_preset_apply", "ae_transition",
-         "ae_transitions"}
+         "ae_transitions", "ae_project", "ae_layer_set", "ae_text_set", "ae_layer_edit", "ae_comp_set",
+         "ae_import", "ae_markers", "ae_frame", "ae_shape_add", "ae_mask", "ae_effects", "ae_camera", "ae_essential_graphics", "ae_mogrt_export",
+         "ae_template_render", "ae_collect", "ae_audio", "ae_time",
+         "ae_controls", "ae_project_settings", "ae_sequence_layers", "ae_essential_override"}
 
 
 class ProtocolTest(unittest.IsolatedAsyncioTestCase):
@@ -73,6 +76,123 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
                 reply = await client.call_tool(name, arguments)
                 self.assertTrue(reply.is_error, name)
                 self.assertIn(message, reply.content[0].text, name)
+
+    async def test_edit_tools_refuse_bad_input_before_calling_after_effects(self):
+        params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
+        base = {"project": "/x.aep", "comp": "a", "layer": 1}
+        calls = [
+            ("ae_project", {"action": "open", "path": "/nope/missing.aep"}, "No project at"),
+            ("ae_project", {"action": "save_as"}, "needs a path"),
+            ("ae_project", {"action": "save_as", "path": "relative.aep"}, "absolute path"),
+            ("ae_layer_set", base, "at least one"),
+            ("ae_layer_set", {**base, "parent": 2, "no_parent": True}, "parent or no_parent"),
+            ("ae_text_set", base, "at least one"),
+            ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "split"}, "needs a time"),
+            ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "reorder"}, "needs move_to"),
+            ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "precompose"}, "needs a name"),
+            ("ae_comp_set", {"project": "/x.aep", "comp": "a"}, "at least one"),
+            ("ae_import", {"project": "/x.aep", "files": ["relative.png"]}, "absolute path"),
+            ("ae_markers", {"project": "/x.aep", "comp": "a"}, "markers or a beat grid"),
+            ("ae_markers", {"project": "/x.aep", "comp": "a", "grid": {"bpm": 120, "end": 4, "start": 4}}, "after start"),
+            ("ae_frame", {"project": "/x.aep", "comp": "a", "times": [0], "directory": "relative"}, "absolute path"),
+        ]
+        async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
+            await client.initialize()
+            for name, arguments, message in calls:
+                reply = await client.call_tool(name, arguments)
+                self.assertTrue(reply.is_error, (name, arguments))
+                self.assertIn(message, reply.content[0].text, (name, arguments))
+
+    async def test_motion_tools_refuse_bad_input_before_calling_after_effects(self):
+        params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
+        base = {"project": "/x.aep", "comp": "a"}
+        calls = [
+            ("ae_shape_add", {**base, "shape": {"kind": "path"}}, "needs path"),
+            ("ae_shape_add", {**base, "shape": {"kind": "rect"}, "operators": [{"type": "round_corners"}]},
+             "round_corners needs radius"),
+            ("ae_shape_add", {**base, "shape": {"kind": "rect"}, "operators": [{"type": "trim"}]}, "trim needs"),
+            ("ae_mask", {**base, "layer": 1}, "needs a shape"),
+            ("ae_mask", {**base, "layer": 1, "mask": 1}, "at least one"),
+            ("ae_mask", {**base, "layer": 1, "shape": {"kind": "ellipse"}}, "needs box"),
+            ("ae_camera", base, "camera or a light"),
+            ("ae_camera", {**base, "light": {"type": "spot"}, "rig": True}, "rig needs a camera"),
+            ("ae_keyframes", {**base, "layer": 1, "property": "rotation", "expression": "1",
+                              "preset": {"kind": "wiggle"}}, "not both"),
+        ]
+        async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
+            await client.initialize()
+            for name, arguments, message in calls:
+                reply = await client.call_tool(name, arguments)
+                self.assertTrue(reply.is_error, (name, arguments))
+                self.assertIn(message, reply.content[0].text, (name, arguments))
+
+    async def test_delivery_tools_refuse_bad_input_before_calling_after_effects(self):
+        params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
+        add = {"comp": "a", "file": "/x/out.mov", "output": {"channels": "RGB+Alpha", "format": "PNG"}}
+        calls = [
+            ("ae_render_queue_set", {"project": "/x.aep", "add": [add]}, "format, channels cannot be set"),
+            ("ae_render_queue_set", {"project": "/x.aep", "add": [{"comp": "a", "file": "/x/o.mov",
+                                                                    "time_span": {"start": 0, "duration": 0}}]}, "duration"),
+            ("ae_mogrt_export", {"project": "/x.aep", "comp": "a", "file": "/x/t.mogrt"}, "writes no file"),
+            ("ae_template_render", {"template": "relative.aep", "project": "/x.aep",
+                                    "renders": [{"comp": "a", "file": "/x/o.mov"}]}, "absolute path"),
+            ("ae_project", {"action": "reduce", "path": "/x.aep"}, "reduce needs comps"),
+            ("ae_project", {"action": "remove_unused"}, "needs a path"),
+            ("ae_collect", {"project": "/x.aep", "folder": "relative"}, "absolute path"),
+        ]
+        async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
+            await client.initialize()
+            for name, arguments, message in calls:
+                reply = await client.call_tool(name, arguments)
+                self.assertTrue(reply.is_error, (name, arguments))
+                self.assertIn(message, reply.content[0].text, (name, arguments))
+
+    async def test_audio_and_time_tools_refuse_bad_input_before_calling_after_effects(self):
+        params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
+        base = {"project": "/x.aep", "comp": "a", "layer": 1}
+        calls = [
+            ("ae_audio", {**base, "convert_to_keyframes": True}, "exits headless After Effects"),
+            ("ae_audio", base, "at least one"),
+            ("ae_audio", {**base, "level": -3, "level_keys": [{"time": 0, "value": -6}]}, "not both"),
+            ("ae_time", base, "at least one"),
+            ("ae_time", {**base, "freeze_at": 1, "remap_keys": [{"time": 0, "source_time": 1}]}, "not both"),
+            ("ae_time", {**base, "frame_blending": "blur"}, "frame_blending"),
+        ]
+        async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
+            await client.initialize()
+            for name, arguments, message in calls:
+                reply = await client.call_tool(name, arguments)
+                self.assertTrue(reply.is_error, (name, arguments))
+                self.assertIn(message, reply.content[0].text, (name, arguments))
+
+    async def test_scene_building_tools_refuse_bad_input_before_calling_after_effects(self):
+        params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
+        base = {"project": "/x.aep", "comp": "a", "layer": 1}
+        model = {"comp": "a", "kind": "model", "name": "m", "file": "/m.stl"}
+        calls = [
+            ("ae_text_animator", base, "at least one animator"),
+            ("ae_controls", base, "controls or links"),
+            ("ae_project_settings", {"project": "/x.aep"}, "at least one"),
+            ("ae_project_settings", {"project": "/x.aep", "bits_per_channel": 12}, "bits_per_channel"),
+            ("ae_sequence_layers", {"project": "/x.aep", "comp": "a", "items": [{"layer": 1, "file": "/a.mov"}]},
+             "a layer or a file"),
+            ("ae_sequence_layers", {"project": "/x.aep", "comp": "a", "items": [{"layer": 1}],
+                                    "transition": {"kind": "crossfade"}}, "needs seconds"),
+            ("ae_sequence_layers", {"project": "/x.aep", "comp": "a", "items": [{"layer": 1}],
+                                    "overlap": 1, "transition": {"kind": "nope"}}, "Unknown transition"),
+            ("ae_essential_override", {**base, "values": {}}, "values"),
+            ("ae_layer_add", {"project": "/x.aep", "layer": model}, ".glb, .gltf or .obj"),
+            ("ae_layer_add", {"project": "/x.aep", "layer": {"comp": "a", "kind": "comp", "name": "n"}},
+             "needs source"),
+            ("ae_render_queue_set", {"project": "/x.aep", "update": [{"index": 1, "duplicate": True, "remove": True}]},
+             "cannot be combined"),
+        ]
+        async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
+            await client.initialize()
+            for name, arguments, message in calls:
+                reply = await client.call_tool(name, arguments)
+                self.assertTrue(reply.is_error, (name, arguments))
+                self.assertIn(message, reply.content[0].text, (name, arguments))
 
     async def test_preset_apply_is_refused_for_an_existing_preset(self):
         with tempfile.TemporaryDirectory() as folder:
