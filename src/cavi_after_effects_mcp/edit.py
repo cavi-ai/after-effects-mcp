@@ -2,6 +2,7 @@
 
 import shutil
 import tempfile
+import time
 from pathlib import Path
 
 from cavi_mcp_core.proc import diagnostics, run_sync
@@ -9,6 +10,8 @@ from cavi_mcp_core.proc import diagnostics, run_sync
 from . import host
 
 FRAME_MODULE = "TIFF Sequence with Alpha"
+RENDER_ATTEMPTS = 3
+RENDER_RETRY_SECONDS = 15
 KAPPA = 0.5522847498
 
 
@@ -80,10 +83,93 @@ def project_op(args, target):
     raise RuntimeError(f"The project call saved no report; the open project is not {target}")
 
 
-def render_frames(project, comp, times, directory, alpha=False):
+def encode_command(directory, movie, fps, codec, alpha):
+    """The ffmpeg command that turns directory/frame_#####.png into ``movie``."""
+    command = ["ffmpeg", "-y", "-v", "error", "-framerate", f"{fps:g}", "-i", str(Path(directory) / "frame_%05d.png")]
+    if codec == "prores":
+        pixel = "yuva444p10le" if alpha else "yuv422p10le"
+        return command + ["-c:v", "prores_ks", "-profile:v", "4444" if alpha else "3", "-pix_fmt", pixel, str(movie)]
+    return command + ["-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                      "-movflags", "+faststart", str(movie)]
+
+
+MOVIE_CODECS = {".mp4": "h264", ".mov": "prores"}
+
+
+def fallback_movie(project, item):
+    """Make the movie of one queue output from saveFrameToPng frames and ffmpeg; returns its frame count."""
+    movie = host.absolute(item["file"])
+    codec = MOVIE_CODECS.get(movie.suffix.lower())
+    if codec is None:
+        raise RuntimeError(f"The fallback encodes .mp4 (H.264) or .mov (ProRes), not {movie.suffix}")
+    movie.parent.mkdir(parents=True, exist_ok=True)
+    movie.unlink(missing_ok=True)
+    work = Path(tempfile.mkdtemp(prefix="frames-", dir=movie.parent))
+    try:
+        export_frames(project, item["comp"], work, 0, None, 1, False, movie, codec, item["frames"],
+                      frames=item["frames"])
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
+    return host.frame_count(movie)
+
+
+def export_frames(project, comp, directory, start, duration, step, alpha, movie, codec, max_frames, frames=None):
+    """Write a frame range as frame_#####.png with Comp.saveFrameToPng (no aerender), optionally encoded to ``movie``."""
+    project, directory = host.absolute(project, ".aep"), host.absolute(directory)
+    movie = host.absolute(movie) if movie else None
+    if movie and not shutil.which("ffmpeg"):
+        raise RuntimeError("ffmpeg is not installed, so no movie can be encoded; leave movie empty for the PNG sequence")
+    directory.mkdir(parents=True, exist_ok=True)
+    for old in directory.glob("frame_*.png"):
+        old.unlink()
+    report = host.run_template("ae_frame_range", project, {
+        "comp": comp, "directory": str(directory), "start": start, "duration": duration, "step": step,
+        "background": not alpha, "max_frames": max_frames, "frames": frames}, 3600)
+    count = report["count"]
+    deadline = time.monotonic() + 60 + count
+    while time.monotonic() < deadline:
+        if len(list(directory.glob("frame_*.png"))) >= count:
+            break
+        time.sleep(0.25)
+    written = sorted(directory.glob("frame_*.png"))
+    if len(written) != count or any(f.stat().st_size == 0 for f in written):
+        raise RuntimeError(f"After Effects wrote {len(written)} of {count} frames to {directory}")
+    result = {"frames": count, "fps": report["fps"] / step, "first": str(written[0]), "last": str(written[-1]),
+              "movie": None}
+    if movie:
+        movie.parent.mkdir(parents=True, exist_ok=True)
+        made = run_sync(encode_command(directory, movie, result["fps"], codec, alpha), 3600)
+        if made.returncode or not movie.is_file():
+            raise RuntimeError("ffmpeg could not encode the movie: " + diagnostics(made))
+        result["movie"] = str(movie)
+    return result
+
+
+def direct_frames(project, comp, frames, alpha):
+    """Write the frames with Comp.saveFrameToPng, which needs no aerender; False when After Effects did not write them all."""
+    for frame in frames:
+        Path(frame["file"]).unlink(missing_ok=True)
+    try:
+        host.run_template("ae_frame_png", project, {"comp": comp, "frames": frames, "background": not alpha})
+    except RuntimeError as error:
+        if "No comp named" in str(error):
+            raise
+        return False
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        if all(Path(f["file"]).is_file() and Path(f["file"]).stat().st_size > 0 for f in frames):
+            return True
+        time.sleep(0.25)
+    return False
+
+
+def render_frames(project, comp, times, directory, alpha=False, use_direct=True):
     """Render the frame at each time to ``directory`` as PNG through a temporary queue entry that is removed again; the comp background is composited in unless ``alpha``."""
     project, directory = host.absolute(project, ".aep"), host.absolute(directory)
     directory.mkdir(parents=True, exist_ok=True)
+    direct = [{"time": t, "file": str(directory / f"{comp}_{t:g}s.png")} for t in times]
+    if use_direct and direct_frames(project, comp, direct, alpha):
+        return direct
     work = Path(tempfile.mkdtemp(prefix="frames-", dir=directory))
     try:
         frames = [{"time": t, "file": str(work / f"f{i}_[#####].tif")} for i, t in enumerate(times)]
@@ -91,7 +177,12 @@ def render_frames(project, comp, times, directory, alpha=False):
                                                                "output_module": FRAME_MODULE,
                                                                "background": not alpha})
         try:
-            host.aerender("-project", str(project))
+            for attempt in range(RENDER_ATTEMPTS):
+                host.aerender("-project", str(project))
+                if all(len(list(work.glob(f"f{i}_*.tif"))) == 1 for i in range(len(times))):
+                    break
+                if attempt + 1 < RENDER_ATTEMPTS:
+                    time.sleep(RENDER_RETRY_SECONDS)
         finally:
             host.run_template("ae_frame_queue", project, {"action": "remove", "comp": comp, "count": len(times),
                                                           "enabled": queued["enabled"]})
@@ -99,7 +190,8 @@ def render_frames(project, comp, times, directory, alpha=False):
         for i, t in enumerate(times):
             made = sorted(work.glob(f"f{i}_*.tif"))
             if len(made) != 1:
-                raise RuntimeError(f"aerender wrote {len(made)} frames for time {t}")
+                raise RuntimeError(f"aerender wrote {len(made)} frames for time {t} after {RENDER_ATTEMPTS} attempts; it "
+                                   "exits without rendering when the Adobe Media Encoder service it launches fails")
             png = directory / f"{comp}_{t:g}s.png"
             to_png(made[0], png)
             out.append({"time": t, "file": str(png)})
@@ -163,4 +255,21 @@ def template_render(template, project, texts, footage, renders, discard):
     comps = {c["name"]: c for c in host.run_template("ae_inspect", project, {"scope": "project", "comp": None})["comps"]}
     outputs = [{"comp": r["comp"], "file": r["file"], "frames": round(comps[r["comp"]]["duration"] * comps[r["comp"]]["fps"])}
                for r in renders]
-    return host.render_queue(project, outputs, renders[0]["render_settings"], renders[0]["output_module"])["outputs"]
+    return render_outputs(project, outputs, renders[0]["render_settings"], renders[0]["output_module"])["outputs"]
+
+
+def render_outputs(project, outputs, settings, module):
+    """aerender the queue; an output it leaves missing or short is made from saveFrameToPng frames and ffmpeg."""
+    report = host.render_queue(project, outputs, settings, module)
+    for item, made in zip(outputs, report["outputs"], strict=True):
+        if made["frames"] == item["frames"]:
+            continue
+        try:
+            made["frames"] = fallback_movie(project, item)
+        except (RuntimeError, ValueError) as error:
+            raise RuntimeError(f"{item['comp']}: aerender left {made['frames']} of {item['frames']} frames "
+                               f"({report['failure'] or 'no error'}); the fallback failed: {error}") from error
+        made["path"] = "saveFrameToPng"
+        if made["frames"] != item["frames"]:
+            raise RuntimeError(f"{item['comp']}: the fallback wrote {made['frames']} of {item['frames']} frames")
+    return {"project": report["project"], "outputs": report["outputs"]}

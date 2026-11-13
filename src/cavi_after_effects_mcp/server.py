@@ -1,6 +1,7 @@
 """MCP server for headless Adobe After Effects."""
 
 import asyncio
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from cavi_adobe_mcp.config import workspace
@@ -59,6 +60,7 @@ class Output(BaseModel):
 
 class RenderedOutput(Output):
     rerendered: bool
+    path: Literal["aerender", "saveFrameToPng"]
 
 
 class Render(Result):
@@ -98,6 +100,7 @@ async def ae_script(script: str, project: str, args: dict[str, Any] | None = Non
 
     Paths are absolute. Returns the report; report.errors fails the call.
     """
+    host.refuse_crashing_calls(host.absolute(script, ".jsx"))
     report = await asyncio.to_thread(host.run_script, script, project, args or {}, timeout)
     return {"project": project, "report": report}
 
@@ -106,8 +109,8 @@ async def ae_script(script: str, project: str, args: dict[str, Any] | None = Non
 async def ae_render_queue(project: str, outputs: Annotated[list[Output], Field(min_length=1)],
                           render_settings: str = "Best Settings",
                           output_module: str = "High Quality") -> Render:
-    """aerender a saved .aep queue; each output movie must have `frames` frames or renders once more."""
-    return await asyncio.to_thread(host.render_queue, project, [o.model_dump() for o in outputs],
+    """aerender a saved .aep queue; each output movie must have `frames` frames or renders once more. When aerender still leaves no movie or a short one, the movie is made from saveFrameToPng frames and ffmpeg (.mp4 H.264 or .mov ProRes from frame 0 at the comp's frame rate); each output's `path` says which path produced it."""
+    return await asyncio.to_thread(edit.render_outputs, project, [o.model_dump() for o in outputs],
                                    render_settings, output_module)
 
 
@@ -180,6 +183,22 @@ async def ae_keyframes(project: str, comp: str, layer: models.Layer, property: s
 
 
 @mcp.tool(annotations=WRITES)
+async def ae_expressions(project: str, comp: str, layer: models.Layer | None = None,
+                         remove_broken: bool = False) -> models.Expressions:
+    """List every expression in a comp (or one layer) as {layer, property path, expression, enabled, error}; `broken` counts expressions After Effects reports an error for. remove_broken clears those expressions."""
+    return await scene("ae_expressions", project, {"comp": comp, "layer": layer, "remove_broken": remove_broken})
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_material(project: str, comp: str, layer: models.Layer, material: models.Material) -> models.Materialed:
+    """Set a 3D layer's material options: casts shadows (off, on, only), accepts shadows and lights, light transmission, ambient, diffuse, specular, shininess, metal, reflection, glossiness, fresnel, transparency, rolloff, index of refraction. Refuses 2D layers; the report lists every option after the change."""
+    values = {k: v for k, v in material.model_dump().items() if v is not None}
+    if not values:
+        raise ValueError("Give at least one material option")
+    return await scene("ae_material", project, {"comp": comp, "layer": layer, "values": values})
+
+
+@mcp.tool(annotations=WRITES)
 async def ae_effect_add(project: str, comp: str, layer: models.Layer, match_name: str,
                         params: dict[str, Any] | None = None, name: str | None = None) -> models.EffectAdded:
     """Add an effect by matchName (e.g. ADBE Glo2) and set parameters by name or matchName."""
@@ -238,6 +257,12 @@ async def ae_render_queue_set(project: str, add: list[QueueAdd] = [], update: li
 
 
 @mcp.tool(annotations=READ_ONLY)
+async def ae_fonts(project: str, filter: str = "", limit: Annotated[int, Field(ge=1, le=2000)] = 200) -> models.Fonts:
+    """List installed fonts as {postscript, family, style}; filter matches any of the three. Text tools take the PostScript name and refuse names that are not installed."""
+    return await scene("ae_fonts", project, {"filter": filter, "limit": limit}, 120)
+
+
+@mcp.tool(annotations=READ_ONLY)
 async def ae_presets(project: str, filter: str = "", limit: Annotated[int, Field(ge=1, le=1000)] = 200
                      ) -> models.Presets:
     """List render settings templates, output module templates and installed .ffx animation presets (filter matches category and name)."""
@@ -267,6 +292,28 @@ async def ae_transitions(project: str) -> models.Transitions:
     kinds = [{"kind": k, "match_name": m, "available": have.get(m, False)} for k, m in host.TRANSITIONS.items()]
     kinds += [{"kind": k, "match_name": None, "available": True} for k in host.BUILT_IN_TRANSITIONS]
     return {"project": project, "kinds": kinds}
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_organize(project: str, folders: list[str] = [], renames: list[models.ItemRename] = [],
+                      moves: list[models.ItemMove] = []) -> models.Organized:
+    """Tidy the project panel: create folders (nested paths such as Comps/Titles), rename items, then move items (by their new names) into folders. An item name shared by two items is refused."""
+    if not (folders or renames or moves):
+        raise ValueError("Give at least one of: folders, renames, moves")
+    if any(not f.strip("/") or "//" in f for f in folders):
+        raise ValueError("A folder path has non-empty names separated by single slashes")
+    return await scene("ae_organize", project, {"folders": folders, "renames": [r.model_dump() for r in renames],
+                                                "moves": [m.model_dump() for m in moves]})
+
+
+@mcp.tool(annotations=READ_ONLY)
+async def ae_properties(project: str, comp: str, layer: models.Layer, path: str | None = None,
+                        depth: Annotated[int, Field(ge=1, le=8)] = 4,
+                        max_nodes: Annotated[int, Field(ge=1, le=5000)] = 1000,
+                        time: Annotated[float, Field(ge=0)] | None = None) -> models.Properties:
+    """Read a layer's properties as {path, match name, value, key count, expression}: the whole tree to `depth` groups, or one property or group by `path` ("Transform", "Effects/Glow", "Text/Source Text" or a match name). Values are the stored value, or with `time` (comp seconds) the animated value at that time with expressions evaluated."""
+    return await scene("ae_properties", project, {"comp": comp, "layer": layer, "path": path, "depth": depth,
+                                                  "max_nodes": max_nodes, "time": time}, 120)
 
 
 @mcp.tool(annotations=WRITES)
@@ -471,11 +518,33 @@ async def ae_markers(project: str, comp: str, layer: models.Layer | None = None,
 
 @mcp.tool(annotations=WRITES)
 async def ae_frame(project: str, comp: str, times: Annotated[list[float], Field(min_length=1, max_length=50)],
-                   directory: str, alpha: bool = False) -> models.FramesRendered:
-    """Render the frame at each time (seconds) of a comp to PNG in `directory` through aerender and a temporary render queue entry; returns the file paths. The comp background color is in the frame; alpha keeps transparency instead."""
+                   directory: str, alpha: bool = False,
+                   method: Literal["auto", "aerender"] = "auto") -> models.FramesRendered:
+    """Render the frame at each time (seconds) of a comp to PNG in `directory`; returns the file paths. The comp background color is in the frame; alpha keeps transparency instead. `auto` writes the frames with saveFrameToPng and falls back to aerender through a temporary render queue entry; `aerender` uses only aerender."""
     host.absolute(directory)
-    frames = await asyncio.to_thread(edit.render_frames, project, comp, times, directory, alpha)
+    frames = await asyncio.to_thread(edit.render_frames, project, comp, times, directory, alpha, method == "auto")
     return {"project": project, "comp": comp, "frames": frames}
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_export_frames(project: str, comp: str, directory: str, start: Annotated[float, Field(ge=0)] = 0,
+                           duration: Annotated[float, Field(gt=0)] | None = None,
+                           step: Annotated[int, Field(ge=1, le=240)] = 1, alpha: bool = False,
+                           movie: str | None = None, codec: Literal["h264", "prores"] = "h264",
+                           max_frames: Annotated[int, Field(ge=1, le=5000)] = 1800) -> models.FramesExported:
+    """Write a frame range of a comp as frame_00001.png ... in `directory` without aerender (every `step`-th frame from `start` for `duration` seconds, default to the end), optionally encoded with ffmpeg to `movie` (.mp4 H.264, or ProRes .mov, with alpha when alpha is set). Use it when aerender renders nothing."""
+    host.absolute(directory)
+    if movie:
+        suffix = Path(movie).suffix.lower()
+        if codec == "h264" and suffix != ".mp4":
+            raise ValueError("An H.264 movie is a .mp4 file")
+        if codec == "prores" and suffix != ".mov":
+            raise ValueError("A ProRes movie is a .mov file")
+        if alpha and codec == "h264":
+            raise ValueError("H.264 has no alpha; use codec prores or leave movie empty")
+    result = await asyncio.to_thread(edit.export_frames, project, comp, directory, start, duration, step, alpha,
+                                     movie, codec, max_frames)
+    return {"project": project, "comp": comp, "directory": directory, **result}
 
 
 @mcp.tool(annotations=WRITES)

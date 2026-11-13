@@ -48,8 +48,22 @@ function caviReport(report) {
     CAVI_REPORTED = true;
 }
 
+// A failed script leaves no partial edits: the open project is reloaded from disk when it is the target and changed.
+// Returns false when the reload failed, so that an empty project is never saved over the target.
+function caviRollback() {
+    var target = new File(CAVI_PROJECT), open = app.project.file;
+    if (!target.exists || !open || open.fsName !== target.fsName || !app.project.dirty) { return true; }
+    try {
+        app.project.close(CloseOptions.DO_NOT_SAVE_CHANGES);
+        app.open(target);
+    } catch (reload) {
+        return false;
+    }
+    return true;
+}
+
 (function () {
-    var file = new File(CAVI_SCRIPT), source, value;
+    var file = new File(CAVI_SCRIPT), source, value, quiet = false;
     function where(error, offset) {
         return String(error) + (error.line ? " (line " + (error.line - offset) + ")" : "");
     }
@@ -69,11 +83,19 @@ function caviReport(report) {
         return;
     }
     try {
+        app.beginSuppressDialogs();
+        quiet = true;
+    } catch (unsupported) {
+        quiet = false;
+    }
+    try {
         value = $.evalFile(file);
     } catch (failure) {
-        caviReport({errors: [where(failure, 0)]});
+        if (quiet) { app.endSuppressDialogs(false); }
+        if (caviRollback()) { caviReport({errors: [where(failure, 0)]}); }
         return;
     }
+    if (quiet) { app.endSuppressDialogs(false); }
     if (!CAVI_REPORTED) {
         caviReport({value: value === undefined ? null : String(value), errors: []});
     }

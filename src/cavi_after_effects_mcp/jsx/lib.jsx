@@ -201,7 +201,12 @@ var CAVI_JUSTIFY = {LEFT: ParagraphJustification.LEFT_JUSTIFY, CENTER: Paragraph
 // justification, box); fields that are null or absent are left alone.
 function caviTextStyle(doc, s) {
     function has(key) { return s[key] !== undefined && s[key] !== null; }
-    if (has("font")) { doc.font = s.font; }
+    if (has("font")) {
+        if (app.fonts.getFontsByPostScriptName(s.font).length === 0) {
+            caviFail("Font " + s.font + " is not installed; ae_fonts lists the PostScript names");
+        }
+        doc.font = s.font;
+    }
     if (has("size")) { doc.fontSize = s.size; }
     if (has("fill")) { doc.applyFill = true; doc.fillColor = s.fill; }
     if (has("stroke")) { doc.applyStroke = true; doc.strokeColor = s.stroke; }

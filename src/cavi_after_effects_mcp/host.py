@@ -3,6 +3,7 @@
 import json
 import os
 import plistlib
+import re
 import shutil
 import subprocess
 import time
@@ -66,7 +67,7 @@ def run_watched(command, timeout, pid, interval=0.5):
         if not alive(pid):
             child.kill()
             child.wait()
-            raise RuntimeError(f"After Effects (pid {pid}) exited during the call; run ae_launch to restart it")
+            raise RuntimeError(f"After Effects (pid {pid}) exited during the call; the next tool call starts it again")
         if time.monotonic() > deadline:
             child.kill()
             child.wait()
@@ -80,7 +81,8 @@ def do_script(code, timeout):
     """Run ExtendScript in the headless instance; DoScript answers 0 on success, 1 on any failure."""
     headless, _ = processes()
     if not headless:
-        raise RuntimeError("No headless After Effects is running; run ae_launch")
+        launch()
+        headless, _ = processes()
     command = ["osascript", "-e", "on run argv", "-e", f"with timeout of {timeout} seconds",
                "-e", f'tell application "{after_effects().name}" to set answer to DoScript '
                "(item 1 of argv)", "-e", "end timeout", "-e", "return answer", "-e", "end run", code]
@@ -102,8 +104,43 @@ def launch():
             if processes()[0]:
                 break
             time.sleep(0.5)
+        if not processes()[0]:
+            raise RuntimeError("After Effects did not start within 60 seconds")
     do_script("app.project.numItems", 300)
     return status()
+
+
+# Calls that abort headless After Effects (measured), each with the tool that does the job safely.
+CRASHING_CALLS = {
+    "applyPreset": "layer.applyPreset aborts After Effects; build the look with ae_effect_add, ae_keyframes and ae_text_animator",
+    "executeCommand": "app.executeCommand runs menu commands that abort After Effects without a window (Convert Audio to Keyframes did, twice)",
+    "findMenuCommandId": "menu command ids are only useful to app.executeCommand, which is refused",
+}
+
+
+def refuse_crashing_calls(script):
+    """Refuse a script file that contains a call known to abort headless After Effects."""
+    text = Path(script).read_text(encoding="utf-8", errors="replace")
+    for call, reason in CRASHING_CALLS.items():
+        if re.search(rf"\b{call}\s*\(", text):
+            raise ValueError(f"Refused: {script.name} calls {call}. {reason}")
+
+
+def ensure_open(project):
+    """Make ``project`` the open project when it exists on disk, so a restarted instance never saves its empty project over it."""
+    if not Path(project).is_file():
+        return
+    code = (f"var t = new File({json.dumps(str(project))}), c = app.project.file;\n"
+            "if (!c || c.fsName !== t.fsName) {\n"
+            "    if (app.project.dirty) { throw new Error('unsaved changes'); }\n"
+            "    app.open(t);\n}")
+    try:
+        do_script(code, 300)
+    except RuntimeError as error:
+        if "unsaved changes" in str(error):
+            raise RuntimeError(f"The open project has unsaved changes; save it, or run the tool on its own path, "
+                               f"before opening {project}") from error
+        raise
 
 
 def script_call(script, project, args):
@@ -148,6 +185,7 @@ def run_script(script, project, args, timeout):
         raise ValueError(f"No script at {script}")
     project.parent.mkdir(parents=True, exist_ok=True)
     before = fingerprint(project)
+    ensure_open(project)
     do_script(script_call(script, project, args), timeout)
     if fingerprint(project) in (None, before):
         raise RuntimeError(f"The script saved no report to {project}")
@@ -237,18 +275,23 @@ def render_queue(project, outputs, settings, module):
         raise ValueError(f"No project at {project}")
     files = [absolute(item["file"]) for item in outputs]
     since = time.time() - 1
-    aerender("-project", str(project))
+    failure = None
+    try:
+        aerender("-project", str(project))
+    except RuntimeError as error:
+        failure = error
     results = []
     for item, file in zip(outputs, files, strict=True):
         again = not rendered(file, item["frames"], since)
         # aerender can exit 0 after a crash mid-queue; a short movie renders once more on its own.
         if again:
             file.unlink(missing_ok=True)
-            aerender("-project", str(project), "-comp", item["comp"], "-output", str(file),
-                     "-RStemplate", settings, "-OMtemplate", module)
-        results.append({"comp": item["comp"], "file": str(file), "frames": frame_count(file),
-                        "rerendered": again})
-    incomplete = [r["comp"] for r, item in zip(results, outputs, strict=True) if r["frames"] != item["frames"]]
-    if incomplete:
-        raise RuntimeError("aerender left incomplete movies for " + ", ".join(incomplete))
-    return {"project": str(project), "outputs": results}
+            try:
+                aerender("-project", str(project), "-comp", item["comp"], "-output", str(file),
+                         "-RStemplate", settings, "-OMtemplate", module)
+            except RuntimeError as error:
+                failure = error
+        results.append({"comp": item["comp"], "file": str(file),
+                        "frames": frame_count(file) if file.is_file() else None, "rerendered": again,
+                        "path": "aerender"})
+    return {"project": str(project), "outputs": results, "failure": str(failure) if failure else None}

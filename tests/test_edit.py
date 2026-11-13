@@ -6,7 +6,7 @@ import unittest
 import zlib
 from pathlib import Path
 
-from cavi_after_effects_mcp import edit
+from cavi_after_effects_mcp import edit, host
 from cavi_after_effects_mcp.models import MaskShape, PathShape
 
 
@@ -108,3 +108,60 @@ class FrameFileTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CrashingCallsTest(unittest.TestCase):
+    def test_scripts_calling_known_aborting_functions_are_refused(self):
+        with tempfile.TemporaryDirectory() as folder:
+            for call in ("layer.applyPreset(new File('/x.ffx'))", "app.executeCommand(4218)",
+                         "app.findMenuCommandId('Drop Shadow')"):
+                script = Path(folder) / "bad.jsx"
+                script.write_text(f"var l = app.project.item(1);\n{call};\n")
+                with self.assertRaisesRegex(ValueError, "Refused"):
+                    host.refuse_crashing_calls(script)
+
+    def test_an_ordinary_script_is_accepted(self):
+        with tempfile.TemporaryDirectory() as folder:
+            script = Path(folder) / "ok.jsx"
+            script.write_text("var comp = app.project.items.addComp('a', 100, 100, 1, 1, 30);\n")
+            host.refuse_crashing_calls(script)
+
+
+@unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "ffmpeg is required")
+class EncodeFramesTest(unittest.TestCase):
+    def probe(self, movie):
+        out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v", "-count_frames", "-show_entries",
+                              "stream=codec_name,width,height,nb_read_frames,r_frame_rate", "-of", "csv=p=0", str(movie)],
+                             check=True, capture_output=True, text=True).stdout.strip()
+        return out.split(",")
+
+    def test_numbered_frames_become_an_even_sized_h264_movie(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for n in range(1, 5):
+                png(root / f"frame_{n:05d}.png", 21, 11)
+            movie = root / "out.mp4"
+            made = subprocess.run(edit.encode_command(root, movie, 12, "h264", False), capture_output=True, text=True)
+            self.assertEqual(made.returncode, 0, made.stderr)
+            codec, width, height, rate, frames = self.probe(movie)
+            self.assertEqual((codec, int(width), int(height), rate, int(frames)), ("h264", 20, 10, "12/1", 4))
+
+    def test_prores_with_alpha_keeps_the_size_and_frame_count(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for n in range(1, 4):
+                png(root / f"frame_{n:05d}.png", 21, 11)
+            movie = root / "out.mov"
+            made = subprocess.run(edit.encode_command(root, movie, 6, "prores", True), capture_output=True, text=True)
+            self.assertEqual(made.returncode, 0, made.stderr)
+            codec, width, height, rate, frames = self.probe(movie)
+            self.assertEqual((codec, int(width), int(height), int(frames)), ("prores", 21, 11, 3))
+
+
+class FallbackMovieTest(unittest.TestCase):
+    def test_a_format_ffmpeg_cannot_make_from_frames_is_refused_before_any_work(self):
+        with tempfile.TemporaryDirectory() as folder:
+            movie = Path(folder) / "out.avi"
+            with self.assertRaisesRegex(RuntimeError, r"\.mp4 \(H\.264\) or \.mov \(ProRes\), not \.avi"):
+                edit.fallback_movie(Path(folder) / "x.aep", {"comp": "a", "file": str(movie), "frames": 3})
+            self.assertEqual(list(Path(folder).iterdir()), [])

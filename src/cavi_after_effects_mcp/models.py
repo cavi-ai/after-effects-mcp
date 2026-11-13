@@ -154,6 +154,69 @@ class Sequenced(Script):
     joins: list[dict[str, Any]]
 
 
+class ItemMove(Model):
+    item: str = Field(min_length=1, description="Project item name (comp, footage or folder)")
+    folder: str = Field(min_length=1, description="Folder path such as Footage/Audio, created when missing")
+
+
+class ItemRename(Model):
+    item: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+
+
+class Organized(Script):
+    folders: list[str]
+    renamed: list[str]
+    moved: list[str]
+
+
+class Properties(Script):
+    comp: str
+    layer: str
+    count: int
+    truncated: bool
+    properties: list[dict[str, Any]]
+
+
+class Fonts(Script):
+    fonts: list[dict[str, str]]
+    count: int
+
+
+class Expressions(Script):
+    comp: str
+    expressions: list[dict[str, Any]]
+    broken: int
+    removed: int
+
+
+class Material(Model):
+    casts_shadows: Literal["off", "on", "only"] | None = None
+    accepts_shadows: bool | None = None
+    accepts_lights: bool | None = None
+    appears_in_reflections: bool | None = None
+    light_transmission: float | None = Field(None, ge=0, le=100)
+    shadow_color: Color | None = None
+    ambient: float | None = Field(None, ge=0, le=100)
+    diffuse: float | None = Field(None, ge=0, le=100)
+    specular: float | None = Field(None, ge=0, le=100, description="Specular intensity")
+    shininess: float | None = Field(None, ge=0, le=100, description="Specular shininess")
+    metal: float | None = Field(None, ge=0, le=100)
+    reflection: float | None = Field(None, ge=0, le=100, description="Reflection intensity")
+    glossiness: float | None = Field(None, ge=0, le=100, description="Reflection sharpness")
+    fresnel: float | None = Field(None, ge=0, le=100, description="Reflection rolloff")
+    transparency: float | None = Field(None, ge=0, le=100)
+    transparency_rolloff: float | None = Field(None, ge=0, le=100)
+    index_of_refraction: float | None = Field(None, ge=0)
+
+
+class Materialed(Script):
+    comp: str
+    layer: str
+    renderer: str
+    material: dict[str, Any]
+
+
 class Inspect(Script):
     scope: Literal["project", "comp", "queue"]
 
@@ -250,6 +313,17 @@ class FramesRendered(Result):
     project: str
     comp: str
     frames: list[dict[str, Any]]
+
+
+class FramesExported(Result):
+    project: str
+    comp: str
+    directory: str
+    frames: int
+    fps: float
+    first: str
+    last: str
+    movie: str | None
 
 
 class BeatGrid(Model):

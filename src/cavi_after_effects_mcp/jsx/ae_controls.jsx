@@ -33,6 +33,7 @@ function control(layer, name) {
 (function () {
     var a = CAVI_ARGS, comp = caviComp(a.comp), host = caviLayer(comp, a.layer), i, spec, target, prop, expr, linked = [], names = [],
         fx, base, kind;
+    if (a.controls.length) { caviGuard3D(comp, host, "an Expression Control"); }
     for (i = 0; i < a.controls.length; i++) { addControl(host, a.controls[i]); }
     for (i = 0; i < a.links.length; i++) {
         spec = a.links[i];
