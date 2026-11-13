@@ -7,6 +7,7 @@ import zlib
 from pathlib import Path
 
 from cavi_after_effects_mcp import edit
+from cavi_after_effects_mcp.models import MaskShape, PathShape
 
 
 def png(path, width, height):
@@ -16,6 +17,36 @@ def png(path, width, height):
     rows = b"".join(b"\x00" + b"\xff\x00\x00" * width for _ in range(height))
     path.write_bytes(b"\x89PNG\r\n\x1a\n" + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
                      + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
+
+
+class MaskShapeTest(unittest.TestCase):
+    def test_rect_mask_is_four_corners_with_straight_edges(self):
+        shape = edit.mask_shape(MaskShape(kind="rect", box=[10, 20, 100, 50]))
+        self.assertEqual(shape["vertices"], [[10, 20], [110, 20], [110, 70], [10, 70]])
+        self.assertEqual(shape["in_tangents"] + shape["out_tangents"], [[0, 0]] * 8)
+
+    def test_ellipse_mask_spans_its_box_with_curved_tangents(self):
+        shape = edit.mask_shape(MaskShape(kind="ellipse", box=[0, 0, 200, 100]))
+        self.assertEqual(shape["vertices"], [[100, 0], [200, 50], [100, 100], [0, 50]])
+        self.assertAlmostEqual(shape["out_tangents"][0][0], 55.22847498)
+        self.assertAlmostEqual(shape["in_tangents"][1][1], -27.61423749)
+
+    def test_points_mask_defaults_to_straight_tangents(self):
+        shape = edit.mask_shape(MaskShape(kind="points", path=PathShape(vertices=[[0, 0], [5, 5], [0, 9]], closed=False)))
+        self.assertEqual(shape["in_tangents"], [[0, 0]] * 3)
+        self.assertFalse(shape["closed"])
+
+
+class ExpressionPresetTest(unittest.TestCase):
+    def test_wiggle_and_loops(self):
+        self.assertEqual(edit.expression_preset("wiggle", 2, 30, 5, 90), "wiggle(2, 30)")
+        self.assertEqual(edit.expression_preset("loop_pingpong", 2, 30, 5, 90), 'loopOut("pingpong")')
+        self.assertEqual(edit.expression_preset("time_rotation", 2, 30, 5, 45), "value + time * 45")
+
+    def test_bounce_carries_its_amplitude_frequency_and_decay(self):
+        text = edit.expression_preset("inertial_bounce", 4, 12, 7, 0)
+        self.assertTrue(text.startswith("amp = 12;\nfreq = 4;\ndecay = 7;"))
+        self.assertIn("velocityAtTime", text)
 
 
 class BeatGridTest(unittest.TestCase):

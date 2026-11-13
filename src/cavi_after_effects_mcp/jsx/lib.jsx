@@ -234,3 +234,29 @@ function caviFolder(name) {
     }
     return app.project.items.addFolder(name);
 }
+
+// Restyles existing keys: hold, temporal ease, spatial interpolation (bezier or linear) and roving.
+function caviRestyle(prop, a) {
+    var k, last = prop.numKeys, zero, i;
+    for (k = 1; k <= last; k++) {
+        if (a.hold) {
+            prop.setInterpolationTypeAtKey(k, KeyframeInterpolationType.HOLD, KeyframeInterpolationType.HOLD);
+        } else if (a.ease) {
+            prop.setInterpolationTypeAtKey(k, KeyframeInterpolationType.BEZIER, KeyframeInterpolationType.BEZIER);
+            prop.setTemporalEaseAtKey(k, caviEase(prop, k, a.ease), caviEase(prop, k, a.ease));
+        }
+        if (a.spatial && prop.isSpatial) {
+            if (a.spatial === "linear") {
+                zero = [];
+                for (i = 0; i < (prop.propertyValueType === PropertyValueType.ThreeD_SPATIAL ? 3 : 2); i++) { zero.push(0); }
+                prop.setSpatialTangentsAtKey(k, zero, zero);
+            } else {
+                prop.setSpatialAutoBezierAtKey(k, true);
+                prop.setSpatialContinuousAtKey(k, true);
+            }
+        }
+    }
+    if (a.rove) {
+        for (k = 2; k < last; k++) { prop.setRovingAtKey(k, true); }
+    }
+}

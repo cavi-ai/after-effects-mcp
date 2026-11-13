@@ -9,6 +9,40 @@ from cavi_mcp_core.proc import diagnostics, run_sync
 from . import host
 
 FRAME_MODULE = "TIFF Sequence with Alpha"
+KAPPA = 0.5522847498
+
+
+def expression_preset(kind, freq, amp, decay, speed):
+    """The expression text of a preset."""
+    if kind == "wiggle":
+        return f"wiggle({freq:g}, {amp:g})"
+    if kind == "loop_cycle":
+        return 'loopOut("cycle")'
+    if kind == "loop_pingpong":
+        return 'loopOut("pingpong")'
+    if kind == "time_rotation":
+        return f"value + time * {speed:g}"
+    return (f"amp = {amp:g};\nfreq = {freq:g};\ndecay = {decay:g};\nn = 0;\n"
+            "if (numKeys > 0) {\n  n = nearestKey(time).index;\n  if (key(n).time > time) n--;\n}\n"
+            "if (n == 0) {\n  value;\n} else {\n  t = time - key(n).time;\n"
+            "  v = velocityAtTime(key(n).time - thisComp.frameDuration / 10);\n"
+            "  value + v * (amp / 100) * Math.sin(freq * t * 2 * Math.PI) / Math.exp(decay * t);\n}")
+
+
+def mask_shape(spec):
+    """Vertices and tangents (relative to each vertex) of a rect, ellipse or points mask."""
+    if spec.kind == "points":
+        return {"vertices": spec.path.vertices, "in_tangents": spec.path.in_tangents,
+                "out_tangents": spec.path.out_tangents, "closed": spec.path.closed}
+    x, y, w, h = spec.box
+    if spec.kind == "rect":
+        zero = [[0, 0]] * 4
+        return {"vertices": [[x, y], [x + w, y], [x + w, y + h], [x, y + h]], "in_tangents": zero,
+                "out_tangents": zero, "closed": True}
+    rx, ry, kx, ky = w / 2, h / 2, w / 2 * KAPPA, h / 2 * KAPPA
+    return {"vertices": [[x + rx, y], [x + w, y + ry], [x + rx, y + h], [x, y + ry]],
+            "in_tangents": [[-kx, 0], [0, -ky], [kx, 0], [0, ky]],
+            "out_tangents": [[kx, 0], [0, ky], [-kx, 0], [0, -ky]], "closed": True}
 
 
 def beat_grid(bpm, beats_per_bar, start, end):
@@ -46,19 +80,20 @@ def project_op(args, target):
     raise RuntimeError(f"The project call saved no report; the open project is not {target}")
 
 
-def render_frames(project, comp, times, directory):
-    """Render the frame at each time to ``directory`` as PNG through a temporary queue entry that is removed again."""
+def render_frames(project, comp, times, directory, alpha=False):
+    """Render the frame at each time to ``directory`` as PNG through a temporary queue entry that is removed again; the comp background is composited in unless ``alpha``."""
     project, directory = host.absolute(project, ".aep"), host.absolute(directory)
     directory.mkdir(parents=True, exist_ok=True)
     work = Path(tempfile.mkdtemp(prefix="frames-", dir=directory))
     try:
         frames = [{"time": t, "file": str(work / f"f{i}_[#####].tif")} for i, t in enumerate(times)]
         queued = host.run_template("ae_frame_queue", project, {"action": "add", "comp": comp, "frames": frames,
-                                                               "output_module": FRAME_MODULE})
+                                                               "output_module": FRAME_MODULE,
+                                                               "background": not alpha})
         try:
             host.aerender("-project", str(project))
         finally:
-            host.run_template("ae_frame_queue", project, {"action": "remove", "count": len(times),
+            host.run_template("ae_frame_queue", project, {"action": "remove", "comp": comp, "count": len(times),
                                                           "enabled": queued["enabled"]})
         out = []
         for i, t in enumerate(times):

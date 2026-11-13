@@ -1,11 +1,15 @@
 $.evalFile(new File(CAVI_LIB));
 
-// add: one single-frame queue entry per time, other entries switched off. remove: drops those entries and
-// switches the previously enabled ones back on.
+// add: with background, a solid of the comp's background color at the bottom; one single-frame queue entry per time, other entries switched off. remove: drops those entries and
+// switches the previously enabled ones back on and drops the background solid.
 (function () {
-    var a = CAVI_ARGS, queue = app.project.renderQueue, i, item, module, comp, enabled = [], added = 0;
+    var a = CAVI_ARGS, queue = app.project.renderQueue, i, item, module, comp, enabled = [], added = 0, backdrop;
     if (a.action === "add") {
         comp = caviComp(a.comp);
+        if (a.background) {
+            backdrop = comp.layers.addSolid(comp.bgColor, "cavi-frame-bg", comp.width, comp.height, comp.pixelAspect, comp.duration);
+            backdrop.moveToEnd();
+        }
         for (i = 1; i <= queue.numItems; i++) {
             if (queue.item(i).render) { enabled.push(i); queue.item(i).render = false; }
         }
@@ -20,6 +24,14 @@ $.evalFile(new File(CAVI_LIB));
             added++;
         }
     } else {
+        comp = caviComp(a.comp);
+        for (i = comp.numLayers; i >= 1; i--) {
+            if (comp.layer(i).name === "cavi-frame-bg") {
+                backdrop = comp.layer(i).source;
+                comp.layer(i).remove();
+                if (backdrop.usedIn.length === 0) { backdrop.remove(); }
+            }
+        }
         for (i = 0; i < a.count; i++) {
             queue.item(queue.numItems).remove();
         }

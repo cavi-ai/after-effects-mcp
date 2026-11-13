@@ -12,7 +12,7 @@ TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effect
          "ae_comp_new", "ae_layer_add", "ae_keyframes", "ae_effect_add", "ae_text_animator",
          "ae_footage_replace", "ae_render_queue_set", "ae_presets", "ae_preset_apply", "ae_transition",
          "ae_transitions", "ae_project", "ae_layer_set", "ae_text_set", "ae_layer_edit", "ae_comp_set",
-         "ae_import", "ae_markers", "ae_frame"}
+         "ae_import", "ae_markers", "ae_frame", "ae_shape_add", "ae_mask", "ae_effects", "ae_camera"}
 
 
 class ProtocolTest(unittest.IsolatedAsyncioTestCase):
@@ -93,6 +93,29 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_markers", {"project": "/x.aep", "comp": "a"}, "markers or a beat grid"),
             ("ae_markers", {"project": "/x.aep", "comp": "a", "grid": {"bpm": 120, "end": 4, "start": 4}}, "after start"),
             ("ae_frame", {"project": "/x.aep", "comp": "a", "times": [0], "directory": "relative"}, "absolute path"),
+        ]
+        async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
+            await client.initialize()
+            for name, arguments, message in calls:
+                reply = await client.call_tool(name, arguments)
+                self.assertTrue(reply.is_error, (name, arguments))
+                self.assertIn(message, reply.content[0].text, (name, arguments))
+
+    async def test_motion_tools_refuse_bad_input_before_calling_after_effects(self):
+        params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
+        base = {"project": "/x.aep", "comp": "a"}
+        calls = [
+            ("ae_shape_add", {**base, "shape": {"kind": "path"}}, "needs path"),
+            ("ae_shape_add", {**base, "shape": {"kind": "rect"}, "operators": [{"type": "round_corners"}]},
+             "round_corners needs radius"),
+            ("ae_shape_add", {**base, "shape": {"kind": "rect"}, "operators": [{"type": "trim"}]}, "trim needs"),
+            ("ae_mask", {**base, "layer": 1}, "needs a shape"),
+            ("ae_mask", {**base, "layer": 1, "mask": 1}, "at least one"),
+            ("ae_mask", {**base, "layer": 1, "shape": {"kind": "ellipse"}}, "needs box"),
+            ("ae_camera", base, "camera or a light"),
+            ("ae_camera", {**base, "light": {"type": "spot"}, "rig": True}, "rig needs a camera"),
+            ("ae_keyframes", {**base, "layer": 1, "property": "rotation", "expression": "1",
+                              "preset": {"kind": "wiggle"}}, "not both"),
         ]
         async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
             await client.initialize()

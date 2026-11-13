@@ -3,7 +3,7 @@
 from typing import Annotated, Any, Literal
 
 from cavi_adobe_mcp.contracts import Result
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class Model(BaseModel):
@@ -202,3 +202,190 @@ class MarkerSpec(Model):
     comment: str = ""
     duration: float = Field(0, ge=0)
     chapter: str | None = None
+
+
+Point = Annotated[list[float], Field(min_length=2, max_length=2)]
+
+
+class PathShape(Model):
+    vertices: Annotated[list[Point], Field(min_length=2)]
+    in_tangents: list[Point] | None = Field(None, description="Per vertex, relative to it; default none")
+    out_tangents: list[Point] | None = None
+    closed: bool = True
+
+    @model_validator(mode="after")
+    def tangents_match(self):
+        zero = [[0.0, 0.0] for _ in self.vertices]
+        self.in_tangents = self.in_tangents or zero
+        self.out_tangents = self.out_tangents or zero
+        if len(self.in_tangents) != len(self.vertices) or len(self.out_tangents) != len(self.vertices):
+            raise ValueError("Give one in and one out tangent per vertex")
+        return self
+
+
+class ShapeSpec(Model):
+    kind: Literal["rect", "ellipse", "polystar", "path"]
+    size: Point = [100, 100]
+    position: Point = [0, 0]
+    roundness: float = Field(0, ge=0)
+    star: bool = Field(True, description="polystar: star, or a polygon when false")
+    points: int = Field(5, ge=3, le=100)
+    outer_radius: float = Field(100, gt=0)
+    inner_radius: float = Field(50, gt=0)
+    outer_roundness: float = 0
+    inner_roundness: float = 0
+    rotation: float = 0
+    path: PathShape | None = None
+
+    @model_validator(mode="after")
+    def path_given(self):
+        if self.kind == "path" and self.path is None:
+            raise ValueError("A path shape needs path")
+        return self
+
+
+class Fill(Model):
+    color: Color
+    opacity: float = Field(100, ge=0, le=100)
+
+
+class Stroke(Model):
+    color: Color
+    width: float = Field(2, ge=0)
+    opacity: float = Field(100, ge=0, le=100)
+    cap: Literal["butt", "round", "square"] = "butt"
+    join: Literal["miter", "round", "bevel"] = "miter"
+    dashes: list[float] = Field([], max_length=6, description="Dash, gap, dash, gap ...")
+
+
+class Gradient(Model):
+    type: Literal["linear", "radial"] = "linear"
+    start: Point = [0, 0]
+    end: Point = [100, 0]
+    opacity: float | None = Field(None, ge=0, le=100)
+    width: float | None = Field(None, ge=0, description="Stroke width, gradient stroke only")
+
+
+class Operator(Model):
+    type: Literal["trim", "repeater", "round_corners", "offset", "wiggle", "merge"]
+    start: float | None = None
+    end: float | None = None
+    offset: float | None = None
+    individually: bool = False
+    copies: float | None = None
+    anchor: Point | None = None
+    position: Point | None = None
+    scale: Point | None = None
+    rotation: float | None = None
+    start_opacity: float | None = None
+    end_opacity: float | None = None
+    radius: float | None = None
+    amount: float | None = None
+    join: Literal["miter", "round", "bevel"] | None = None
+    miter_limit: float | None = None
+    size: float | None = None
+    detail: float | None = None
+    smooth: bool = False
+    speed: float | None = None
+    correlation: float | None = None
+    seed: float | None = None
+    mode: Literal["merge", "add", "subtract", "intersect", "exclude"] = "merge"
+
+    @model_validator(mode="after")
+    def required(self):
+        need = {"round_corners": self.radius, "offset": self.amount, "wiggle": self.size, "repeater": self.copies}
+        if self.type in need and need[self.type] is None:
+            raise ValueError(f"{self.type} needs {dict(round_corners='radius', offset='amount', wiggle='size', repeater='copies')[self.type]}")
+        if self.type == "trim" and self.start is None and self.end is None and self.offset is None:
+            raise ValueError("trim needs start, end or offset")
+        return self
+
+
+class GroupTransform(Model):
+    anchor: Point | None = None
+    position: Point | None = None
+    scale: Point | None = None
+    rotation: float | None = None
+    opacity: float | None = Field(None, ge=0, le=100)
+
+
+class MaskShape(Model):
+    kind: Literal["rect", "ellipse", "points"]
+    box: Annotated[list[float], Field(min_length=4, max_length=4)] | None = Field(
+        None, description="rect or ellipse bounds [x, y, width, height]")
+    path: PathShape | None = None
+
+    @model_validator(mode="after")
+    def given(self):
+        if self.kind == "points" and self.path is None:
+            raise ValueError("A points mask needs path")
+        if self.kind != "points" and self.box is None:
+            raise ValueError(f"A {self.kind} mask needs box")
+        return self
+
+
+class MaskKey(Model):
+    time: float = Field(ge=0)
+    shape: MaskShape
+
+
+class ExpressionPreset(Model):
+    kind: Literal["wiggle", "loop_cycle", "loop_pingpong", "inertial_bounce", "time_rotation"]
+    freq: float = Field(3, gt=0, description="wiggle and bounce frequency, Hz")
+    amp: float = Field(10, description="wiggle amplitude; bounce amplitude percent")
+    decay: float = Field(5, ge=0, description="bounce decay")
+    speed: float = Field(90, description="time_rotation degrees per second")
+
+
+class CameraSpec(Model):
+    layer: Layer | None = Field(None, description="Change this camera instead of adding one")
+    name: str = "Camera"
+    nodes: Literal[1, 2] | None = Field(None, description="One-node, or two-node with a point of interest")
+    position: Vector | None = None
+    point_of_interest: Vector | None = None
+    zoom: float | None = Field(None, gt=0, description="Pixels")
+    focal_length: float | None = Field(None, gt=0, description="mm on a 36 mm film; sets zoom")
+    depth_of_field: bool | None = None
+    focus_distance: float | None = Field(None, ge=0)
+    aperture: float | None = Field(None, ge=0)
+    blur_level: float | None = Field(None, ge=0, le=1000)
+
+
+class LightSpec(Model):
+    layer: Layer | None = Field(None, description="Change this light instead of adding one")
+    name: str = "Light"
+    type: Literal["point", "spot", "parallel", "ambient"] | None = None
+    intensity: float | None = Field(None, ge=0)
+    color: Color | None = None
+    cone_angle: float | None = Field(None, ge=0, le=180)
+    cone_feather: float | None = Field(None, ge=0, le=100)
+    casts_shadows: bool | None = None
+    shadow_darkness: float | None = Field(None, ge=0, le=100)
+    shadow_diffusion: float | None = Field(None, ge=0)
+    position: Vector | None = None
+    point_of_interest: Vector | None = None
+
+
+class ShapeAdded(Script):
+    comp: str
+    layer: dict[str, Any]
+    group: str
+    contents: list[str]
+
+
+class MaskSet(Script):
+    comp: str
+    layer: str
+    mask: str
+    mask_count: int
+    path_keys: int
+
+
+class EffectList(Script):
+    effects: list[dict[str, str]]
+    total: int
+    categories: dict[str, int]
+
+
+class CameraSet(Script):
+    comp: str

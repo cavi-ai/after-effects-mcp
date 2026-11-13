@@ -10,7 +10,28 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from . import edit, host, models
 from . import recipe as recipes
-from .models import BeatGrid, Color, Ease, Keyframe, LayerSpec, MarkerSpec, QueueAdd, QueueUpdate, TrackMatte
+from .models import (
+    BeatGrid,
+    CameraSpec,
+    Color,
+    Ease,
+    ExpressionPreset,
+    Fill,
+    Gradient,
+    GroupTransform,
+    Keyframe,
+    LayerSpec,
+    LightSpec,
+    MarkerSpec,
+    MaskKey,
+    MaskShape,
+    Operator,
+    QueueAdd,
+    QueueUpdate,
+    ShapeSpec,
+    Stroke,
+    TrackMatte,
+)
 
 mcp = Server("cavi-after-effects", package="cavi-after-effects-mcp",
              instructions="Headless After Effects: ae_launch, then ae_script or the typed ae_* scene tools; ae_render_queue renders.")
@@ -133,12 +154,24 @@ async def ae_layer_add(project: str, layer: LayerSpec) -> models.LayerAdded:
 @mcp.tool(annotations=WRITES)
 async def ae_keyframes(project: str, comp: str, layer: models.Layer, property: str,
                        keyframes: list[Keyframe] = [], ease: Ease | None = None, expression: str | None = None,
-                       replace: bool = True) -> models.Keyframed:
-    """Set keyframes on a layer property ("position", "Transform/Opacity" or match-name path) and/or an expression."""
-    if not keyframes and expression is None:
-        raise ValueError("Give keyframes or an expression")
-    args = {"comp": comp, "layer": layer, "property": property, "replace": replace, "expression": expression,
-            "keyframes": [k.model_dump() for k in keyframes], "ease": ease.model_dump() if ease else None}
+                       preset: ExpressionPreset | None = None, replace: bool = True, easy_ease: bool = False,
+                       hold: bool = False, spatial: Literal["bezier", "linear"] | None = None, rove: bool = False,
+                       remove: Literal["all"] | Annotated[list[float], Field(min_length=2, max_length=2)] | None = None
+                       ) -> models.Keyframed:
+    """Set keyframes on a layer property ("position", "Transform/Opacity" or match-name path), an expression or an expression preset (wiggle, loop_cycle, loop_pingpong, inertial_bounce, time_rotation). Without keyframes, easy_ease, ease, hold, spatial (position paths) and rove restyle the existing keys; remove drops all keys or those in [start, end]."""
+    if expression is not None and preset is not None:
+        raise ValueError("Give an expression or a preset, not both")
+    if easy_ease and ease is None:
+        ease = Ease(speed=0, influence=33.333)
+    restyle = hold or spatial is not None or rove or (ease is not None and not keyframes)
+    if not (keyframes or expression is not None or preset or remove or restyle):
+        raise ValueError("Give keyframes or an expression (or a preset, remove, easy_ease, hold, spatial or rove)")
+    if preset:
+        expression = edit.expression_preset(preset.kind, preset.freq, preset.amp, preset.decay, preset.speed)
+    args = {"comp": comp, "layer": layer, "property": property, "expression": expression, "remove": remove,
+            "replace": replace and bool(keyframes or (expression is not None and preset is None)),
+            "keyframes": [k.model_dump() for k in keyframes], "ease": ease.model_dump() if ease else None,
+            "restyle": restyle, "hold": hold, "spatial": spatial, "rove": rove}
     return await scene("ae_keyframes", project, args)
 
 
@@ -373,11 +406,67 @@ async def ae_markers(project: str, comp: str, layer: models.Layer | None = None,
 
 @mcp.tool(annotations=WRITES)
 async def ae_frame(project: str, comp: str, times: Annotated[list[float], Field(min_length=1, max_length=50)],
-                   directory: str) -> models.FramesRendered:
-    """Render the frame at each time (seconds) of a comp to PNG in `directory` through aerender and a temporary render queue entry; returns the file paths."""
+                   directory: str, alpha: bool = False) -> models.FramesRendered:
+    """Render the frame at each time (seconds) of a comp to PNG in `directory` through aerender and a temporary render queue entry; returns the file paths. The comp background color is in the frame; alpha keeps transparency instead."""
     host.absolute(directory)
-    frames = await asyncio.to_thread(edit.render_frames, project, comp, times, directory)
+    frames = await asyncio.to_thread(edit.render_frames, project, comp, times, directory, alpha)
     return {"project": project, "comp": comp, "frames": frames}
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_shape_add(project: str, comp: str, shape: ShapeSpec, name: str = "Shape", layer: models.Layer | None = None,
+                       group_name: str = "Group", fill: Fill | None = None, stroke: Stroke | None = None,
+                       gradient_fill: Gradient | None = None, gradient_stroke: Gradient | None = None,
+                       operators: list[Operator] = [], transform: GroupTransform | None = None) -> models.ShapeAdded:
+    """Add a shape layer, or a group on the existing shape `layer`: a rect, ellipse, polystar or bezier path, then operators (trim, round_corners, offset, wiggle, merge), paint and finally repeaters, with a group transform; a new layer sits at the comp origin, so positions are comp pixels. Gradient color stops cannot be set from scripts (note 19): a gradient takes After Effects' default stops."""
+    spec = shape.model_dump()
+    if shape.kind == "path":
+        spec = {**spec, **shape.path.model_dump()}
+    grad = {"gradient_fill": gradient_fill, "gradient_stroke": gradient_stroke}
+    args = {"comp": comp, "layer": layer, "name": name, "group_name": group_name, "shape": spec,
+            "fill": fill.model_dump() if fill else None, "stroke": stroke.model_dump() if stroke else None,
+            **{k: v.model_dump() if v else None for k, v in grad.items()},
+            "operators": [o.model_dump() for o in operators],
+            "transform": (transform or GroupTransform()).model_dump()}
+    return await scene("ae_shape_add", project, args)
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_mask(project: str, comp: str, layer: models.Layer, shape: MaskShape | None = None,
+                  mask: models.Layer | None = None, name: str | None = None,
+                  mode: Literal["none", "add", "subtract", "intersect", "lighten", "darken", "difference"] | None = None,
+                  feather: models.Point | None = None, expansion: float | None = None,
+                  opacity: Annotated[float, Field(ge=0, le=100)] | None = None, invert: bool | None = None,
+                  path_keys: list[MaskKey] = []) -> models.MaskSet:
+    """Add a mask to a layer, or change the existing `mask` (index or name): rect, ellipse or points path, mode, feather, expansion, opacity, invert, and a keyframed path as [{time, shape}]."""
+    if mask is None and shape is None and not path_keys:
+        raise ValueError("A new mask needs a shape or path_keys")
+    given(shape=shape, name=name, mode=mode, feather=feather, expansion=expansion, opacity=opacity, invert=invert,
+          path_keys=path_keys or None)
+    args = {"comp": comp, "layer": layer, "mask": mask, "name": name, "mode": mode, "feather": feather,
+            "expansion": expansion, "opacity": opacity, "invert": invert,
+            "shape": edit.mask_shape(shape) if shape else None,
+            "path_keys": [{"time": k.time, "shape": edit.mask_shape(k.shape)} for k in path_keys]}
+    return await scene("ae_mask", project, args)
+
+
+@mcp.tool(annotations=READ_ONLY)
+async def ae_effects(project: str, filter: str = "", category: str | None = None,
+                     limit: Annotated[int, Field(ge=1, le=1000)] = 200) -> models.EffectList:
+    """List installed effects (app.effects) with category, display name and matchName; `filter` matches all three. The categories field counts the matches per category."""
+    return await scene("ae_effects", project, {"filter": filter, "category": category, "limit": limit}, 120)
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_camera(project: str, comp: str, camera: CameraSpec | None = None, rig: bool = False,
+                    light: LightSpec | None = None) -> models.CameraSet:
+    """Add or change a one- or two-node camera (position, point of interest, zoom or focal length, depth of field, focus distance, aperture, blur level), optionally parented to an orbit null at its point of interest (`rig`), and/or a light (type, intensity, color, cone angle and feather, shadows)."""
+    if camera is None and light is None:
+        raise ValueError("Give a camera or a light")
+    if rig and camera is None:
+        raise ValueError("rig needs a camera")
+    return await scene("ae_camera", project, {"comp": comp, "rig": rig, "camera": camera.model_dump() if camera else None,
+                                              "light": light.model_dump() if light else None})
 
 
 def main():

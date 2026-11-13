@@ -31,7 +31,7 @@ The server speaks MCP over stdio. Client configuration:
 | `ae_inspect` | Lists project items (comps with size, duration, fps, layer count and renderer; footage with file and missing flag; folders), one comp's layers (type, in/out, 3D, parent, effects by matchName, keyframed properties) or the render queue (status, render flag, label, output file, templates). |
 | `ae_comp_new` | Creates a comp with size, duration, fps, background color and renderer; `replace` removes an existing comp of that name. |
 | `ae_layer_add` | Adds a solid, text (font, size, tracking, fill, stroke, justification, paragraph box), footage (imported on first use), rectangle shape, null, camera, light or adjustment layer with transform, 3D, timing, parent, blend mode and track matte. |
-| `ae_keyframes` | Sets keyframes `[{time, value}]` on a property path with ease in/out or interpolation type, and/or an expression. |
+| `ae_keyframes` | Sets keyframes `[{time, value}]` on a property path with ease in/out or interpolation type, and/or an expression or an expression preset (wiggle, loop cycle or pingpong, inertial bounce, time-based rotation). Without keyframes, `easy_ease`, `ease`, `hold`, `spatial` (bezier or linear) and `rove` restyle the existing keys; `remove` drops all keys or those in a time range. |
 | `ae_effect_add` | Adds an effect by matchName and sets its parameters. |
 | `ae_text_animator` | Adds a text animator whose range selector opens over characters, words or lines; properties are opacity, position, tracking, scale, blur and rotation. |
 | `ae_footage_replace` | Replaces a footage item's source file in place (`item.replace`); every layer using the item updates. |
@@ -47,7 +47,11 @@ The server speaks MCP over stdio. Client configuration:
 | `ae_comp_set` | Sets a comp's name, size, fps, duration, work area, background, renderer and the motion blur and frame blending switches; `duplicate_as` copies the comp first and changes the copy. |
 | `ae_import` | Imports files, an image sequence (from its first frame) or a layered PSD/AI as a comp into a named project folder, then sets alpha mode, conform frame rate and loop count. |
 | `ae_markers` | Sets comp or layer markers with comment, duration and chapter, and a beat grid from bpm and beats per bar (comment `bar.beat`, chapter `Bar n` on each downbeat); `clear` removes the existing ones. |
-| `ae_frame` | Renders the frame at each given time of a comp to PNG through `aerender` and a temporary render queue entry that is removed afterwards; returns the file paths. |
+| `ae_frame` | Renders the frame at each given time of a comp to PNG through `aerender` and a temporary render queue entry that is removed afterwards; returns the file paths. The comp background color is composited in; `alpha` keeps transparency. |
+| `ae_shape_add` | Adds a shape layer, or a group on an existing shape layer: rectangle (roundness), ellipse, polystar (star or polygon) or bezier path, with trim paths, round corners, offset paths, wiggle paths, merge paths, fill, stroke (cap, join, dashes), gradient fill and stroke (linear or radial), repeater and a group transform. |
+| `ae_mask` | Adds a mask to a layer or changes an existing one (index or name): rect, ellipse or points path, mode, feather, expansion, opacity, invert and a keyframed path. |
+| `ae_effects` | Lists the installed effects (`app.effects`) with category, display name and matchName; `filter` and `category` narrow them. |
+| `ae_camera` | Adds or changes a one- or two-node camera (position, point of interest, zoom or focal length, depth of field, focus distance, aperture, blur level), optionally parented to an orbit null at its point of interest, and/or a light (type, intensity, color, cone angle and feather, shadows). |
 
 `ae_render_queue_set` takes template names exactly as `ae_presets` lists them and refuses others. `clear`
 removes only existing entries of the comps named in `add`.
@@ -136,14 +140,20 @@ Measured with After Effects 2026 on macOS.
     fails saves its report into the open project, so `ae_project` sends refusals to a temporary project and a
     refused open leaves the project on disk untouched.
 15. An output module's `Format` is read-only from scripts and no PNG template ships, so `ae_frame` renders the
-    `TIFF Sequence with Alpha` template and converts each frame with `sips`. The frames carry alpha: the comp
-    background color is not in them.
+    `TIFF Sequence with Alpha` template and converts each frame with `sips`. The frames carry alpha, so `ae_frame`
+    adds a solid of the comp's background color at the bottom for the render and removes it afterwards unless `alpha`.
 16. A sequence output file with no `[#####]` in its name gets the frame number appended after the extension
     (`f0_.tif00015`); `ae_frame` names its files `f<n>_[#####].tif`.
 17. A locked layer refuses every other change, so `ae_layer_set`
     unlocks first and locks last. `setTrackMatte` switches the matte layer's video off (`enabled` false).
 18. `conformFrameRate` is refused for a still, `boxTextSize` for point text and `setValue` for a keyed property;
     the calls fail with After Effects' message.
+19. A shape gradient's color stops (`ADBE Vector Grad Colors`) have no value type, so scripts can neither read nor
+    set them: `ae_shape_add` gradients take the default stops (white to black) and set type, start and end.
+20. A new shape layer sits at the comp center; `ae_shape_add` moves it to the origin so group positions are comp
+    pixels. Wiggle Paths is `ADBE Vector Filter - Roughen`. Stroke dashes exist only after `addProperty` on the
+    Dashes group. A camera's point of interest is `ADBE Anchor Point`.
+21. Parenting a camera to an orbit null keeps its view: its position reads relative to the null afterwards.
 
 ## Development
 
