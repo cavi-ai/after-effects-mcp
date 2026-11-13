@@ -19,6 +19,30 @@ def png(path, width, height):
                      + chunk(b"IDAT", zlib.compress(rows)) + chunk(b"IEND", b""))
 
 
+class CopyFootageTest(unittest.TestCase):
+    def test_files_are_copied_once_and_equal_names_stay_apart(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "a").mkdir()
+            (root / "b").mkdir()
+            (root / "a" / "clip.mov").write_bytes(b"first")
+            (root / "b" / "clip.mov").write_bytes(b"second")
+            sources = [root / "a" / "clip.mov", root / "b" / "clip.mov", root / "a" / "clip.mov"]
+            copies = edit.copy_footage(sources, root / "out")
+            self.assertEqual(len(copies), 2)
+            self.assertEqual(Path(copies[str(sources[0])]).read_bytes(), b"first")
+            self.assertEqual(Path(copies[str(sources[1])]).read_bytes(), b"second")
+            self.assertEqual(sorted(p.name for p in (root / "out").iterdir()), ["clip.mov", "clip_2.mov"])
+
+    def test_a_copy_already_in_the_folder_is_reused(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "out").mkdir()
+            (root / "out" / "clip.mov").write_bytes(b"x")
+            self.assertEqual(edit.copy_footage([root / "out" / "clip.mov"], root / "out"),
+                             {str(root / "out" / "clip.mov"): str(root / "out" / "clip.mov")})
+
+
 class MaskShapeTest(unittest.TestCase):
     def test_rect_mask_is_four_corners_with_straight_edges(self):
         shape = edit.mask_shape(MaskShape(kind="rect", box=[10, 20, 100, 50]))

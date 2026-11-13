@@ -106,3 +106,61 @@ def render_frames(project, comp, times, directory, alpha=False):
         return out
     finally:
         shutil.rmtree(work, ignore_errors=True)
+
+
+def copy_footage(files, folder):
+    """Copy each distinct file into ``folder``; a name already taken by another file gets a numeric suffix. Returns {source: copy}."""
+    folder = Path(folder)
+    folder.mkdir(parents=True, exist_ok=True)
+    copies, taken = {}, set()
+    for source in map(Path, files):
+        if str(source) in copies:
+            continue
+        target, count = folder / source.name, 1
+        while target.name in taken or (target.exists() and not target.samefile(source)):
+            count += 1
+            target = folder / f"{source.stem}_{count}{source.suffix}"
+        taken.add(target.name)
+        if not target.exists():
+            shutil.copy2(source, target)
+        copies[str(source)] = str(target)
+    return copies
+
+
+def missing_footage(project):
+    """Names of footage items whose file is missing, read through ae_inspect."""
+    report = host.run_template("ae_inspect", project, {"scope": "project", "comp": None})
+    return [f["name"] for f in report["footage"] if f["missing"]]
+
+
+def collect(project, folder):
+    """Copy the used footage files into ``folder`` and relink every item to its copy."""
+    found = host.run_template("ae_collect", project, {"mode": "list"})["items"]
+    skipped = [f["name"] for f in found if f["used"] and (f["sequence"] or f["missing"])]
+    used = [f for f in found if f["used"] and not f["sequence"] and not f["missing"]]
+    copies = copy_footage([f["file"] for f in used], folder)
+    links = [{"id": f["id"], "file": copies[f["file"]]} for f in used]
+    done = host.run_template("ae_collect", project, {"mode": "relink", "links": links})
+    still = missing_footage(project)
+    return {"project": str(project), "folder": str(folder), "items": len(used), "copied": len(copies),
+            "relinked": done["relinked"], "skipped": skipped, "missing": len(still)}
+
+
+def template_render(template, project, texts, footage, renders, discard):
+    """Open ``template``, apply the text and footage edits, save to ``project`` and aerender the named comps."""
+    project_op({"action": "open", "path": str(template), "discard": discard, "overwrite": False, "comps": []},
+               template)
+    for text in texts:
+        host.run_template("ae_text_set", project, text)
+    for item, file in footage.items():
+        host.run_template("ae_footage_replace", project, {"item": item, "file": file})
+    names = {r["comp"] for r in renders}
+    queue = host.run_template("ae_inspect", project, {"scope": "queue", "comp": None})["queue"]
+    off = [{"index": q["index"], "render": False, "label": None, "locked": False}
+           for q in queue if q["comp"] not in names and q["render"]]
+    add = [{**r, "locked": False, "time_span": None, "output": None} for r in renders]
+    host.run_template("ae_render_queue_set", project, {"add": add, "update": off, "clear": True})
+    comps = {c["name"]: c for c in host.run_template("ae_inspect", project, {"scope": "project", "comp": None})["comps"]}
+    outputs = [{"comp": r["comp"], "file": r["file"], "frames": round(comps[r["comp"]]["duration"] * comps[r["comp"]]["fps"])}
+               for r in renders]
+    return host.render_queue(project, outputs, renders[0]["render_settings"], renders[0]["output_module"])["outputs"]

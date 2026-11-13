@@ -35,12 +35,12 @@ The server speaks MCP over stdio. Client configuration:
 | `ae_effect_add` | Adds an effect by matchName and sets its parameters. |
 | `ae_text_animator` | Adds a text animator whose range selector opens over characters, words or lines; properties are opacity, position, tracking, scale, blur and rotation. |
 | `ae_footage_replace` | Replaces a footage item's source file in place (`item.replace`); every layer using the item updates. |
-| `ae_render_queue_set` | Adds comps to the render queue with output module template and file, sets render on/off and comp label, and lists the queue. `locked` is render off with label 0. |
+| `ae_render_queue_set` | Adds comps to the render queue with render settings and output module templates, file, time span (`work_area`, `comp` or `{start, duration}`) and the output settings scripts can set (resize and quality, crop, audio on/off/auto, sample rate, channels, bit depth); sets render on/off and comp label, and lists the queue with each entry's span and settings. `locked` is render off with label 0. Format, channels, depth and color are refused (note 22). |
 | `ae_presets` | Lists render settings templates, output module templates (read from a render queue item) and installed `.ffx` animation presets by category and name; `filter` narrows the presets. |
 | `ae_preset_apply` | Refuses: `layer.applyPreset` exits headless After Effects (note 12). It still resolves the preset name or path first. |
 | `ae_transitions` | Lists the transition kinds and whether this install has each effect. |
 | `ae_transition` | Keys Transition Completion of a wipe or dissolve effect, an opacity cross-fade or a dip to a color, between two layers (starting at the second layer's in point) or on one layer's in or out point; duration in seconds or frames. |
-| `ae_project` | Opens a saved `.aep` in the headless instance (`app.open`), saves it, saves it under a new path (`overwrite` to replace a file), or reports the open project's path and item counts. Open refuses while the open project has unsaved changes unless `discard`. |
+| `ae_project` | Opens a saved `.aep` in the headless instance (`app.open`), saves it, saves it under a new path (`overwrite` to replace a file), or reports the open project's path and item counts. Open refuses while the open project has unsaved changes unless `discard`. `reduce` (keep `comps` and what they use), `remove_unused` and `consolidate` rewrite the open project, or save to `path` and leave the file alone; they return the removed count. |
 | `ae_layer_set` | Changes an existing layer found by comp and name or index: name, enabled, solo, shy, locked, label, in/out, start time, stretch percent, blend mode, parent (or `no_parent`), 3D, motion blur and track matte (or `none`). `properties` sets static values on any property path (transform, Geometry and Material options, light and camera options, effect parameters) and returns the values read back. |
 | `ae_text_set` | Replaces the source text and style (font, size, fill, stroke, stroke width, tracking, leading, justification, paragraph box) of an existing text layer; its animators and keyframes stay. |
 | `ae_layer_edit` | Duplicates, deletes, reorders (top, bottom or an index), splits at a time, or precomposes a list of layers into a named comp with all attributes moved. |
@@ -52,6 +52,10 @@ The server speaks MCP over stdio. Client configuration:
 | `ae_mask` | Adds a mask to a layer or changes an existing one (index or name): rect, ellipse or points path, mode, feather, expansion, opacity, invert and a keyframed path. |
 | `ae_effects` | Lists the installed effects (`app.effects`) with category, display name and matchName; `filter` and `category` narrow them. |
 | `ae_camera` | Adds or changes a one- or two-node camera (position, point of interest, zoom or focal length, depth of field, focus distance, aperture, blur level), optionally parented to an orbit null at its point of interest, and/or a light (type, intensity, color, cone angle and feather, shadows). |
+| `ae_essential_graphics` | Adds layer properties (source text, color, slider or effect parameters, position) to a comp's Essential Graphics under a name, names the template, and lists the controls. |
+| `ae_mogrt_export` | Refuses: headless After Effects writes no `.mogrt` (note 23). |
+| `ae_template_render` | Opens a template `.aep`, sets text layers by name (text and style), replaces footage items by name, saves to `project`, and renders the named comps with `aerender` and frame checks. Other render queue entries are switched off. |
+| `ae_collect` | Copies every used footage file into a folder, relinks each item there with `item.replace`, saves to `project`, and reports the counts and items still missing; solids and image sequences are skipped. |
 
 `ae_render_queue_set` takes template names exactly as `ae_presets` lists them and refuses others. `clear`
 removes only existing entries of the comps named in `add`.
@@ -154,6 +158,18 @@ Measured with After Effects 2026 on macOS.
     pixels. Wiggle Paths is `ADBE Vector Filter - Roughen`. Stroke dashes exist only after `addProperty` on the
     Dashes group. A camera's point of interest is `ADBE Anchor Point`.
 21. Parenting a camera to an orbit null keeps its view: its position reads relative to the null afterwards.
+22. `OutputModule.setSettings` refuses `Format`, `Channels`, `Depth` and `Color` as read-only; alpha, depth and color
+    come from the template (`High Quality with Alpha` gives `RGB + Alpha`). It accepts `Resize` with `Resize to`
+    `[w, h]`, `Resize Quality` `Low` or `High` (not `Medium`), `Crop` with `Crop Top/Left/Bottom/Right`,
+    `Output Audio` `On`, `Off` or `Auto`, `Audio Sample Rate`, `Audio Channels` and `Audio Bit Depth` (`16 Bit`).
+    A render of one entry with resize, a time span and audio on gave a 320x180 ProRes 4444 movie with alpha,
+    30 frames and a mono 44.1 kHz audio stream; an entry with crop and audio off gave 620x340 with no alpha and no
+    audio stream.
+23. `comp.exportAsMotionGraphicsTemplate` returns true in headless After Effects and writes no file: it creates an
+    empty folder at the given path. `addToMotionGraphicsTemplateAs`, `motionGraphicsTemplateName` and the controller
+    list work, so `ae_essential_graphics` prepares the comp and the `.mogrt` has to be exported from a window.
+24. The scripting method is `app.project.consolidateFootage` (there is no `consolidateAllFootage`);
+    `reduceProject` takes an array of comps and returns the number of removed items.
 
 ## Development
 

@@ -10,7 +10,7 @@ function counts() {
 }
 
 (function () {
-    var a = CAVI_ARGS, open = app.project.file ? app.project.file.fsName : null, target = new File(a.path || ""), report;
+    var a = CAVI_ARGS, open = app.project.file ? app.project.file.fsName : null, target = new File(a.path || ""), report, keep = [], removed = null, i;
     // Reports of a refused call go to the fallback project so a project on disk is never overwritten.
     CAVI_PROJECT = a.fallback;
     if (a.action === "open") {
@@ -20,6 +20,17 @@ function counts() {
         }
         app.open(target);
         CAVI_PROJECT = a.path;
+    } else if (a.action === "reduce" || a.action === "remove_unused" || a.action === "consolidate") {
+        // These rewrite the open project; a path saves the result elsewhere and leaves the file alone.
+        if (a.action === "reduce") {
+            for (i = 0; i < a.comps.length; i++) { keep.push(caviComp(a.comps[i])); }
+            removed = app.project.reduceProject(keep);
+        } else if (a.action === "remove_unused") {
+            removed = app.project.removeUnusedFootage();
+        } else {
+            removed = app.project.consolidateFootage();
+        }
+        CAVI_PROJECT = a.path || open || a.fallback;
     } else if (a.action === "save_as") {
         if (target.exists && !a.overwrite) { caviFail(a.path + " exists; set overwrite to replace it"); }
         CAVI_PROJECT = a.path;
@@ -33,6 +44,7 @@ function counts() {
     }
     report = counts();
     report.action = a.action;
+    report.removed = removed;
     report.previous = open;
     report.path = a.action === "info" ? open : CAVI_PROJECT;
     report.errors = [];

@@ -73,12 +73,34 @@ class LayerSpec(Model):
     track_matte: TrackMatte | None = None
 
 
+class TimeSpan(Model):
+    start: float = Field(ge=0)
+    duration: float = Field(gt=0)
+
+
+class OutputSettings(Model):
+    """The output module settings scripts can set; Format, Channels, Depth and Color are read-only."""
+    resize: Annotated[list[int], Field(min_length=2, max_length=2)] | None = Field(None, description="[width, height]")
+    resize_quality: Literal["low", "high"] | None = None
+    crop: Annotated[list[int], Field(min_length=4, max_length=4)] | None = Field(None, description="[top, left, bottom, right]")
+    audio: Literal["on", "off", "auto"] | None = None
+    audio_sample_rate: Literal[22050, 44100, 48000, 96000] | None = None
+    audio_channels: Literal["mono", "stereo"] | None = None
+    audio_bit_depth: Literal[8, 16, 32] | None = None
+    format: str | None = Field(None, description="Read-only: refused")
+    channels: str | None = Field(None, description="Read-only: refused")
+    depth: str | None = Field(None, description="Read-only: refused")
+    color: str | None = Field(None, description="Read-only: refused")
+
+
 class QueueAdd(Model):
     comp: str = Field(min_length=1)
     file: str = Field(min_length=1, description="Absolute output movie path")
     output_module: str = "High Quality"
     render_settings: str = "Best Settings"
     locked: bool = Field(False, description="Render off and comp label 0: an approved shot")
+    time_span: Literal["work_area", "comp"] | TimeSpan | None = None
+    output: OutputSettings | None = None
 
 
 class QueueUpdate(Model):
@@ -135,7 +157,8 @@ class Transitions(Result):
 
 
 class ProjectState(Script):
-    action: Literal["open", "save", "save_as", "info"]
+    action: Literal["open", "save", "save_as", "info", "reduce", "remove_unused", "consolidate"]
+    removed: int | None
     path: str | None
     previous: str | None
     items: int
@@ -389,3 +412,55 @@ class EffectList(Script):
 
 class CameraSet(Script):
     comp: str
+
+
+class EssentialGraphics(Script):
+    comp: str
+    name: str
+    added: list[str]
+    controls: list[str]
+
+
+class TemplateRendered(Result):
+    project: str
+    texts: int
+    footage: int
+    outputs: list[dict[str, Any]]
+
+
+class Collected(Result):
+    project: str
+    folder: str
+    items: int
+    copied: int
+    relinked: int
+    skipped: list[str]
+    missing: int
+
+
+class EssentialProperty(Model):
+    layer: Layer
+    property: str = Field(description="Property path as in ae_keyframes, e.g. Text/Source Text or Transform/Position")
+    name: str = Field(min_length=1)
+
+
+class TextEdit(Model):
+    comp: str = Field(min_length=1)
+    layer: Layer
+    text: str | None = None
+    font: str | None = None
+    size: float | None = Field(None, gt=0)
+    fill: Color | None = None
+    stroke: Color | None = None
+    stroke_width: float | None = Field(None, ge=0)
+    tracking: float | None = None
+    leading: float | None = None
+    justification: Literal["left", "center", "right", "full"] | None = None
+    box: Annotated[list[float], Field(min_length=2, max_length=2)] | None = None
+
+
+class RenderTarget(Model):
+    comp: str = Field(min_length=1)
+    file: str = Field(min_length=1, description="Absolute output movie path")
+    output_module: str = "High Quality"
+    render_settings: str = "Best Settings"

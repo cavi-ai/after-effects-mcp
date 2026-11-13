@@ -211,9 +211,14 @@ async def ae_footage_replace(project: str, item: str, file: str) -> models.Foota
 @mcp.tool(annotations=WRITES)
 async def ae_render_queue_set(project: str, add: list[QueueAdd] = [], update: list[QueueUpdate] = [],
                               clear: bool = False) -> models.Queue:
-    """Add comps to the render queue (template names as ae_presets lists them), set render on/off and comp label, and list it. clear first removes only entries of the comps in add."""
+    """Add comps to the render queue (template names as ae_presets lists them) with a time span (work_area, comp or {start, duration}) and the output settings scripts can set (resize, crop, audio); set render on/off and comp label, and list it. clear first removes only entries of the comps in add."""
     for entry in add:
         host.absolute(entry.file)
+        if entry.output:
+            fixed = [k for k in ("format", "channels", "depth", "color") if getattr(entry.output, k) is not None]
+            if fixed:
+                raise ValueError(f"{', '.join(fixed)} cannot be set from scripts (read-only in setSettings, "
+                                 "note 22); pick an output module template such as High Quality with Alpha")
     if clear and not add:
         raise ValueError("clear removes the queue entries of the comps in add; add none to clear")
     args = {"add": [a.model_dump() for a in add], "update": [u.model_dump() for u in update], "clear": clear}
@@ -279,18 +284,22 @@ def given(**fields):
 
 
 @mcp.tool(annotations=WRITES)
-async def ae_project(action: Literal["open", "save", "save_as", "info"], path: str | None = None,
-                     discard: bool = False, overwrite: bool = False) -> models.ProjectState:
-    """Open a saved .aep in the headless instance, save it, save it under a new path, or report the open project's path. Open refuses unsaved changes unless discard; save_as refuses an existing file unless overwrite."""
+async def ae_project(action: Literal["open", "save", "save_as", "info", "reduce", "remove_unused", "consolidate"],
+                     path: str | None = None, discard: bool = False, overwrite: bool = False,
+                     comps: list[str] = []) -> models.ProjectState:
+    """Open a saved .aep in the headless instance, save it, save it under a new path, or report the open project's path. Open refuses unsaved changes unless discard; save_as refuses an existing file unless overwrite. reduce keeps only `comps` and what they use, remove_unused drops unused footage, consolidate merges duplicate footage; each rewrites the open project, or saves to `path` instead when given. removed reports the count."""
     if action in ("open", "save_as") and not path:
         raise ValueError(f"{action} needs a path")
+    if action == "reduce" and not comps:
+        raise ValueError("reduce needs comps")
     target = host.absolute(path, ".aep") if path else host.CURRENT[0]
     if action == "open" and not target.is_file():
         raise ValueError(f"No project at {target}")
-    if action in ("save", "info") and target is None:
+    if action in ("save", "info", "reduce", "remove_unused", "consolidate") and target is None:
         raise ValueError(f"{action} needs a path until a project has been used in this session")
-    report = await asyncio.to_thread(edit.project_op, {"action": action, "path": str(target) if target else None,
-                                                       "discard": discard, "overwrite": overwrite}, target)
+    args = {"action": action, "path": str(target) if target else None, "discard": discard, "overwrite": overwrite,
+            "comps": comps}
+    report = await asyncio.to_thread(edit.project_op, args, target)
     return {"project": report["path"] or "", "report": report, **{k: v for k, v in report.items() if k != "errors"}}
 
 
@@ -467,6 +476,43 @@ async def ae_camera(project: str, comp: str, camera: CameraSpec | None = None, r
         raise ValueError("rig needs a camera")
     return await scene("ae_camera", project, {"comp": comp, "rig": rig, "camera": camera.model_dump() if camera else None,
                                               "light": light.model_dump() if light else None})
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_essential_graphics(project: str, comp: str, add: list[models.EssentialProperty] = [],
+                                template_name: str | None = None) -> models.EssentialGraphics:
+    """Add layer properties (source text, color, slider or effect parameters, position ...) to a comp's Essential Graphics under a name, optionally name the template, and list the controls the comp has."""
+    return await scene("ae_essential_graphics", project, {"comp": comp, "add": [a.model_dump() for a in add],
+                                                          "template_name": template_name})
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_mogrt_export(project: str, comp: str, file: str) -> models.Script:
+    """Refused: headless After Effects does not write the .mogrt. Use ae_essential_graphics to prepare the comp."""
+    host.absolute(file, ".mogrt")
+    raise ValueError("Refused: comp.exportAsMotionGraphicsTemplate returns true in headless After Effects but writes "
+                     "no file; it only creates an empty folder at the path (measured). Export the .mogrt from "
+                     "an After Effects window instead")
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_template_render(template: str, project: str, renders: Annotated[list[models.RenderTarget], Field(min_length=1)],
+                             texts: list[models.TextEdit] = [], footage: dict[str, str] = {},
+                             discard: bool = False) -> models.TemplateRendered:
+    """Open a template .aep, set text layers by name, replace footage items by name, save the result to `project`, and aerender the named comps to their files with frame checks."""
+    template, target = host.absolute(template, ".aep"), host.absolute(project, ".aep")
+    files = {name: str(host.absolute(path)) for name, path in footage.items()}
+    for render in renders:
+        host.absolute(render.file)
+    outputs = await asyncio.to_thread(edit.template_render, template, target, [t.model_dump() for t in texts],
+                                      files, [r.model_dump() for r in renders], discard)
+    return {"project": str(target), "texts": len(texts), "footage": len(files), "outputs": outputs}
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_collect(project: str, folder: str) -> models.Collected:
+    """Copy every used footage file into `folder`, relink each item there with item.replace, save to `project`, and report counts and items still missing. Solids and image sequences are skipped by name."""
+    return await asyncio.to_thread(edit.collect, host.absolute(project, ".aep"), host.absolute(folder))
 
 
 def main():

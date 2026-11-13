@@ -12,7 +12,8 @@ TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effect
          "ae_comp_new", "ae_layer_add", "ae_keyframes", "ae_effect_add", "ae_text_animator",
          "ae_footage_replace", "ae_render_queue_set", "ae_presets", "ae_preset_apply", "ae_transition",
          "ae_transitions", "ae_project", "ae_layer_set", "ae_text_set", "ae_layer_edit", "ae_comp_set",
-         "ae_import", "ae_markers", "ae_frame", "ae_shape_add", "ae_mask", "ae_effects", "ae_camera"}
+         "ae_import", "ae_markers", "ae_frame", "ae_shape_add", "ae_mask", "ae_effects", "ae_camera", "ae_essential_graphics", "ae_mogrt_export",
+         "ae_template_render", "ae_collect"}
 
 
 class ProtocolTest(unittest.IsolatedAsyncioTestCase):
@@ -116,6 +117,27 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_camera", {**base, "light": {"type": "spot"}, "rig": True}, "rig needs a camera"),
             ("ae_keyframes", {**base, "layer": 1, "property": "rotation", "expression": "1",
                               "preset": {"kind": "wiggle"}}, "not both"),
+        ]
+        async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
+            await client.initialize()
+            for name, arguments, message in calls:
+                reply = await client.call_tool(name, arguments)
+                self.assertTrue(reply.is_error, (name, arguments))
+                self.assertIn(message, reply.content[0].text, (name, arguments))
+
+    async def test_delivery_tools_refuse_bad_input_before_calling_after_effects(self):
+        params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
+        add = {"comp": "a", "file": "/x/out.mov", "output": {"channels": "RGB+Alpha", "format": "PNG"}}
+        calls = [
+            ("ae_render_queue_set", {"project": "/x.aep", "add": [add]}, "format, channels cannot be set"),
+            ("ae_render_queue_set", {"project": "/x.aep", "add": [{"comp": "a", "file": "/x/o.mov",
+                                                                    "time_span": {"start": 0, "duration": 0}}]}, "duration"),
+            ("ae_mogrt_export", {"project": "/x.aep", "comp": "a", "file": "/x/t.mogrt"}, "writes no file"),
+            ("ae_template_render", {"template": "relative.aep", "project": "/x.aep",
+                                    "renders": [{"comp": "a", "file": "/x/o.mov"}]}, "absolute path"),
+            ("ae_project", {"action": "reduce", "path": "/x.aep"}, "reduce needs comps"),
+            ("ae_project", {"action": "remove_unused"}, "needs a path"),
+            ("ae_collect", {"project": "/x.aep", "folder": "relative"}, "absolute path"),
         ]
         async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
             await client.initialize()
