@@ -62,6 +62,9 @@ The server speaks MCP over stdio. Client configuration:
 | `ae_project_settings` | Sets bits per channel (8, 16, 32), working color space, linear blending, display start frame, frames or timecode display, frame count start, expression engine and GPU acceleration (metal or software); reports every setting (note 30). |
 | `ae_sequence_layers` | Places existing layers and footage files end to end from a start time with an overlap, earlier items on top, and applies an `ae_transition` kind (default crossfade) at every join. |
 | `ae_essential_override` | Overrides the Essential Properties of one nested-comp layer by name (a string sets source text), so two instances of one comp carry different values (note 33). |
+| `ae_fonts` | Lists installed fonts as PostScript name, family and style, filtered by text. Text tools refuse a font that is not installed instead of silently substituting one. |
+| `ae_expressions` | Lists every expression in a comp or on one layer with its property path, enabled state and error text; `remove_broken` clears the ones After Effects reports an error for. |
+| `ae_material` | Sets a 3D layer's material options (casts shadows, accepts shadows and lights, ambient, diffuse, specular, shininess, metal, reflection, transparency ...); an option the comp's renderer hides is refused by name (note 36). |
 
 `ae_render_queue_set` takes template names exactly as `ae_presets` lists them and refuses others. `clear`
 removes only existing entries of the comps named in `add`.
@@ -113,7 +116,7 @@ template. Exactly one After Effects `aerender` must be installed. The render run
 Measured with After Effects 2026 on macOS.
 
 1. Headless After Effects (`-noui`) has no BridgeTalk. `DoScript` returns only `0` (success) or
-   `1` (any failure), and scripts cannot write files. Reports therefore travel inside the saved
+   `1` (any failure), and scripts cannot write files (`Comp.saveFrameToPng` aside, note 34). Reports travel inside the saved
    project.
 2. Headless After Effects starts with a project open, and `app.newProject()` crashes it. Scripts
    reuse the open project: remove its items and render queue entries instead.
@@ -210,6 +213,21 @@ Measured with After Effects 2026 on macOS.
     An aerender at half resolution and 12 fps wrote 160x90 at 12 fps with 24 frames.
 33. A nested comp layer exposes `layer.essentialProperty` as a group named Essential Properties whose properties
     carry the names given in `ae_essential_graphics`; setting a text property takes a `TextDocument`.
+34. `Comp.saveFrameToPng` writes a PNG from a headless script, so `ae_frame` uses it first and falls back to aerender,
+    which exits without rendering (no error, no frames) while another Adobe application holds Dynamic Link. A
+    temporary background solid is added for the composite and removed again; `alpha` keeps transparency.
+35. Layer styles (drop shadow, stroke, glow ...) stay hidden until enabled: `canSetEnabled` is false, `addProperty`
+    refuses, and `findMenuCommandId` returns no usable id, so no layer style tool is offered.
+36. Material options that accept a value, per renderer. Classic 3D (`ADBE Advanced 3d`): casts shadows, light
+    transmission, accepts shadows and lights, ambient, diffuse, specular intensity and shininess, metal. Advanced 3D
+    (`ADBE Calder`): the same without light transmission, plus shadow color. Cinema 4D (`ADBE Ernst`): no light
+    transmission or shadow color, plus appears in reflections and reflection intensity, sharpness and rolloff.
+    Transparency, transparency rolloff and index of refraction are hidden for solids in all three.
+37. A script that fails leaves no partial edits: the runner reloads the project from disk when the target was
+    changed. Every call first opens its target project when another one, or none, is open (a restarted instance
+    has an empty project) and refuses when the open project has unsaved changes. A tool call starts the headless
+    instance when none runs. `ae_script` refuses scripts calling `applyPreset`, `executeCommand` and
+    `findMenuCommandId`, which abort After Effects (crash reports show `ApplyPreset` and `DoCommandIfEnabled`).
 
 ## Development
 

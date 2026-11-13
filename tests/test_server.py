@@ -14,7 +14,8 @@ TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effect
          "ae_transitions", "ae_project", "ae_layer_set", "ae_text_set", "ae_layer_edit", "ae_comp_set",
          "ae_import", "ae_markers", "ae_frame", "ae_shape_add", "ae_mask", "ae_effects", "ae_camera", "ae_essential_graphics", "ae_mogrt_export",
          "ae_template_render", "ae_collect", "ae_audio", "ae_time",
-         "ae_controls", "ae_project_settings", "ae_sequence_layers", "ae_essential_override"}
+         "ae_controls", "ae_project_settings", "ae_sequence_layers", "ae_essential_override",
+         "ae_fonts", "ae_expressions", "ae_material"}
 
 
 class ProtocolTest(unittest.IsolatedAsyncioTestCase):
@@ -184,6 +185,8 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_layer_add", {"project": "/x.aep", "layer": model}, ".glb, .gltf or .obj"),
             ("ae_layer_add", {"project": "/x.aep", "layer": {"comp": "a", "kind": "comp", "name": "n"}},
              "needs source"),
+            ("ae_material", base | {"material": {}}, "at least one material option"),
+            ("ae_fonts", {"project": "/x.aep", "limit": 0}, "limit"),
             ("ae_render_queue_set", {"project": "/x.aep", "update": [{"index": 1, "duplicate": True, "remove": True}]},
              "cannot be combined"),
         ]
@@ -193,6 +196,17 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
                 reply = await client.call_tool(name, arguments)
                 self.assertTrue(reply.is_error, (name, arguments))
                 self.assertIn(message, reply.content[0].text, (name, arguments))
+
+    async def test_ae_script_refuses_a_script_that_calls_an_aborting_function(self):
+        params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
+        with tempfile.TemporaryDirectory() as folder:
+            script = Path(folder) / "preset.jsx"
+            script.write_text("app.project.item(1).layer(1).applyPreset(new File('/x.ffx'));\n")
+            async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
+                await client.initialize()
+                reply = await client.call_tool("ae_script", {"script": str(script), "project": f"{folder}/x.aep"})
+                self.assertTrue(reply.is_error)
+                self.assertIn("applyPreset", reply.content[0].text)
 
     async def test_preset_apply_is_refused_for_an_existing_preset(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -6,7 +6,7 @@ import unittest
 import zlib
 from pathlib import Path
 
-from cavi_after_effects_mcp import edit
+from cavi_after_effects_mcp import edit, host
 from cavi_after_effects_mcp.models import MaskShape, PathShape
 
 
@@ -108,3 +108,20 @@ class FrameFileTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CrashingCallsTest(unittest.TestCase):
+    def test_scripts_calling_known_aborting_functions_are_refused(self):
+        with tempfile.TemporaryDirectory() as folder:
+            for call in ("layer.applyPreset(new File('/x.ffx'))", "app.executeCommand(4218)",
+                         "app.findMenuCommandId('Drop Shadow')"):
+                script = Path(folder) / "bad.jsx"
+                script.write_text(f"var l = app.project.item(1);\n{call};\n")
+                with self.assertRaisesRegex(ValueError, "Refused"):
+                    host.refuse_crashing_calls(script)
+
+    def test_an_ordinary_script_is_accepted(self):
+        with tempfile.TemporaryDirectory() as folder:
+            script = Path(folder) / "ok.jsx"
+            script.write_text("var comp = app.project.items.addComp('a', 100, 100, 1, 1, 30);\n")
+            host.refuse_crashing_calls(script)

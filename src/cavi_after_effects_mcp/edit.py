@@ -2,6 +2,7 @@
 
 import shutil
 import tempfile
+import time
 from pathlib import Path
 
 from cavi_mcp_core.proc import diagnostics, run_sync
@@ -9,6 +10,8 @@ from cavi_mcp_core.proc import diagnostics, run_sync
 from . import host
 
 FRAME_MODULE = "TIFF Sequence with Alpha"
+RENDER_ATTEMPTS = 3
+RENDER_RETRY_SECONDS = 15
 KAPPA = 0.5522847498
 
 
@@ -80,10 +83,31 @@ def project_op(args, target):
     raise RuntimeError(f"The project call saved no report; the open project is not {target}")
 
 
+def direct_frames(project, comp, frames, alpha):
+    """Write the frames with Comp.saveFrameToPng, which needs no aerender; False when After Effects did not write them all."""
+    for frame in frames:
+        Path(frame["file"]).unlink(missing_ok=True)
+    try:
+        host.run_template("ae_frame_png", project, {"comp": comp, "frames": frames, "background": not alpha})
+    except RuntimeError as error:
+        if "No comp named" in str(error):
+            raise
+        return False
+    deadline = time.monotonic() + 30
+    while time.monotonic() < deadline:
+        if all(Path(f["file"]).is_file() and Path(f["file"]).stat().st_size > 0 for f in frames):
+            return True
+        time.sleep(0.25)
+    return False
+
+
 def render_frames(project, comp, times, directory, alpha=False):
     """Render the frame at each time to ``directory`` as PNG through a temporary queue entry that is removed again; the comp background is composited in unless ``alpha``."""
     project, directory = host.absolute(project, ".aep"), host.absolute(directory)
     directory.mkdir(parents=True, exist_ok=True)
+    direct = [{"time": t, "file": str(directory / f"{comp}_{t:g}s.png")} for t in times]
+    if direct_frames(project, comp, direct, alpha):
+        return direct
     work = Path(tempfile.mkdtemp(prefix="frames-", dir=directory))
     try:
         frames = [{"time": t, "file": str(work / f"f{i}_[#####].tif")} for i, t in enumerate(times)]
@@ -91,7 +115,12 @@ def render_frames(project, comp, times, directory, alpha=False):
                                                                "output_module": FRAME_MODULE,
                                                                "background": not alpha})
         try:
-            host.aerender("-project", str(project))
+            for attempt in range(RENDER_ATTEMPTS):
+                host.aerender("-project", str(project))
+                if all(len(list(work.glob(f"f{i}_*.tif"))) == 1 for i in range(len(times))):
+                    break
+                if attempt + 1 < RENDER_ATTEMPTS:
+                    time.sleep(RENDER_RETRY_SECONDS)
         finally:
             host.run_template("ae_frame_queue", project, {"action": "remove", "comp": comp, "count": len(times),
                                                           "enabled": queued["enabled"]})
@@ -99,7 +128,8 @@ def render_frames(project, comp, times, directory, alpha=False):
         for i, t in enumerate(times):
             made = sorted(work.glob(f"f{i}_*.tif"))
             if len(made) != 1:
-                raise RuntimeError(f"aerender wrote {len(made)} frames for time {t}")
+                raise RuntimeError(f"aerender wrote {len(made)} frames for time {t} after {RENDER_ATTEMPTS} attempts; it "
+                                   "exits without rendering when the Adobe Media Encoder service it launches fails")
             png = directory / f"{comp}_{t:g}s.png"
             to_png(made[0], png)
             out.append({"time": t, "file": str(png)})

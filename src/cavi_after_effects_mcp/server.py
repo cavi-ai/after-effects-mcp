@@ -98,6 +98,7 @@ async def ae_script(script: str, project: str, args: dict[str, Any] | None = Non
 
     Paths are absolute. Returns the report; report.errors fails the call.
     """
+    host.refuse_crashing_calls(host.absolute(script, ".jsx"))
     report = await asyncio.to_thread(host.run_script, script, project, args or {}, timeout)
     return {"project": project, "report": report}
 
@@ -180,6 +181,22 @@ async def ae_keyframes(project: str, comp: str, layer: models.Layer, property: s
 
 
 @mcp.tool(annotations=WRITES)
+async def ae_expressions(project: str, comp: str, layer: models.Layer | None = None,
+                         remove_broken: bool = False) -> models.Expressions:
+    """List every expression in a comp (or one layer) as {layer, property path, expression, enabled, error}; `broken` counts expressions After Effects reports an error for. remove_broken clears those expressions."""
+    return await scene("ae_expressions", project, {"comp": comp, "layer": layer, "remove_broken": remove_broken})
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_material(project: str, comp: str, layer: models.Layer, material: models.Material) -> models.Materialed:
+    """Set a 3D layer's material options: casts shadows (off, on, only), accepts shadows and lights, light transmission, ambient, diffuse, specular, shininess, metal, reflection, glossiness, fresnel, transparency, rolloff, index of refraction. Refuses 2D layers; the report lists every option after the change."""
+    values = {k: v for k, v in material.model_dump().items() if v is not None}
+    if not values:
+        raise ValueError("Give at least one material option")
+    return await scene("ae_material", project, {"comp": comp, "layer": layer, "values": values})
+
+
+@mcp.tool(annotations=WRITES)
 async def ae_effect_add(project: str, comp: str, layer: models.Layer, match_name: str,
                         params: dict[str, Any] | None = None, name: str | None = None) -> models.EffectAdded:
     """Add an effect by matchName (e.g. ADBE Glo2) and set parameters by name or matchName."""
@@ -235,6 +252,12 @@ async def ae_render_queue_set(project: str, add: list[QueueAdd] = [], update: li
         raise ValueError("clear removes the queue entries of the comps in add; add none to clear")
     args = {"add": [a.model_dump() for a in add], "update": [u.model_dump() for u in update], "clear": clear}
     return await scene("ae_render_queue_set", project, args)
+
+
+@mcp.tool(annotations=READ_ONLY)
+async def ae_fonts(project: str, filter: str = "", limit: Annotated[int, Field(ge=1, le=2000)] = 200) -> models.Fonts:
+    """List installed fonts as {postscript, family, style}; filter matches any of the three. Text tools take the PostScript name and refuse names that are not installed."""
+    return await scene("ae_fonts", project, {"filter": filter, "limit": limit}, 120)
 
 
 @mcp.tool(annotations=READ_ONLY)
