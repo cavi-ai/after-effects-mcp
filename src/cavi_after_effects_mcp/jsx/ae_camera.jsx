@@ -36,7 +36,8 @@ function camera(comp, c, rig) {
 }
 
 function light(comp, l) {
-    var layer, types = {POINT: LightType.POINT, SPOT: LightType.SPOT, PARALLEL: LightType.PARALLEL, AMBIENT: LightType.AMBIENT};
+    var layer, types = {POINT: LightType.POINT, SPOT: LightType.SPOT, PARALLEL: LightType.PARALLEL, AMBIENT: LightType.AMBIENT,
+        ENVIRONMENT: LightType.ENVIRONMENT};
     if (l.layer !== null) {
         layer = caviLayer(comp, l.layer);
         if (!(layer instanceof LightLayer)) { caviFail("Layer " + layer.name + " is not a light"); }

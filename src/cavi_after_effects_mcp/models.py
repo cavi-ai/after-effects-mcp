@@ -45,7 +45,7 @@ class TrackMatte(Model):
 
 class LayerSpec(Model):
     comp: str = Field(min_length=1)
-    kind: Literal["solid", "text", "footage", "shape_rect", "null", "camera", "light", "adjustment"]
+    kind: Literal["solid", "text", "footage", "shape_rect", "null", "camera", "light", "adjustment", "model", "comp"]
     name: str = Field(min_length=1)
     color: Color = [0, 0, 0]
     width: float | None = Field(None, gt=0, description="Solid or rectangle width; default comp width")
@@ -60,8 +60,9 @@ class LayerSpec(Model):
     justification: Literal["left", "center", "right", "full"] = "left"
     box: Annotated[list[float], Field(min_length=2, max_length=2)] | None = Field(
         None, description="Paragraph text box [width, height]")
-    file: str | None = Field(None, description="Absolute footage path, imported on first use")
-    light_type: Literal["point", "spot", "parallel", "ambient"] = "point"
+    file: str | None = Field(None, description="Absolute footage or 3D model (.glb, .gltf, .obj) path, imported on first use")
+    source: str | None = Field(None, description="Comp name for kind comp, a nested instance of that comp")
+    light_type: Literal["point", "spot", "parallel", "ambient", "environment"] = "point"
     transform: Transform = Transform()
     three_d: bool = False
     in_point: float | None = None
@@ -71,6 +72,19 @@ class LayerSpec(Model):
     blend_mode: str | None = Field(None, description="BlendingMode name such as ADD, SCREEN, MULTIPLY")
     motion_blur: bool = False
     track_matte: TrackMatte | None = None
+
+
+class SequenceItem(Model):
+    layer: Layer | None = Field(None, description="Existing layer to move")
+    file: str | None = Field(None, description="Absolute footage path to add as a layer")
+    duration: float | None = Field(None, gt=0, description="Seconds on the timeline; default the layer's own length")
+
+
+class SequenceTransition(Model):
+    kind: str = Field("crossfade", description="A kind from ae_transitions")
+    seconds: float | None = Field(None, gt=0, description="Default the overlap")
+    color: Color = [0, 0, 0]
+    ease: Ease | None = Ease()
 
 
 class TimeSpan(Model):
@@ -93,6 +107,17 @@ class OutputSettings(Model):
     color: str | None = Field(None, description="Read-only: refused")
 
 
+class RenderSettings(Model):
+    """Render settings an entry accepts; frame_rate switches the entry to that fixed rate."""
+    quality: Literal["wireframe", "draft", "best"] | None = None
+    resolution: Literal["full", "half", "third", "quarter"] | None = None
+    proxy_use: Literal["none", "comp", "all"] | None = None
+    effects: Literal["on", "off", "current"] | None = None
+    motion_blur: Literal["checked", "off_all", "current"] | None = None
+    frame_blending: Literal["checked", "off_all", "current"] | None = None
+    frame_rate: float | None = Field(None, gt=0)
+
+
 class QueueAdd(Model):
     comp: str = Field(min_length=1)
     file: str = Field(min_length=1, description="Absolute output movie path")
@@ -101,10 +126,14 @@ class QueueAdd(Model):
     locked: bool = Field(False, description="Render off and comp label 0: an approved shot")
     time_span: Literal["work_area", "comp"] | TimeSpan | None = None
     output: OutputSettings | None = None
+    settings: RenderSettings | None = None
 
 
 class QueueUpdate(Model):
-    index: int = Field(ge=1)
+    index: int = Field(ge=1, description="Position in the queue as it stands when this update runs")
+    settings: RenderSettings | None = None
+    duplicate: bool = False
+    remove: bool = False
     render: bool | None = None
     label: int | None = Field(None, ge=0, le=16)
     locked: bool = False
@@ -113,6 +142,15 @@ class QueueUpdate(Model):
 class Script(Result):
     project: str
     report: dict[str, Any]
+
+
+class ProjectSettings(Script):
+    settings: dict[str, Any]
+
+
+class Sequenced(Script):
+    layers: list[dict[str, Any]]
+    joins: list[dict[str, Any]]
 
 
 class Inspect(Script):
@@ -377,7 +415,7 @@ class CameraSpec(Model):
 class LightSpec(Model):
     layer: Layer | None = Field(None, description="Change this light instead of adding one")
     name: str = "Light"
-    type: Literal["point", "spot", "parallel", "ambient"] | None = None
+    type: Literal["point", "spot", "parallel", "ambient", "environment"] | None = None
     intensity: float | None = Field(None, ge=0)
     color: Color | None = None
     cone_angle: float | None = Field(None, ge=0, le=180)
@@ -444,6 +482,13 @@ class EssentialProperty(Model):
     name: str = Field(min_length=1)
 
 
+class EssentialOverridden(Script):
+    layer: str
+    source: str
+    available: list[str]
+    overridden: list[str]
+
+
 class TextEdit(Model):
     comp: str = Field(min_length=1)
     layer: Layer
@@ -488,3 +533,90 @@ class TimeSet(Script):
     out_point: float
     visible_start: float
     visible_end: float
+
+
+class RangeAnimation(Model):
+    start: float = Field(0, ge=0)
+    duration: float = Field(1, gt=0)
+    ease: Ease | None = Ease()
+
+
+class TextSelector(Model):
+    kind: Literal["range", "wiggly", "expression"] = "range"
+    unit: Literal["characters", "characters_no_spaces", "words", "lines"] = "characters"
+    start: float | None = Field(None, description="range: percent")
+    end: float | None = Field(None, description="range: percent")
+    offset: float | None = Field(None, description="range: percent")
+    shape: Literal["square", "ramp_up", "ramp_down", "triangle", "round", "smooth"] | None = None
+    ease_high: float | None = Field(None, ge=-100, le=100)
+    ease_low: float | None = Field(None, ge=-100, le=100)
+    smoothness: float | None = Field(None, ge=0, le=100)
+    animate: RangeAnimation | None = Field(None, description="range: Start keys 0 to 100 over seconds")
+    max_amount: float | None = Field(None, description="wiggly")
+    min_amount: float | None = None
+    per_second: float | None = Field(None, gt=0, description="wiggly: wiggles per second")
+    correlation: float | None = Field(None, ge=0, le=100)
+    seed: float | None = None
+    amount: str | None = Field(None, description="expression: the Amount expression, 0 to 100")
+
+
+class AnimatorProperties(Model):
+    opacity: float | None = Field(None, ge=0, le=100)
+    position: Vector | None = None
+    scale: Vector | None = None
+    tracking: float | None = None
+    blur: Vector | None = None
+    rotation: float | None = None
+    rotation_x: float | None = Field(None, description="Per-character 3D")
+    rotation_y: float | None = Field(None, description="Per-character 3D")
+    fill_color: Color | None = None
+    stroke_color: Color | None = None
+    stroke_width: float | None = Field(None, ge=0)
+    skew: float | None = None
+    skew_axis: float | None = None
+    character_offset: float | None = None
+
+
+class TextAnimator(Model):
+    name: str | None = None
+    properties: AnimatorProperties
+    selectors: list[TextSelector] = [TextSelector()]
+
+
+class TextPath(Model):
+    mask: Layer = Field(description="Mask index or name on the text layer")
+    first_margin: float | None = None
+    last_margin: float | None = None
+    reverse: bool = False
+    perpendicular: bool = True
+    force_align: bool = False
+
+
+class TextAnimated(Script):
+    comp: str
+    layer: str
+    animators: list[dict[str, Any]]
+    animator_count: int
+
+
+class ControlSpec(Model):
+    kind: Literal["slider", "angle", "point", "point3d", "color", "checkbox", "layer", "dropdown"]
+    name: str = Field(min_length=1)
+    value: Any = Field(None, description="Number, [x, y], [x, y, z], [r, g, b], bool, a layer ref, or a dropdown index (1-based)")
+    items: list[str] = Field([], description="dropdown menu items")
+
+
+class ControlLink(Model):
+    control: str = Field(description="Name of a control on the control layer")
+    property: str = Field(description="Target property path, as in ae_keyframes")
+    layer: Layer | None = Field(None, description="Target layer; default the control layer")
+    scale: float = 1
+    offset: float = 0
+    axis: Literal["x", "y", "z"] | None = Field(None, description="Drive one component of a vector property")
+
+
+class ControlsSet(Script):
+    comp: str
+    layer: str
+    controls: list[str]
+    links: list[dict[str, Any]]

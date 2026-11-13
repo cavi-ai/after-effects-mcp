@@ -145,9 +145,13 @@ async def ae_comp_new(project: str, name: str, width: Annotated[int, Field(ge=4,
 
 @mcp.tool(annotations=WRITES)
 async def ae_layer_add(project: str, layer: LayerSpec) -> models.LayerAdded:
-    """Add a solid, text, footage, rectangle, null, camera, light or adjustment layer with transform, 3D, timing, parent, blend mode and matte."""
-    if layer.kind == "footage":
-        host.absolute(layer.file or "")
+    """Add a solid, text, footage, 3D model (.glb, .gltf, .obj; Advanced 3D comps only), nested comp (`source`), rectangle, null, camera, light (point, spot, parallel, ambient, environment) or adjustment layer with transform, 3D, timing, parent, blend mode and matte."""
+    if layer.kind == "comp" and not layer.source:
+        raise ValueError("A comp layer needs source, the name of the comp to nest")
+    if layer.kind in ("footage", "model"):
+        path = host.absolute(layer.file or "")
+        if layer.kind == "model" and path.suffix.lower() not in (".glb", ".gltf", ".obj"):
+            raise ValueError("A 3D model file is .glb, .gltf or .obj")
     return await scene("ae_layer_add", project, {**layer.model_dump(), "file": layer.file})
 
 
@@ -191,14 +195,19 @@ async def ae_text_animator(project: str, comp: str, layer: models.Layer,
                            blur: models.Vector | None = None, rotation: float | None = None,
                            start: Annotated[float, Field(ge=0)] = 0,
                            duration: Annotated[float, Field(gt=0)] = 1, ease: Ease | None = Ease(),
-                           name: str | None = None) -> models.Script:
-    """Add a text animator whose range selector opens over characters, words or lines from `start` for `duration`."""
+                           name: str | None = None, animators: list[models.TextAnimator] = [],
+                           path: models.TextPath | None = None) -> models.TextAnimated:
+    """Add a text animator whose range selector opens over characters, words or lines from `start` for `duration`; or `animators`, each with properties (fill and stroke color, stroke width, skew, character offset, per-character 3D rotation ...) and several selectors (range with shape, ease high and low, wiggly, expression); and/or text on a path from a layer mask (`path`, first and last margin)."""
     properties = {"opacity": opacity, "position": position, "tracking": tracking, "scale": scale,
                   "blur": blur, "rotation": rotation}
-    if all(v is None for v in properties.values()):
+    listed = [a.model_dump() for a in animators]
+    if not listed and any(v is not None for v in properties.values()):
+        listed = [{"name": name, "properties": properties, "selectors": [
+            models.TextSelector(unit=unit, animate=models.RangeAnimation(start=start, duration=duration,
+                                                                         ease=ease)).model_dump()]}]
+    if not listed and path is None:
         raise ValueError("Give at least one animator property")
-    args = {"comp": comp, "layer": layer, "unit": unit, "properties": properties, "start": start,
-            "duration": duration, "name": name, "ease": ease.model_dump() if ease else None}
+    args = {"comp": comp, "layer": layer, "animators": listed, "path": path.model_dump() if path else None}
     return await scene("ae_text_animator", project, args)
 
 
@@ -211,7 +220,10 @@ async def ae_footage_replace(project: str, item: str, file: str) -> models.Foota
 @mcp.tool(annotations=WRITES)
 async def ae_render_queue_set(project: str, add: list[QueueAdd] = [], update: list[QueueUpdate] = [],
                               clear: bool = False) -> models.Queue:
-    """Add comps to the render queue (template names as ae_presets lists them) with a time span (work_area, comp or {start, duration}) and the output settings scripts can set (resize, crop, audio); set render on/off and comp label, and list it. clear first removes only entries of the comps in add."""
+    """Add comps to the render queue (template names as ae_presets lists them) with a time span (work_area, comp or {start, duration}), render settings (quality, resolution, proxy use, effects, motion blur, frame blending, frame rate) and the output settings scripts can set (resize, crop, audio); updates, applied in order, set render on/off, comp label and render settings, duplicate or remove an entry; the queue is listed afterwards. clear first removes only entries of the comps in add."""
+    for u in update:
+        if u.duplicate and u.remove:
+            raise ValueError(f"Queue item {u.index}: duplicate and remove cannot be combined")
     for entry in add:
         host.absolute(entry.file)
         if entry.output:
@@ -278,9 +290,53 @@ async def ae_transition(project: str, comp: str, kind: str, layer: models.Layer 
     return await scene("ae_transition", project, args)
 
 
+@mcp.tool(annotations=WRITES)
+async def ae_sequence_layers(project: str, comp: str, items: Annotated[list[models.SequenceItem], Field(min_length=1)],
+                             start: Annotated[float, Field(ge=0)] = 0, overlap: Annotated[float, Field(ge=0)] = 0,
+                             transition: models.SequenceTransition | None = None) -> models.Sequenced:
+    """Place existing layers and/or footage files end to end from `start`, each overlapping the previous by `overlap` seconds; earlier items sit above later ones. `transition` (a kind from ae_transitions) is applied at every join, default length the overlap. Refuses a sequence that runs past the comp."""
+    for item in items:
+        if (item.layer is None) == (item.file is None):
+            raise ValueError("Each item needs a layer or a file, not both")
+        if item.file:
+            host.absolute(item.file)
+    if transition is not None:
+        if transition.kind not in host.TRANSITIONS and transition.kind not in host.BUILT_IN_TRANSITIONS:
+            raise ValueError(f"Unknown transition {transition.kind}; see ae_transitions")
+        if transition.seconds is None and overlap == 0:
+            raise ValueError("A transition needs seconds when there is no overlap")
+    result = await scene("ae_sequence_layers", project, {"comp": comp, "start": start, "overlap": overlap,
+                                                         "items": [i.model_dump() for i in items]})
+    if transition is not None:
+        for join in result["joins"]:
+            await ae_transition(project, comp, transition.kind, from_layer=join["from_layer"],
+                                to_layer=join["to_layer"], seconds=transition.seconds or overlap,
+                                color=transition.color, ease=transition.ease)
+    return result
+
+
 def given(**fields):
     if all(v is None for v in fields.values()):
         raise ValueError("Give at least one of: " + ", ".join(fields))
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_project_settings(project: str, bits_per_channel: Literal[8, 16, 32] | None = None,
+                              linear_blending: bool | None = None, working_space: str | None = None,
+                              display_start_frame: Annotated[int, Field(ge=0)] | None = None,
+                              time_display: Literal["frames", "timecode"] | None = None,
+                              frames_count: Literal["start_0", "start_1", "timecode_conversion"] | None = None,
+                              expression_engine: Literal["javascript-1.0", "extendscript"] | None = None,
+                              gpu: Literal["metal", "software"] | None = None) -> models.ProjectSettings:
+    """Set project-wide bit depth, working color space (a name from the install's color profile list), linear blending, display start frame, time display and frame count, expression engine and GPU acceleration; the report lists every setting after the change. Unset fields stay as they are."""
+    given(bits_per_channel=bits_per_channel, linear_blending=linear_blending, working_space=working_space,
+          display_start_frame=display_start_frame, time_display=time_display, frames_count=frames_count,
+          expression_engine=expression_engine, gpu=gpu)
+    args = {"bits_per_channel": bits_per_channel, "linear_blending": linear_blending,
+            "working_space": working_space, "display_start_frame": display_start_frame,
+            "time_display": time_display, "frames_count": frames_count,
+            "expression_engine": expression_engine, "gpu": gpu}
+    return await scene("ae_project_settings", project, args)
 
 
 @mcp.tool(annotations=WRITES)
@@ -487,6 +543,13 @@ async def ae_essential_graphics(project: str, comp: str, add: list[models.Essent
 
 
 @mcp.tool(annotations=WRITES)
+async def ae_essential_override(project: str, comp: str, layer: models.Layer,
+                                values: Annotated[dict[str, Any], Field(min_length=1)]) -> models.EssentialOverridden:
+    """Override Essential Properties on one nested-comp layer by their ae_essential_graphics names: a string sets source text, a number, array or color list sets that value. Each instance of the same comp keeps its own values."""
+    return await scene("ae_essential_override", project, {"comp": comp, "layer": layer, "values": values})
+
+
+@mcp.tool(annotations=WRITES)
 async def ae_mogrt_export(project: str, comp: str, file: str) -> models.Script:
     """Refused: headless After Effects does not write the .mogrt. Use ae_essential_graphics to prepare the comp."""
     host.absolute(file, ".mogrt")
@@ -548,6 +611,17 @@ async def ae_time(project: str, comp: str, layer: models.Layer, time_remap: bool
     args = {"comp": comp, "layer": layer, "time_remap": time_remap, "remap_keys": [k.model_dump() for k in remap_keys],
             "freeze_at": freeze_at, "reverse": reverse, "frame_blending": frame_blending}
     return await scene("ae_time", project, args)
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_controls(project: str, comp: str, layer: models.Layer, controls: list[models.ControlSpec] = [],
+                      links: list[models.ControlLink] = []) -> models.ControlsSet:
+    """Add named Expression Controls (slider, angle, point, point3d, color, checkbox, layer, dropdown) to `layer` and set their values, and link target properties on any layer to a control with a generated expression (scale, offset, one axis of a vector)."""
+    if not controls and not links:
+        raise ValueError("Give controls or links")
+    args = {"comp": comp, "layer": layer, "controls": [c.model_dump() for c in controls],
+            "links": [{**link.model_dump()} for link in links]}
+    return await scene("ae_controls", project, args)
 
 
 def main():

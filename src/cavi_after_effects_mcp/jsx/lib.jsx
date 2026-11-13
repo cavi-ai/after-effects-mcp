@@ -139,10 +139,13 @@ function caviQueueItem(item, index) {
     var settings = module.getSettings(GetSettingsFormat.STRING), keys = ["Channels", "Depth", "Color", "Resize", "Resize to",
         "Crop", "Output Audio", "Audio Sample Rate", "Audio Channels"], shown = {}, k;
     for (k = 0; k < keys.length; k++) { shown[keys[k]] = settings[keys[k]]; }
+    var rs = item.getSettings(GetSettingsFormat.STRING), rk = ["Quality", "Resolution", "Proxy Use", "Effects", "Motion Blur",
+        "Frame Blending", "Frame Rate", "Use this frame rate"], render = {};
+    for (k = 0; k < rk.length; k++) { render[rk[k]] = rs[rk[k]]; }
     return {index: index, comp: item.comp.name, status: caviStatus(item), render: item.render,
         label: item.comp.label, file: module.file ? module.file.fsName : null,
         output_module: module.name, templates: templates, span_start: item.timeSpanStart,
-        span_duration: item.timeSpanDuration, settings: shown};
+        span_duration: item.timeSpanDuration, settings: shown, render_settings: render};
 }
 
 // Cameras and lights are always 3D, although threeDLayer reads false for them.

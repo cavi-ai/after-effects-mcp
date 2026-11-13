@@ -55,6 +55,15 @@ function textLayer(comp, a) {
     } else if (kind === "footage") {
         item = footageItem(a.file);
         layer = comp.layers.add(item);
+    } else if (kind === "comp") {
+        if (a.source === comp.name) { caviFail("A comp cannot contain itself"); }
+        layer = comp.layers.add(caviComp(a.source));
+    } else if (kind === "model") {
+        if (comp.renderer !== "ADBE Calder") {
+            caviFail("3D model layers need the Advanced 3D renderer; comp " + comp.name + " uses " + comp.renderer);
+        }
+        layer = comp.layers.add(footageItem(a.file));
+        layer.outPoint = comp.duration;
     } else if (kind === "shape_rect") {
         layer = shapeRect(comp, a);
     } else if (kind === "null") {
@@ -62,7 +71,8 @@ function textLayer(comp, a) {
     } else if (kind === "camera") {
         layer = comp.layers.addCamera(a.name, a.position ? [a.position[0], a.position[1]] : [comp.width / 2, comp.height / 2]);
     } else if (kind === "light") {
-        lights = {POINT: LightType.POINT, SPOT: LightType.SPOT, PARALLEL: LightType.PARALLEL, AMBIENT: LightType.AMBIENT};
+        lights = {POINT: LightType.POINT, SPOT: LightType.SPOT, PARALLEL: LightType.PARALLEL, AMBIENT: LightType.AMBIENT,
+            ENVIRONMENT: LightType.ENVIRONMENT};
         layer = comp.layers.addLight(a.name, [comp.width / 2, comp.height / 2]);
         layer.lightType = caviEnum(lights, a.light_type, "light type");
     } else {

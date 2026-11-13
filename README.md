@@ -30,12 +30,12 @@ The server speaks MCP over stdio. Client configuration:
 | `after_effects_render` | Renders one declared AEP composition range to a new PNG sequence and pins it as an animation media receipt. Paths are relative to `CAVI_ADOBE_WORKSPACE`. |
 | `ae_inspect` | Lists project items (comps with size, duration, fps, layer count and renderer; footage with file and missing flag; folders), one comp's layers (type, in/out, 3D, parent, effects by matchName, keyframed properties) or the render queue (status, render flag, label, output file, templates). |
 | `ae_comp_new` | Creates a comp with size, duration, fps, background color and renderer; `replace` removes an existing comp of that name. |
-| `ae_layer_add` | Adds a solid, text (font, size, tracking, fill, stroke, justification, paragraph box), footage (imported on first use), rectangle shape, null, camera, light or adjustment layer with transform, 3D, timing, parent, blend mode and track matte. |
+| `ae_layer_add` | Adds a solid, text (font, size, tracking, fill, stroke, justification, paragraph box), footage (imported on first use), 3D model (`.glb`, `.gltf`, `.obj`; Advanced 3D comps, note 31), nested comp (`source`), rectangle shape, null, camera, light (point, spot, parallel, ambient, environment) or adjustment layer with transform, 3D, timing, parent, blend mode and track matte. |
 | `ae_keyframes` | Sets keyframes `[{time, value}]` on a property path with ease in/out or interpolation type, and/or an expression or an expression preset (wiggle, loop cycle or pingpong, inertial bounce, time-based rotation). Without keyframes, `easy_ease`, `ease`, `hold`, `spatial` (bezier or linear) and `rove` restyle the existing keys; `remove` drops all keys or those in a time range. |
 | `ae_effect_add` | Adds an effect by matchName and sets its parameters. |
-| `ae_text_animator` | Adds a text animator whose range selector opens over characters, words or lines; properties are opacity, position, tracking, scale, blur and rotation. |
+| `ae_text_animator` | Adds a text animator whose range selector opens over characters, words or lines (opacity, position, tracking, scale, blur, rotation), or `animators` with fill and stroke color, stroke width, skew, character offset and per-character 3D rotation and several selectors per animator: range (shape, ease high and low, based on characters, words or lines), wiggly and expression. `path` sets text on a path from a layer mask with first and last margin (note 28). |
 | `ae_footage_replace` | Replaces a footage item's source file in place (`item.replace`); every layer using the item updates. |
-| `ae_render_queue_set` | Adds comps to the render queue with render settings and output module templates, file, time span (`work_area`, `comp` or `{start, duration}`) and the output settings scripts can set (resize and quality, crop, audio on/off/auto, sample rate, channels, bit depth); sets render on/off and comp label, and lists the queue with each entry's span and settings. `locked` is render off with label 0. Format, channels, depth and color are refused (note 22). |
+| `ae_render_queue_set` | Adds comps to the render queue with render settings and output module templates, file, time span (`work_area`, `comp` or `{start, duration}`) and the output settings scripts can set (resize and quality, crop, audio on/off/auto, sample rate, channels, bit depth); sets render on/off and comp label, duplicates or removes entries, sets render settings (quality, resolution, proxy use, effects, motion blur, frame blending, frame rate; note 32), and lists the queue with each entry's span, output and render settings. `locked` is render off with label 0. Format, channels, depth and color are refused (note 22). |
 | `ae_presets` | Lists render settings templates, output module templates (read from a render queue item) and installed `.ffx` animation presets by category and name; `filter` narrows the presets. |
 | `ae_preset_apply` | Refuses: `layer.applyPreset` exits headless After Effects (note 12). It still resolves the preset name or path first. |
 | `ae_transitions` | Lists the transition kinds and whether this install has each effect. |
@@ -58,6 +58,10 @@ The server speaks MCP over stdio. Client configuration:
 | `ae_collect` | Copies every used footage file into a folder, relinks each item there with `item.replace`, saves to `project`, and reports the counts and items still missing; solids and image sequences are skipped. |
 | `ae_audio` | Sets an audio layer's Audio Levels in dB (static or keyed), fade in and out by duration (from -100 dB) and audio on or off. `convert_to_keyframes` refuses (note 25). |
 | `ae_time` | Enables time remap with keys `[{time, source_time}]`, freezes a frame at a source time, reverses a layer (stretch -100, keeping its earlier edge) and sets frame blending to none, mix or pixel motion (the comp switch is turned on). |
+| `ae_controls` | Adds named Expression Controls (slider, angle, point, 3D point, color, checkbox, layer, dropdown) to a layer, sets their values, and links properties on any layer to a control with a generated expression, optionally scaled or offset (note 29). |
+| `ae_project_settings` | Sets bits per channel (8, 16, 32), working color space, linear blending, display start frame, frames or timecode display, frame count start, expression engine and GPU acceleration (metal or software); reports every setting (note 30). |
+| `ae_sequence_layers` | Places existing layers and footage files end to end from a start time with an overlap, earlier items on top, and applies an `ae_transition` kind (default crossfade) at every join. |
+| `ae_essential_override` | Overrides the Essential Properties of one nested-comp layer by name (a string sets source text), so two instances of one comp carry different values (note 33). |
 
 `ae_render_queue_set` takes template names exactly as `ae_presets` lists them and refuses others. `clear`
 removes only existing entries of the comps named in `add`.
@@ -180,6 +184,30 @@ Measured with After Effects 2026 on macOS.
 27. Removing every key of Time Remap hides the property (`setValueAtTime` then fails), so new keys are set first and the
     old ones dropped. `layer.frameBlending` is read-only; `frameBlendingType` sets the mode (4012 none, 4013 mix,
     4014 pixel motion). A reversed layer shows between its out and in points.
+28. Text animator properties and selectors are added with `addProperty` on the animator's property group, and every
+    property reference goes invalid once a sibling is added, so the animator is fetched by index each time. Match
+    names: `ADBE Text Fill Color`, `ADBE Text Stroke Color`, `ADBE Text Stroke Width`, `ADBE Text Skew`,
+    `ADBE Text Character Offset`, `ADBE Text Rotation X`/`Y`; selectors `ADBE Text Selector` (range),
+    `ADBE Text Wiggly Selector` and `ADBE Text Expressible Selector` (the expression selector).
+29. A dropdown Expression Control is `ADBE Dropdown Control`; `setPropertyParameters` rebuilds the effect, so it is
+    fetched again from the end of the effect parade and renamed afterwards. Controls are told apart by their
+    parameter name (Slider, Angle, Point, 3D Point, Color, Checkbox, Layer, Menu).
+30. Every project setting above is settable, including 32 bits per channel with linear blending. A value other than
+    8, 16 or 32 bits is refused by After Effects; an unknown working space name is silently stored as `None`, so
+    `ae_project_settings` refuses names not in `listColorProfiles()`. `revision` and `numItems` are read-only. The
+    GPU types CUDA, OpenCL, DirectX and Vulkan are not offered; metal and software set.
+31. `.glb`, `.gltf` and `.obj` import as footage and `comp.layers.add` makes a 3D model layer (`ADBE 3D Model Layer`)
+    in an Advanced 3D comp; other renderers are refused. All three render with aerender; a 2-unit cube at
+    scale 8 is about 120 px wide in a 640x360 comp and fills the frame at 100%. `LightType.ENVIRONMENT` exists and an environment light is
+    added like any light. A model layer's out point defaults to the footage length, so it is set to the comp
+    duration.
+32. `RQItem.setSettings` accepts Quality (Wireframe, Draft, Best), Resolution (Full, Half, Third, Quarter), Proxy Use
+    (Use No Proxies, Use Comp Proxies Only, Use All Proxies), Effects (All On, All Off, Current Settings), Motion
+    Blur and Frame Blending (On for Checked Layers, Off for All Layers, Current Settings). `Frame Rate` itself is
+    refused; setting the number `Use this frame rate` switches the mode. `RQItem.duplicate()` and `remove()` work.
+    An aerender at half resolution and 12 fps wrote 160x90 at 12 fps with 24 frames.
+33. A nested comp layer exposes `layer.essentialProperty` as a group named Essential Properties whose properties
+    carry the names given in `ae_essential_graphics`; setting a text property takes a `TextDocument`.
 
 ## Development
 

@@ -13,7 +13,8 @@ TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effect
          "ae_footage_replace", "ae_render_queue_set", "ae_presets", "ae_preset_apply", "ae_transition",
          "ae_transitions", "ae_project", "ae_layer_set", "ae_text_set", "ae_layer_edit", "ae_comp_set",
          "ae_import", "ae_markers", "ae_frame", "ae_shape_add", "ae_mask", "ae_effects", "ae_camera", "ae_essential_graphics", "ae_mogrt_export",
-         "ae_template_render", "ae_collect", "ae_audio", "ae_time"}
+         "ae_template_render", "ae_collect", "ae_audio", "ae_time",
+         "ae_controls", "ae_project_settings", "ae_sequence_layers", "ae_essential_override"}
 
 
 class ProtocolTest(unittest.IsolatedAsyncioTestCase):
@@ -156,6 +157,35 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_time", base, "at least one"),
             ("ae_time", {**base, "freeze_at": 1, "remap_keys": [{"time": 0, "source_time": 1}]}, "not both"),
             ("ae_time", {**base, "frame_blending": "blur"}, "frame_blending"),
+        ]
+        async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
+            await client.initialize()
+            for name, arguments, message in calls:
+                reply = await client.call_tool(name, arguments)
+                self.assertTrue(reply.is_error, (name, arguments))
+                self.assertIn(message, reply.content[0].text, (name, arguments))
+
+    async def test_scene_building_tools_refuse_bad_input_before_calling_after_effects(self):
+        params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
+        base = {"project": "/x.aep", "comp": "a", "layer": 1}
+        model = {"comp": "a", "kind": "model", "name": "m", "file": "/m.stl"}
+        calls = [
+            ("ae_text_animator", base, "at least one animator"),
+            ("ae_controls", base, "controls or links"),
+            ("ae_project_settings", {"project": "/x.aep"}, "at least one"),
+            ("ae_project_settings", {"project": "/x.aep", "bits_per_channel": 12}, "bits_per_channel"),
+            ("ae_sequence_layers", {"project": "/x.aep", "comp": "a", "items": [{"layer": 1, "file": "/a.mov"}]},
+             "a layer or a file"),
+            ("ae_sequence_layers", {"project": "/x.aep", "comp": "a", "items": [{"layer": 1}],
+                                    "transition": {"kind": "crossfade"}}, "needs seconds"),
+            ("ae_sequence_layers", {"project": "/x.aep", "comp": "a", "items": [{"layer": 1}],
+                                    "overlap": 1, "transition": {"kind": "nope"}}, "Unknown transition"),
+            ("ae_essential_override", {**base, "values": {}}, "values"),
+            ("ae_layer_add", {"project": "/x.aep", "layer": model}, ".glb, .gltf or .obj"),
+            ("ae_layer_add", {"project": "/x.aep", "layer": {"comp": "a", "kind": "comp", "name": "n"}},
+             "needs source"),
+            ("ae_render_queue_set", {"project": "/x.aep", "update": [{"index": 1, "duplicate": True, "remove": True}]},
+             "cannot be combined"),
         ]
         async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
             await client.initialize()
