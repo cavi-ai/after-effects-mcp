@@ -3,7 +3,7 @@
 import asyncio
 from typing import Annotated, Literal
 
-from cavi_mcp_core.server import READ_ONLY, WRITES
+from cavi_mcp_core.server import DESTRUCTIVE, READ_ONLY, WRITES
 from pydantic import Field
 
 from .. import edit, host, models
@@ -19,7 +19,7 @@ async def ae_inspect(project: str, scope: Literal["project", "comp", "queue"] = 
     return await scene("ae_inspect", project, {"scope": scope, "comp": comp})
 
 
-@mcp.tool(annotations=WRITES)
+@mcp.tool(annotations=DESTRUCTIVE)
 async def ae_project(action: Literal["open", "save", "save_as", "info", "reduce", "remove_unused", "consolidate"],
                      path: str | None = None, discard: bool = False, overwrite: bool = False,
                      comps: list[str] = []) -> models.ProjectState:

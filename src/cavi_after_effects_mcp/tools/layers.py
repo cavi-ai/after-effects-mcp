@@ -2,7 +2,7 @@
 
 from typing import Annotated, Any, Literal
 
-from cavi_mcp_core.server import WRITES
+from cavi_mcp_core.server import DESTRUCTIVE, WRITES
 from pydantic import Field
 
 from .. import edit, host, models
@@ -26,7 +26,7 @@ from ..models import (
 )
 
 
-@mcp.tool(annotations=WRITES)
+@mcp.tool(annotations=DESTRUCTIVE)
 async def ae_comp_new(project: str, name: str, width: Annotated[int, Field(ge=4, le=30000)],
                       height: Annotated[int, Field(ge=4, le=30000)],
                       duration: Annotated[float, Field(gt=0, le=10800)],
@@ -98,7 +98,7 @@ async def ae_layer_set(project: str, comp: str, layer: models.Layer, name: str |
     return await scene("ae_layer_set", project, args)
 
 
-@mcp.tool(annotations=WRITES)
+@mcp.tool(annotations=DESTRUCTIVE)
 async def ae_layer_edit(project: str, comp: str, layers: Annotated[list[models.Layer], Field(min_length=1)],
                         action: Literal["duplicate", "delete", "reorder", "split", "precompose"],
                         time: Annotated[float, Field(ge=0)] | None = None,

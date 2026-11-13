@@ -106,10 +106,6 @@ class FrameFileTest(unittest.TestCase):
                 edit.to_png(Path(folder) / "none.tif", Path(folder) / "out.png")
 
 
-if __name__ == "__main__":
-    unittest.main()
-
-
 class CrashingCallsTest(unittest.TestCase):
     def test_scripts_calling_known_aborting_functions_are_refused(self):
         with tempfile.TemporaryDirectory() as folder:

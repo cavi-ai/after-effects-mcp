@@ -6,7 +6,7 @@ from typing import Annotated, Any, Literal
 
 from cavi_adobe_mcp import native_media
 from cavi_adobe_mcp.config import workspace
-from cavi_mcp_core.server import WRITES
+from cavi_mcp_core.server import DESTRUCTIVE, WRITES
 from pydantic import Field
 
 from .. import edit, host, models
@@ -14,7 +14,7 @@ from ..app import mcp, scene
 from ..models import Output, QueueAdd, QueueUpdate
 
 
-@mcp.tool(annotations=WRITES)
+@mcp.tool(annotations=DESTRUCTIVE)
 async def ae_render_queue(project: str, outputs: Annotated[list[Output], Field(min_length=1)],
                           render_settings: str = "Best Settings",
                           output_module: str = "High Quality") -> models.Render:
@@ -59,7 +59,7 @@ async def ae_frame(project: str, comp: str, times: Annotated[list[float], Field(
     return {"project": project, "comp": comp, "frames": frames}
 
 
-@mcp.tool(annotations=WRITES)
+@mcp.tool(annotations=DESTRUCTIVE)
 async def ae_export_frames(project: str, comp: str, directory: str, start: Annotated[float, Field(ge=0)] = 0,
                            duration: Annotated[float, Field(gt=0)] | None = None,
                            step: Annotated[int, Field(ge=1, le=240)] = 1, alpha: bool = False,
@@ -80,7 +80,7 @@ async def ae_export_frames(project: str, comp: str, directory: str, start: Annot
     return {"project": project, "comp": comp, "directory": directory, **result}
 
 
-@mcp.tool(annotations=WRITES)
+@mcp.tool(annotations=DESTRUCTIVE)
 async def ae_template_render(template: str, project: str, renders: Annotated[list[models.RenderTarget], Field(min_length=1)],
                              texts: list[models.TextEdit] = [], footage: dict[str, str] = {},
                              discard: bool = False) -> models.TemplateRendered:

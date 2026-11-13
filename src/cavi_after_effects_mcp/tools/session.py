@@ -3,7 +3,7 @@
 import asyncio
 from typing import Annotated, Any
 
-from cavi_mcp_core.server import READ_ONLY, WRITES
+from cavi_mcp_core.server import DESTRUCTIVE, READ_ONLY, WRITES
 from pydantic import Field
 
 from .. import host, models
@@ -23,7 +23,7 @@ async def ae_launch() -> models.Status:
     return await asyncio.to_thread(host.launch)
 
 
-@mcp.tool(annotations=WRITES)
+@mcp.tool(annotations=DESTRUCTIVE)
 async def ae_script(script: str, project: str, args: dict[str, Any] | None = None,
                     timeout: Annotated[int, Field(ge=10, le=3600)] = 900) -> models.Script:
     """Run a .jsx with global CAVI_ARGS; it calls caviReport(obj) and the project saves to `project` (.aep).

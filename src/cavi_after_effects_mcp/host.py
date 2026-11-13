@@ -126,9 +126,11 @@ def do_script(code, timeout):
         if not headless:
             launch()
             headless, _ = processes()
+        # The terminology of DoScript compiles only against a literal application name.
+        name = application().stem.replace("\\", "\\\\").replace('"', '\\"')
         command = ["osascript", "-e", "on run argv", "-e", f"with timeout of {timeout} seconds",
-                   "-e", 'tell application (item 2 of argv) to set answer to DoScript (item 1 of argv)',
-                   "-e", "end timeout", "-e", "return answer", "-e", "end run", code, application().stem]
+                   "-e", f'tell application "{name}" to set answer to DoScript (item 1 of argv)',
+                   "-e", "end timeout", "-e", "return answer", "-e", "end run", code]
         returncode, out, err = run_watched(command, timeout + 30, headless[0])
     if returncode or out.strip() != "0":
         raise RuntimeError("After Effects script failed: " + (err.strip() or out.strip() or f"exit {returncode}"))
