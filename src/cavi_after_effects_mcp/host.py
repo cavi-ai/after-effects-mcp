@@ -161,6 +161,43 @@ def run_template(name, project, args, timeout=300):
     return run_script(JSX / f"{name}.jsx", project, args, timeout)
 
 
+TRANSITIONS = {
+    "linear_wipe": "ADBE Linear Wipe", "radial_wipe": "ADBE Radial Wipe", "block_dissolve": "ADBE Block Dissolve",
+    "gradient_wipe": "ADBE Gradient Wipe", "venetian_blinds": "ADBE Venetian Blinds",
+    "cc_radial_scale_wipe": "CC Radial ScaleWipe", "cc_twister": "CC Twister", "cc_glass_wipe": "CC Glass Wipe",
+    "cc_image_wipe": "CC Image Wipe", "cc_jaws": "CC Jaws", "cc_light_wipe": "CC Light Wipe",
+    "cc_line_sweep": "CC Line Sweep", "cc_grid_wipe": "CC Grid Wipe", "cc_page_turn": "CC Page Turn",
+    "cc_warpomatic": "CC WarpoMatic",
+}
+BUILT_IN_TRANSITIONS = ("crossfade", "dip")
+
+
+def animation_presets(root=None, text=""):
+    """Installed .ffx animation presets as {category, name, path}, optionally filtered by ``text``."""
+    root = Path(root) if root else after_effects() / "Presets"
+    found = []
+    for path in sorted(root.rglob("*.ffx")):
+        category = path.parent.relative_to(root).as_posix()
+        if text.lower() in f"{category} {path.stem}".lower():
+            found.append({"category": category, "name": path.stem, "path": str(path)})
+    return found
+
+
+def resolve_preset(preset, root=None):
+    """An absolute .ffx path, or a preset name (optionally "Category/Name") found in the presets folder."""
+    if Path(preset).expanduser().is_absolute():
+        path = Path(preset).expanduser()
+        if path.suffix.lower() != ".ffx" or not path.is_file():
+            raise ValueError(f"No .ffx preset at {path}")
+        return path
+    matches = [p for p in animation_presets(root)
+               if preset in (p["name"], f"{p['category']}/{p['name']}")]
+    if len(matches) != 1:
+        raise ValueError(f"Preset {preset!r} matches {len(matches)} installed presets; "
+                         "use Category/Name or an absolute path (see ae_presets)")
+    return Path(matches[0]["path"])
+
+
 def ffprobe():
     found = shutil.which("ffprobe", path=os.environ.get("PATH", "") + ":/opt/homebrew/bin:/usr/local/bin")
     if not found:

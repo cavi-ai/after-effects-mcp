@@ -36,7 +36,7 @@ function describeLayer(layer) {
     }
     keyed(layer, "", found);
     return {index: layer.index, name: layer.name, type: layerType(layer), in_point: layer.inPoint,
-        out_point: layer.outPoint, three_d: layer.threeDLayer === true, parent: layer.parent ? layer.parent.name : null,
+        out_point: layer.outPoint, three_d: caviIs3D(layer), parent: layer.parent ? layer.parent.name : null,
         enabled: layer.enabled, effects: effects, keyframed: found};
 }
 

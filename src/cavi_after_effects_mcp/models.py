@@ -122,3 +122,13 @@ class Footage(Script):
 
 class Queue(Script):
     queue: list[dict[str, Any]]
+
+
+class Presets(Script):
+    render_settings: list[str]
+    output_modules: list[str]
+    animation_presets: list[dict[str, str]]
+
+
+class Transitions(Result):
+    kinds: list[dict[str, Any]]

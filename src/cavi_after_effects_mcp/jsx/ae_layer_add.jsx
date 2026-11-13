@@ -91,7 +91,7 @@ function textLayer(comp, a) {
         layer.setTrackMatte(caviLayer(comp, a.track_matte.layer),
             caviEnum(TrackMatteType, a.track_matte.type, "track matte type"));
     }
-    caviReport({comp: comp.name, layer: {index: layer.index, name: layer.name, kind: kind, three_d: layer.threeDLayer === true,
+    caviReport({comp: comp.name, layer: {index: layer.index, name: layer.name, kind: kind, three_d: caviIs3D(layer),
         in_point: layer.inPoint, out_point: layer.outPoint, parent: layer.parent ? layer.parent.name : null},
         errors: []});
 })();

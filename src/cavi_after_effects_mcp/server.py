@@ -178,11 +178,64 @@ async def ae_footage_replace(project: str, item: str, file: str) -> models.Foota
 @mcp.tool(annotations=WRITES)
 async def ae_render_queue_set(project: str, add: list[QueueAdd] = [], update: list[QueueUpdate] = [],
                               clear: bool = False) -> models.Queue:
-    """Add comps to the render queue with output module and file, set render on/off and comp label, and list it."""
+    """Add comps to the render queue (template names as ae_presets lists them), set render on/off and comp label, and list it. clear first removes only entries of the comps in add."""
     for entry in add:
         host.absolute(entry.file)
+    if clear and not add:
+        raise ValueError("clear removes the queue entries of the comps in add; add none to clear")
     args = {"add": [a.model_dump() for a in add], "update": [u.model_dump() for u in update], "clear": clear}
     return await scene("ae_render_queue_set", project, args)
+
+
+@mcp.tool(annotations=READ_ONLY)
+async def ae_presets(project: str, filter: str = "", limit: Annotated[int, Field(ge=1, le=1000)] = 200
+                     ) -> models.Presets:
+    """List render settings templates, output module templates and installed .ffx animation presets (filter matches category and name)."""
+    report = await asyncio.to_thread(host.run_template, "ae_presets", project, {}, 120)
+    found = await asyncio.to_thread(host.animation_presets, None, filter)
+    return {"project": project, "report": report, "render_settings": report["render_settings"],
+            "output_modules": report["output_modules"], "animation_presets": found[:limit],
+            "preset_count": len(found)}
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_preset_apply(project: str, comp: str, layer: models.Layer, preset: str,
+                          time: Annotated[float, Field(ge=0)] = 0) -> models.Script:
+    """Apply an animation preset (name, Category/Name or absolute .ffx path) to a layer at `time` seconds."""
+    path = await asyncio.to_thread(host.resolve_preset, preset)
+    return await scene("ae_preset_apply", project, {"comp": comp, "layer": layer, "path": str(path), "time": time})
+
+
+@mcp.tool(annotations=READ_ONLY)
+async def ae_transitions(project: str) -> models.Transitions:
+    """List the transition kinds this install has: effect-based wipes and dissolves, crossfade and dip."""
+    report = await asyncio.to_thread(host.run_template, "ae_transitions", project,
+                                     {"match_names": list(host.TRANSITIONS.values())}, 120)
+    have = {e["match_name"]: e["available"] for e in report["effects"]}
+    kinds = [{"kind": k, "match_name": m, "available": have.get(m, False)} for k, m in host.TRANSITIONS.items()]
+    kinds += [{"kind": k, "match_name": None, "available": True} for k in host.BUILT_IN_TRANSITIONS]
+    return {"project": project, "kinds": kinds}
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_transition(project: str, comp: str, kind: str, layer: models.Layer | None = None,
+                        edge: Literal["in", "out"] = "out", from_layer: models.Layer | None = None,
+                        to_layer: models.Layer | None = None, seconds: Annotated[float, Field(gt=0)] | None = None,
+                        frames: Annotated[int, Field(ge=1)] | None = None, color: Color = [0, 0, 0],
+                        ease: Ease | None = Ease()) -> models.Script:
+    """Transition on one layer's in/out point (`layer`, `edge`) or between `from_layer` and `to_layer` (starts at to_layer's in point). Kinds: see ae_transitions."""
+    if kind not in host.TRANSITIONS and kind not in host.BUILT_IN_TRANSITIONS:
+        raise ValueError(f"Unknown transition {kind}; see ae_transitions")
+    if (seconds is None) == (frames is None):
+        raise ValueError("Give seconds or frames, not both")
+    if layer is None and (from_layer is None or to_layer is None):
+        raise ValueError("Give layer, or from_layer and to_layer")
+    if layer is not None and (from_layer is not None or to_layer is not None):
+        raise ValueError("Give layer, or from_layer and to_layer, not both")
+    args = {"comp": comp, "kind": kind, "layer": layer, "edge": edge, "from_layer": from_layer,
+            "to_layer": to_layer, "seconds": seconds, "frames": frames, "color": color,
+            "match_name": host.TRANSITIONS.get(kind), "ease": ease.model_dump() if ease else None}
+    return await scene("ae_transition", project, args)
 
 
 def main():

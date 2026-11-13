@@ -82,5 +82,36 @@ class WatchedCallTest(unittest.TestCase):
         self.assertLess(time.monotonic() - started, 10)
 
 
+class PresetTest(unittest.TestCase):
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp(prefix="ae-presets-"))
+        self.addCleanup(shutil.rmtree, self.root)
+        for path in ("Text/Fade Up.ffx", "Transitions - Wipes/Iris.ffx", "Legacy/Iris.ffx", "Text/readme.txt"):
+            (self.root / path).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / path).write_bytes(b"")
+
+    def test_presets_are_listed_by_category_and_name(self):
+        found = host.animation_presets(self.root)
+        self.assertEqual([(p["category"], p["name"]) for p in found],
+                         [("Legacy", "Iris"), ("Text", "Fade Up"), ("Transitions - Wipes", "Iris")])
+
+    def test_presets_are_filtered_by_text(self):
+        self.assertEqual([p["name"] for p in host.animation_presets(self.root, "wipes")], ["Iris"])
+
+    def test_preset_name_resolves_to_its_file(self):
+        self.assertEqual(host.resolve_preset("Fade Up", self.root), self.root / "Text/Fade Up.ffx")
+        self.assertEqual(host.resolve_preset("Legacy/Iris", self.root), self.root / "Legacy/Iris.ffx")
+
+    def test_ambiguous_or_unknown_preset_is_refused(self):
+        with self.assertRaisesRegex(ValueError, "matches 2"):
+            host.resolve_preset("Iris", self.root)
+        with self.assertRaisesRegex(ValueError, "matches 0"):
+            host.resolve_preset("Nope", self.root)
+
+    def test_absolute_preset_path_is_used_as_given(self):
+        path = self.root / "Text/Fade Up.ffx"
+        self.assertEqual(host.resolve_preset(str(path), self.root), path)
+
+
 if __name__ == "__main__":
     unittest.main()

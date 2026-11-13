@@ -140,3 +140,8 @@ function caviQueueItem(item, index) {
         label: item.comp.label, file: module.file ? module.file.fsName : null,
         output_module: module.name, templates: templates};
 }
+
+// Cameras and lights are always 3D, although threeDLayer reads false for them.
+function caviIs3D(layer) {
+    return layer.threeDLayer === true || layer instanceof CameraLayer || layer instanceof LightLayer;
+}

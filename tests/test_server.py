@@ -10,7 +10,8 @@ from mcp.client.stdio import stdio_client
 
 TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effects_render", "ae_inspect",
          "ae_comp_new", "ae_layer_add", "ae_keyframes", "ae_effect_add", "ae_text_animator",
-         "ae_footage_replace", "ae_render_queue_set"}
+         "ae_footage_replace", "ae_render_queue_set", "ae_presets", "ae_preset_apply", "ae_transition",
+         "ae_transitions"}
 
 
 class ProtocolTest(unittest.IsolatedAsyncioTestCase):
@@ -53,6 +54,25 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
                 reply = await client.call_tool(name, arguments)
                 self.assertTrue(reply.is_error, name)
                 self.assertIn(expected[name], reply.content[0].text, name)
+
+    async def test_transition_preset_and_queue_inputs_are_refused_before_calling_after_effects(self):
+        params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
+        base = {"project": "/x.aep", "comp": "a"}
+        calls = [
+            ("ae_transition", {**base, "kind": "spin", "layer": 1, "seconds": 1}, "Unknown transition"),
+            ("ae_transition", {**base, "kind": "crossfade", "layer": 1}, "seconds or frames"),
+            ("ae_transition", {**base, "kind": "crossfade", "layer": 1, "frames": 5, "seconds": 1},
+             "seconds or frames"),
+            ("ae_transition", {**base, "kind": "crossfade", "seconds": 1, "from_layer": 1}, "from_layer and to_layer"),
+            ("ae_preset_apply", {**base, "layer": 1, "preset": "/nope.ffx"}, "No .ffx preset"),
+            ("ae_render_queue_set", {"project": "/x.aep", "clear": True}, "clear removes"),
+        ]
+        async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
+            await client.initialize()
+            for name, arguments, message in calls:
+                reply = await client.call_tool(name, arguments)
+                self.assertTrue(reply.is_error, name)
+                self.assertIn(message, reply.content[0].text, name)
 
 
 if __name__ == "__main__":

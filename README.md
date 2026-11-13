@@ -36,6 +36,13 @@ The server speaks MCP over stdio. Client configuration:
 | `ae_text_animator` | Adds a text animator whose range selector opens over characters, words or lines; properties are opacity, position, tracking, scale, blur and rotation. |
 | `ae_footage_replace` | Replaces a footage item's source file in place (`item.replace`); every layer using the item updates. |
 | `ae_render_queue_set` | Adds comps to the render queue with output module template and file, sets render on/off and comp label, and lists the queue. `locked` is render off with label 0. |
+| `ae_presets` | Lists render settings templates, output module templates (read from a render queue item) and installed `.ffx` animation presets by category and name; `filter` narrows the presets. |
+| `ae_preset_apply` | Applies an animation preset (name, `Category/Name` or absolute `.ffx` path) to a layer at a time with `layer.applyPreset`. |
+| `ae_transitions` | Lists the transition kinds and whether this install has each effect. |
+| `ae_transition` | Keys Transition Completion of a wipe or dissolve effect, an opacity cross-fade or a dip to a color, between two layers (starting at the second layer's in point) or on one layer's in or out point; duration in seconds or frames. |
+
+`ae_render_queue_set` takes template names exactly as `ae_presets` lists them and refuses others. `clear`
+removes only existing entries of the comps named in `add`.
 
 `ae_script`, `ae_render_queue` and the scene tools take absolute paths. The scene tools run packaged
 templates in `src/cavi_after_effects_mcp/jsx/` through the script contract below, so each returns the
@@ -106,7 +113,12 @@ Measured with After Effects 2026 on macOS.
 8. `output_module` templates seen: `High Quality`, `High Quality with Alpha`, `Lossless`,
    `Lossless with Alpha`, `Alpha Only`, `H.264 - Match Render Settings - 15 Mbps`, `Photoshop`,
    `TIFF Sequence with Alpha`. Render queue status names are `QUEUED`, `UNQUEUED`, `DONE` and so on.
-9. `aerender` can crash mid-queue and still exit 0, so every output's frame count is checked.
+9. `ae_inspect` reports cameras and lights as 3D although their `threeDLayer` reads false.
+10. Completion runs 0 to 100 on the stock transition effects and 0 to 1 on some CC ones (CC Twister).
+    CC Line Sweep is not installed here.
+11. `aerender` skips a queue entry with render off, and renders the others in the saved project, so a
+    queue holding other comps renders them too.
+12. `aerender` can crash mid-queue and still exit 0, so every output's frame count is checked.
    A ProRes movie with a timecode track lists `nb_frames` twice in `ffprobe`; the first value is
    the video stream's.
 
