@@ -33,20 +33,13 @@ function shapeRect(comp, a) {
 
 function textLayer(comp, a) {
     var layer = a.box ? comp.layers.addBoxText(a.box, a.text) : comp.layers.addText(a.text), source, doc;
-    var just = {LEFT: ParagraphJustification.LEFT_JUSTIFY, CENTER: ParagraphJustification.CENTER_JUSTIFY,
-        RIGHT: ParagraphJustification.RIGHT_JUSTIFY, FULL: ParagraphJustification.FULL_JUSTIFY_LASTLINE_LEFT};
     source = layer.property("ADBE Text Properties").property("ADBE Text Document");
     doc = source.value;
     doc.resetCharStyle();
     doc.resetParagraphStyle();
-    doc.font = a.font;
-    doc.fontSize = a.size;
-    doc.applyFill = a.fill !== null;
-    if (a.fill) { doc.fillColor = a.fill; }
-    doc.applyStroke = a.stroke !== null;
-    if (a.stroke) { doc.strokeColor = a.stroke; doc.strokeWidth = a.stroke_width; }
-    doc.tracking = a.tracking;
-    doc.justification = caviEnum(just, a.justification, "justification");
+    doc.applyFill = false;
+    doc.applyStroke = false;
+    caviTextStyle(doc, a);
     source.setValue(doc);
     return layer;
 }

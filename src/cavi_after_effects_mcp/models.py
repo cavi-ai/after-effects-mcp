@@ -132,3 +132,73 @@ class Presets(Script):
 
 class Transitions(Result):
     kinds: list[dict[str, Any]]
+
+
+class ProjectState(Script):
+    action: Literal["open", "save", "save_as", "info"]
+    path: str | None
+    previous: str | None
+    items: int
+    comps: int
+    footage: int
+
+
+class LayerChanged(Script):
+    comp: str
+    layer: dict[str, Any]
+    properties_set: list[str]
+    values: dict[str, Any]
+
+
+class TextChanged(Script):
+    comp: str
+    layer: str
+    text: str
+    animators: int
+
+
+class LayersEdited(Script):
+    comp: str
+    action: Literal["duplicate", "delete", "reorder", "split", "precompose"]
+    layers: list[Any]
+    layer_count: int
+
+
+class CompChanged(Script):
+    comp: str
+    source: str
+    duplicated: bool
+    width: int
+    height: int
+    duration: float
+    fps: float
+
+
+class Imported(Script):
+    items: list[dict[str, Any]]
+
+
+class MarkerList(Script):
+    comp: str
+    count: int
+    markers: list[dict[str, Any]]
+
+
+class FramesRendered(Result):
+    project: str
+    comp: str
+    frames: list[dict[str, Any]]
+
+
+class BeatGrid(Model):
+    bpm: float = Field(gt=0, le=1000)
+    beats_per_bar: int = Field(4, ge=1, le=64)
+    start: float = Field(0, ge=0)
+    end: float = Field(gt=0, description="Seconds; the last beat falls before it")
+
+
+class MarkerSpec(Model):
+    time: float = Field(ge=0)
+    comment: str = ""
+    duration: float = Field(0, ge=0)
+    chapter: str | None = None

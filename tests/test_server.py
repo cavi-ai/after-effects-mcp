@@ -11,7 +11,8 @@ from mcp.client.stdio import stdio_client
 TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effects_render", "ae_inspect",
          "ae_comp_new", "ae_layer_add", "ae_keyframes", "ae_effect_add", "ae_text_animator",
          "ae_footage_replace", "ae_render_queue_set", "ae_presets", "ae_preset_apply", "ae_transition",
-         "ae_transitions"}
+         "ae_transitions", "ae_project", "ae_layer_set", "ae_text_set", "ae_layer_edit", "ae_comp_set",
+         "ae_import", "ae_markers", "ae_frame"}
 
 
 class ProtocolTest(unittest.IsolatedAsyncioTestCase):
@@ -73,6 +74,32 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
                 reply = await client.call_tool(name, arguments)
                 self.assertTrue(reply.is_error, name)
                 self.assertIn(message, reply.content[0].text, name)
+
+    async def test_edit_tools_refuse_bad_input_before_calling_after_effects(self):
+        params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
+        base = {"project": "/x.aep", "comp": "a", "layer": 1}
+        calls = [
+            ("ae_project", {"action": "open", "path": "/nope/missing.aep"}, "No project at"),
+            ("ae_project", {"action": "save_as"}, "needs a path"),
+            ("ae_project", {"action": "save_as", "path": "relative.aep"}, "absolute path"),
+            ("ae_layer_set", base, "at least one"),
+            ("ae_layer_set", {**base, "parent": 2, "no_parent": True}, "parent or no_parent"),
+            ("ae_text_set", base, "at least one"),
+            ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "split"}, "needs a time"),
+            ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "reorder"}, "needs move_to"),
+            ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "precompose"}, "needs a name"),
+            ("ae_comp_set", {"project": "/x.aep", "comp": "a"}, "at least one"),
+            ("ae_import", {"project": "/x.aep", "files": ["relative.png"]}, "absolute path"),
+            ("ae_markers", {"project": "/x.aep", "comp": "a"}, "markers or a beat grid"),
+            ("ae_markers", {"project": "/x.aep", "comp": "a", "grid": {"bpm": 120, "end": 4, "start": 4}}, "after start"),
+            ("ae_frame", {"project": "/x.aep", "comp": "a", "times": [0], "directory": "relative"}, "absolute path"),
+        ]
+        async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
+            await client.initialize()
+            for name, arguments, message in calls:
+                reply = await client.call_tool(name, arguments)
+                self.assertTrue(reply.is_error, (name, arguments))
+                self.assertIn(message, reply.content[0].text, (name, arguments))
 
     async def test_preset_apply_is_refused_for_an_existing_preset(self):
         with tempfile.TemporaryDirectory() as folder:

@@ -8,9 +8,9 @@ from cavi_adobe_mcp.contracts import Result
 from cavi_mcp_core.server import READ_ONLY, WRITES, Server
 from pydantic import BaseModel, ConfigDict, Field
 
-from . import host, models
+from . import edit, host, models
 from . import recipe as recipes
-from .models import Color, Ease, Keyframe, LayerSpec, QueueAdd, QueueUpdate
+from .models import BeatGrid, Color, Ease, Keyframe, LayerSpec, MarkerSpec, QueueAdd, QueueUpdate, TrackMatte
 
 mcp = Server("cavi-after-effects", package="cavi-after-effects-mcp",
              instructions="Headless After Effects: ae_launch, then ae_script or the typed ae_* scene tools; ae_render_queue renders.")
@@ -238,6 +238,146 @@ async def ae_transition(project: str, comp: str, kind: str, layer: models.Layer 
             "to_layer": to_layer, "seconds": seconds, "frames": frames, "color": color,
             "match_name": host.TRANSITIONS.get(kind), "ease": ease.model_dump() if ease else None}
     return await scene("ae_transition", project, args)
+
+
+def given(**fields):
+    if all(v is None for v in fields.values()):
+        raise ValueError("Give at least one of: " + ", ".join(fields))
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_project(action: Literal["open", "save", "save_as", "info"], path: str | None = None,
+                     discard: bool = False, overwrite: bool = False) -> models.ProjectState:
+    """Open a saved .aep in the headless instance, save it, save it under a new path, or report the open project's path. Open refuses unsaved changes unless discard; save_as refuses an existing file unless overwrite."""
+    if action in ("open", "save_as") and not path:
+        raise ValueError(f"{action} needs a path")
+    target = host.absolute(path, ".aep") if path else host.CURRENT[0]
+    if action == "open" and not target.is_file():
+        raise ValueError(f"No project at {target}")
+    if action in ("save", "info") and target is None:
+        raise ValueError(f"{action} needs a path until a project has been used in this session")
+    report = await asyncio.to_thread(edit.project_op, {"action": action, "path": str(target) if target else None,
+                                                       "discard": discard, "overwrite": overwrite}, target)
+    return {"project": report["path"] or "", "report": report, **{k: v for k, v in report.items() if k != "errors"}}
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_layer_set(project: str, comp: str, layer: models.Layer, name: str | None = None,
+                       enabled: bool | None = None, solo: bool | None = None, shy: bool | None = None,
+                       locked: bool | None = None, label: Annotated[int, Field(ge=0, le=16)] | None = None,
+                       in_point: float | None = None, out_point: float | None = None,
+                       start_time: float | None = None, stretch: Annotated[float, Field(ge=-9900, le=9900)] | None = None,
+                       blend_mode: str | None = None, parent: models.Layer | None = None, no_parent: bool = False,
+                       three_d: bool | None = None, motion_blur: bool | None = None,
+                       track_matte: TrackMatte | Literal["none"] | None = None,
+                       properties: dict[str, Any] | None = None) -> models.LayerChanged:
+    """Change an existing layer: switches, label, timing, stretch percent, blend mode, parent, 3D, motion blur, track matte. `properties` sets static values by path ("position", "Transform/Opacity", "Geometry Options/Extrusion Depth", "Effects/Glow/Glow Threshold" or match names)."""
+    given(name=name, enabled=enabled, solo=solo, shy=shy, locked=locked, label=label, in_point=in_point,
+          out_point=out_point, start_time=start_time, stretch=stretch, blend_mode=blend_mode, parent=parent,
+          three_d=three_d, motion_blur=motion_blur, track_matte=track_matte, properties=properties,
+          no_parent=True if no_parent else None)
+    if stretch == 0:
+        raise ValueError("stretch cannot be 0")
+    if no_parent and parent is not None:
+        raise ValueError("Give parent or no_parent, not both")
+    args = {"comp": comp, "layer": layer, "name": name, "enabled": enabled, "solo": solo, "shy": shy,
+            "locked": locked, "label": label, "in_point": in_point, "out_point": out_point,
+            "start_time": start_time, "stretch": stretch, "blend_mode": blend_mode, "parent": parent,
+            "no_parent": no_parent, "three_d": three_d, "motion_blur": motion_blur,
+            "track_matte": track_matte.model_dump() if isinstance(track_matte, TrackMatte) else track_matte,
+            "properties": properties or {}}
+    return await scene("ae_layer_set", project, args)
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_text_set(project: str, comp: str, layer: models.Layer, text: str | None = None,
+                      font: str | None = None, size: Annotated[float, Field(gt=0)] | None = None,
+                      fill: Color | None = None, stroke: Color | None = None,
+                      stroke_width: Annotated[float, Field(ge=0)] | None = None, tracking: float | None = None,
+                      leading: float | None = None,
+                      justification: Literal["left", "center", "right", "full"] | None = None,
+                      box: Annotated[list[float], Field(min_length=2, max_length=2)] | None = None
+                      ) -> models.TextChanged:
+    """Replace the source text and/or style of an existing text layer; its animators and keyframes stay."""
+    style = {"text": text, "font": font, "size": size, "fill": fill, "stroke": stroke, "stroke_width": stroke_width,
+             "tracking": tracking, "leading": leading, "justification": justification, "box": box}
+    given(**style)
+    return await scene("ae_text_set", project, {"comp": comp, "layer": layer, **style})
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_layer_edit(project: str, comp: str, layers: Annotated[list[models.Layer], Field(min_length=1)],
+                        action: Literal["duplicate", "delete", "reorder", "split", "precompose"],
+                        time: Annotated[float, Field(ge=0)] | None = None,
+                        move_to: Literal["top", "bottom"] | Annotated[int, Field(ge=1)] | None = None,
+                        name: str | None = None) -> models.LayersEdited:
+    """Duplicate (name renames a single copy), delete, reorder (move_to top, bottom or a 1-based index), split at `time`, or precompose the layers into a comp called `name` with all attributes moved."""
+    if action == "split" and time is None:
+        raise ValueError("split needs a time")
+    if action == "reorder" and move_to is None:
+        raise ValueError("reorder needs move_to")
+    if action == "precompose" and not name:
+        raise ValueError("precompose needs a name")
+    args = {"comp": comp, "layers": layers, "action": action, "time": time, "move_to": move_to, "name": name}
+    return await scene("ae_layer_edit", project, args)
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_comp_set(project: str, comp: str, name: str | None = None,
+                      width: Annotated[int, Field(ge=4, le=30000)] | None = None,
+                      height: Annotated[int, Field(ge=4, le=30000)] | None = None,
+                      duration: Annotated[float, Field(gt=0, le=10800)] | None = None,
+                      fps: Annotated[float, Field(gt=0, le=240)] | None = None,
+                      work_area: Annotated[list[float], Field(min_length=2, max_length=2)] | None = None,
+                      background: Color | None = None, renderer: str | None = None,
+                      motion_blur: bool | None = None, frame_blending: bool | None = None,
+                      duplicate_as: str | None = None) -> models.CompChanged:
+    """Change a comp's name, size, fps, duration, work area [start, duration], background, renderer and motion blur and frame blending switches. duplicate_as copies the comp first and changes the copy."""
+    given(name=name, width=width, height=height, duration=duration, fps=fps, work_area=work_area,
+          background=background, renderer=renderer, motion_blur=motion_blur, frame_blending=frame_blending,
+          duplicate_as=duplicate_as)
+    args = {"comp": comp, "name": name, "width": width, "height": height, "duration": duration, "fps": fps,
+            "work_area": work_area, "background": background, "renderer": renderer, "motion_blur": motion_blur,
+            "frame_blending": frame_blending, "duplicate_as": duplicate_as}
+    return await scene("ae_comp_set", project, args)
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_import(project: str, files: Annotated[list[str], Field(min_length=1)], folder: str | None = None,
+                    sequence: bool = False,
+                    import_as: Literal["footage", "comp", "comp_cropped"] = "footage",
+                    alpha: Literal["ignore", "straight", "premultiplied"] | None = None,
+                    conform_fps: Annotated[float, Field(gt=0, le=240)] | None = None,
+                    loop: Annotated[int, Field(ge=1)] | None = None) -> models.Imported:
+    """Import files (an image sequence from its first frame with `sequence`, a layered PSD or AI as a comp with `import_as`) into the named project folder, then set alpha mode, conform frame rate and loop count."""
+    paths = [str(host.absolute(f)) for f in files]
+    args = {"files": paths, "folder": folder, "sequence": sequence, "as": import_as, "alpha": alpha,
+            "conform_fps": conform_fps, "loop": loop}
+    return await scene("ae_import", project, args)
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_markers(project: str, comp: str, layer: models.Layer | None = None,
+                     markers: list[MarkerSpec] = [], grid: BeatGrid | None = None, clear: bool = False
+                     ) -> models.MarkerList:
+    """Set comp markers (or `layer` markers) with comment, duration and chapter, and/or a beat grid from bpm and beats per bar. clear removes the existing ones first."""
+    if not markers and grid is None:
+        raise ValueError("Give markers or a beat grid")
+    if grid is not None and grid.end <= grid.start:
+        raise ValueError("The beat grid end must be after start")
+    listed = [m.model_dump() for m in markers]
+    if grid is not None:
+        listed += edit.beat_grid(grid.bpm, grid.beats_per_bar, grid.start, grid.end)
+    return await scene("ae_markers", project, {"comp": comp, "layer": layer, "markers": listed, "clear": clear})
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_frame(project: str, comp: str, times: Annotated[list[float], Field(min_length=1, max_length=50)],
+                   directory: str) -> models.FramesRendered:
+    """Render the frame at each time (seconds) of a comp to PNG in `directory` through aerender and a temporary render queue entry; returns the file paths."""
+    host.absolute(directory)
+    frames = await asyncio.to_thread(edit.render_frames, project, comp, times, directory)
+    return {"project": project, "comp": comp, "frames": frames}
 
 
 def main():

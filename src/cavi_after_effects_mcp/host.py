@@ -13,6 +13,7 @@ from cavi_mcp_core.proc import diagnostics, run_sync
 RUNNER = Path(__file__).with_name("runner.jsx")
 JSX = Path(__file__).with_name("jsx")
 RENDER_TIMEOUT = 3600
+CURRENT = [None]  # the project the last call saved to
 
 
 def newest(pattern):
@@ -153,6 +154,7 @@ def run_script(script, project, args, timeout):
     report = project_report(project)
     if report.get("errors"):
         raise RuntimeError("After Effects script: " + "; ".join(map(str, report["errors"])))
+    CURRENT[0] = project
     return report
 
 

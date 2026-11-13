@@ -40,6 +40,14 @@ The server speaks MCP over stdio. Client configuration:
 | `ae_preset_apply` | Refuses: `layer.applyPreset` exits headless After Effects (note 12). It still resolves the preset name or path first. |
 | `ae_transitions` | Lists the transition kinds and whether this install has each effect. |
 | `ae_transition` | Keys Transition Completion of a wipe or dissolve effect, an opacity cross-fade or a dip to a color, between two layers (starting at the second layer's in point) or on one layer's in or out point; duration in seconds or frames. |
+| `ae_project` | Opens a saved `.aep` in the headless instance (`app.open`), saves it, saves it under a new path (`overwrite` to replace a file), or reports the open project's path and item counts. Open refuses while the open project has unsaved changes unless `discard`. |
+| `ae_layer_set` | Changes an existing layer found by comp and name or index: name, enabled, solo, shy, locked, label, in/out, start time, stretch percent, blend mode, parent (or `no_parent`), 3D, motion blur and track matte (or `none`). `properties` sets static values on any property path (transform, Geometry and Material options, light and camera options, effect parameters) and returns the values read back. |
+| `ae_text_set` | Replaces the source text and style (font, size, fill, stroke, stroke width, tracking, leading, justification, paragraph box) of an existing text layer; its animators and keyframes stay. |
+| `ae_layer_edit` | Duplicates, deletes, reorders (top, bottom or an index), splits at a time, or precomposes a list of layers into a named comp with all attributes moved. |
+| `ae_comp_set` | Sets a comp's name, size, fps, duration, work area, background, renderer and the motion blur and frame blending switches; `duplicate_as` copies the comp first and changes the copy. |
+| `ae_import` | Imports files, an image sequence (from its first frame) or a layered PSD/AI as a comp into a named project folder, then sets alpha mode, conform frame rate and loop count. |
+| `ae_markers` | Sets comp or layer markers with comment, duration and chapter, and a beat grid from bpm and beats per bar (comment `bar.beat`, chapter `Bar n` on each downbeat); `clear` removes the existing ones. |
+| `ae_frame` | Renders the frame at each given time of a comp to PNG through `aerender` and a temporary render queue entry that is removed afterwards; returns the file paths. |
 
 `ae_render_queue_set` takes template names exactly as `ae_presets` lists them and refuses others. `clear`
 removes only existing entries of the comps named in `add`.
@@ -124,6 +132,18 @@ Measured with After Effects 2026 on macOS.
 13. `aerender` can crash mid-queue and still exit 0, so every output's frame count is checked.
    A ProRes movie with a timecode track lists `nb_frames` twice in `ffprobe`; the first value is
    the video stream's.
+14. After Effects opens a saved project headless with `app.open`, and `app.project.dirty` is readable. A call that
+    fails saves its report into the open project, so `ae_project` sends refusals to a temporary project and a
+    refused open leaves the project on disk untouched.
+15. An output module's `Format` is read-only from scripts and no PNG template ships, so `ae_frame` renders the
+    `TIFF Sequence with Alpha` template and converts each frame with `sips`. The frames carry alpha: the comp
+    background color is not in them.
+16. A sequence output file with no `[#####]` in its name gets the frame number appended after the extension
+    (`f0_.tif00015`); `ae_frame` names its files `f<n>_[#####].tif`.
+17. A locked layer refuses every other change, so `ae_layer_set`
+    unlocks first and locks last. `setTrackMatte` switches the matte layer's video off (`enabled` false).
+18. `conformFrameRate` is refused for a still, `boxTextSize` for point text and `setValue` for a keyed property;
+    the calls fail with After Effects' message.
 
 ## Development
 
