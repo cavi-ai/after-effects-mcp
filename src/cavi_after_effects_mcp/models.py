@@ -464,3 +464,27 @@ class RenderTarget(Model):
     file: str = Field(min_length=1, description="Absolute output movie path")
     output_module: str = "High Quality"
     render_settings: str = "Best Settings"
+
+
+class RemapKey(Model):
+    time: float = Field(ge=0, description="Comp time")
+    source_time: float = Field(ge=0, description="Time in the layer's source")
+
+
+class AudioSet(Script):
+    comp: str
+    layer: str
+    audio_enabled: bool
+    keys: list[dict[str, Any]]
+
+
+class TimeSet(Script):
+    comp: str
+    layer: str
+    time_remap: bool
+    keys: list[dict[str, Any]]
+    stretch: float
+    in_point: float
+    out_point: float
+    visible_start: float
+    visible_end: float

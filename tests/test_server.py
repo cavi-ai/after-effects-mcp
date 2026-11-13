@@ -13,7 +13,7 @@ TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effect
          "ae_footage_replace", "ae_render_queue_set", "ae_presets", "ae_preset_apply", "ae_transition",
          "ae_transitions", "ae_project", "ae_layer_set", "ae_text_set", "ae_layer_edit", "ae_comp_set",
          "ae_import", "ae_markers", "ae_frame", "ae_shape_add", "ae_mask", "ae_effects", "ae_camera", "ae_essential_graphics", "ae_mogrt_export",
-         "ae_template_render", "ae_collect"}
+         "ae_template_render", "ae_collect", "ae_audio", "ae_time"}
 
 
 class ProtocolTest(unittest.IsolatedAsyncioTestCase):
@@ -138,6 +138,24 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_project", {"action": "reduce", "path": "/x.aep"}, "reduce needs comps"),
             ("ae_project", {"action": "remove_unused"}, "needs a path"),
             ("ae_collect", {"project": "/x.aep", "folder": "relative"}, "absolute path"),
+        ]
+        async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
+            await client.initialize()
+            for name, arguments, message in calls:
+                reply = await client.call_tool(name, arguments)
+                self.assertTrue(reply.is_error, (name, arguments))
+                self.assertIn(message, reply.content[0].text, (name, arguments))
+
+    async def test_audio_and_time_tools_refuse_bad_input_before_calling_after_effects(self):
+        params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
+        base = {"project": "/x.aep", "comp": "a", "layer": 1}
+        calls = [
+            ("ae_audio", {**base, "convert_to_keyframes": True}, "exits headless After Effects"),
+            ("ae_audio", base, "at least one"),
+            ("ae_audio", {**base, "level": -3, "level_keys": [{"time": 0, "value": -6}]}, "not both"),
+            ("ae_time", base, "at least one"),
+            ("ae_time", {**base, "freeze_at": 1, "remap_keys": [{"time": 0, "source_time": 1}]}, "not both"),
+            ("ae_time", {**base, "frame_blending": "blur"}, "frame_blending"),
         ]
         async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
             await client.initialize()

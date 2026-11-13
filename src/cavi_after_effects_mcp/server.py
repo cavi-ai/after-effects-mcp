@@ -515,6 +515,41 @@ async def ae_collect(project: str, folder: str) -> models.Collected:
     return await asyncio.to_thread(edit.collect, host.absolute(project, ".aep"), host.absolute(folder))
 
 
+@mcp.tool(annotations=WRITES)
+async def ae_audio(project: str, comp: str, layer: models.Layer, enabled: bool | None = None,
+                   level: float | Annotated[list[float], Field(min_length=2, max_length=2)] | None = None,
+                   level_keys: list[Keyframe] = [], fade_in: Annotated[float, Field(gt=0)] | None = None,
+                   fade_out: Annotated[float, Field(gt=0)] | None = None, convert_to_keyframes: bool = False
+                   ) -> models.AudioSet:
+    """Set an audio layer's Audio Levels in dB (static `level`, or keyed `level_keys` with [left, right] or one value), fade in and out by seconds (from -100 dB), and audio on or off."""
+    if convert_to_keyframes:
+        raise ValueError("Refused: Convert Audio to Keyframes (app.executeCommand of the menu command 4218) exits "
+                         "headless After Effects (measured twice); use ae_keyframes with an expression or keys")
+    given(enabled=enabled, level=level, level_keys=level_keys or None, fade_in=fade_in, fade_out=fade_out)
+    if level is not None and level_keys:
+        raise ValueError("Give level or level_keys, not both")
+    one = lambda v: [v, v] if isinstance(v, int | float) else v  # noqa: E731
+    keys = [{**k.model_dump(), "value": one(k.value)} for k in level_keys]
+    args = {"comp": comp, "layer": layer, "enabled": enabled, "level": one(level), "level_keys": keys,
+            "fade_in": fade_in, "fade_out": fade_out}
+    return await scene("ae_audio", project, args)
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_time(project: str, comp: str, layer: models.Layer, time_remap: bool | None = None,
+                  remap_keys: list[models.RemapKey] = [], freeze_at: Annotated[float, Field(ge=0)] | None = None,
+                  reverse: bool | None = None, frame_blending: Literal["none", "mix", "pixel_motion"] | None = None
+                  ) -> models.TimeSet:
+    """Time remap on or off with keys [{time, source_time}], a freeze frame at a source time, reverse (stretch -100, keeping the in point), and the layer's frame blending (none, mix, pixel_motion; the comp switch is turned on)."""
+    given(time_remap=time_remap, remap_keys=remap_keys or None, freeze_at=freeze_at, reverse=reverse,
+          frame_blending=frame_blending)
+    if freeze_at is not None and remap_keys:
+        raise ValueError("Give freeze_at or remap_keys, not both")
+    args = {"comp": comp, "layer": layer, "time_remap": time_remap, "remap_keys": [k.model_dump() for k in remap_keys],
+            "freeze_at": freeze_at, "reverse": reverse, "frame_blending": frame_blending}
+    return await scene("ae_time", project, args)
+
+
 def main():
     mcp.run(transport="stdio")
 

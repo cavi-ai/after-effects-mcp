@@ -56,6 +56,8 @@ The server speaks MCP over stdio. Client configuration:
 | `ae_mogrt_export` | Refuses: headless After Effects writes no `.mogrt` (note 23). |
 | `ae_template_render` | Opens a template `.aep`, sets text layers by name (text and style), replaces footage items by name, saves to `project`, and renders the named comps with `aerender` and frame checks. Other render queue entries are switched off. |
 | `ae_collect` | Copies every used footage file into a folder, relinks each item there with `item.replace`, saves to `project`, and reports the counts and items still missing; solids and image sequences are skipped. |
+| `ae_audio` | Sets an audio layer's Audio Levels in dB (static or keyed), fade in and out by duration (from -100 dB) and audio on or off. `convert_to_keyframes` refuses (note 25). |
+| `ae_time` | Enables time remap with keys `[{time, source_time}]`, freezes a frame at a source time, reverses a layer (stretch -100, keeping its earlier edge) and sets frame blending to none, mix or pixel motion (the comp switch is turned on). |
 
 `ae_render_queue_set` takes template names exactly as `ae_presets` lists them and refuses others. `clear`
 removes only existing entries of the comps named in `add`.
@@ -170,6 +172,14 @@ Measured with After Effects 2026 on macOS.
     list work, so `ae_essential_graphics` prepares the comp and the `.mogrt` has to be exported from a window.
 24. The scripting method is `app.project.consolidateFootage` (there is no `consolidateAllFootage`);
     `reduceProject` takes an array of comps and returns the number of removed items.
+25. `app.findMenuCommandId("Convert Audio to Keyframes")` returns 4218, and `app.executeCommand(4218)` on a selected
+    audio layer exits the headless instance (measured twice), so `ae_audio` refuses it.
+26. Audio Levels fades and levels are measured with `volumedetect` on a rendered movie with audio on: a 440 Hz tone at
+    -21.1 dB gave -27.1 dB in the middle at a -6 dB level, -82.5 dB in the first and last quarter second of a
+    0.5 s fade in and out, and -91 dB with the layer's audio off.
+27. Removing every key of Time Remap hides the property (`setValueAtTime` then fails), so new keys are set first and the
+    old ones dropped. `layer.frameBlending` is read-only; `frameBlendingType` sets the mode (4012 none, 4013 mix,
+    4014 pixel motion). A reversed layer shows between its out and in points.
 
 ## Development
 
