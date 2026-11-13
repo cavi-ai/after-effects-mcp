@@ -28,8 +28,20 @@ The server speaks MCP over stdio. Client configuration:
 | `ae_script` | Runs a `.jsx` file in the headless instance and returns its report (below). |
 | `ae_render_queue` | Runs `aerender` on a saved project's render queue, then checks each declared output movie's frame count with `ffprobe`. A movie that is missing, older than the render or short of frames is deleted and rendered once more on its own with `-comp`. |
 | `after_effects_render` | Renders one declared AEP composition range to a new PNG sequence and pins it as an animation media receipt. Paths are relative to `CAVI_ADOBE_WORKSPACE`. |
+| `ae_inspect` | Lists project items (comps with size, duration, fps, layer count and renderer; footage with file and missing flag; folders), one comp's layers (type, in/out, 3D, parent, effects by matchName, keyframed properties) or the render queue (status, render flag, label, output file, templates). |
+| `ae_comp_new` | Creates a comp with size, duration, fps, background color and renderer; `replace` removes an existing comp of that name. |
+| `ae_layer_add` | Adds a solid, text (font, size, tracking, fill, stroke, justification, paragraph box), footage (imported on first use), rectangle shape, null, camera, light or adjustment layer with transform, 3D, timing, parent, blend mode and track matte. |
+| `ae_keyframes` | Sets keyframes `[{time, value}]` on a property path with ease in/out or interpolation type, and/or an expression. |
+| `ae_effect_add` | Adds an effect by matchName and sets its parameters. |
+| `ae_text_animator` | Adds a text animator whose range selector opens over characters, words or lines; properties are opacity, position, tracking, scale, blur and rotation. |
+| `ae_footage_replace` | Replaces a footage item's source file in place (`item.replace`); every layer using the item updates. |
+| `ae_render_queue_set` | Adds comps to the render queue with output module template and file, sets render on/off and comp label, and lists the queue. `locked` is render off with label 0. |
 
-`ae_script` and `ae_render_queue` take absolute paths.
+`ae_script`, `ae_render_queue` and the scene tools take absolute paths. The scene tools run packaged
+templates in `src/cavi_after_effects_mcp/jsx/` through the script contract below, so each returns the
+template's report and fails on its `errors`. They share the open project and save it to `project`.
+Property paths are `position`, `scale`, `rotation`, `anchor`, `opacity` or match-name paths joined
+with `/`.
 
 ## Script contract
 
@@ -85,7 +97,16 @@ Measured with After Effects 2026 on macOS.
    `ADBE Calder` (Advanced 3D), `ADBE Ernst` (Cinema 4D).
 5. A full-frame Glow (`ADBE Glo2`) adjustment lifts dark blues: a dark navy solid gains about +50
    in the blue channel at threshold 70, in 8 and 16 bpc.
-6. `aerender` can crash mid-queue and still exit 0, so every output's frame count is checked.
+6. `ae_effect_add` on a 3D layer and `ae_layer_add` with `motion_blur` on a 3D rectangle shape are
+   refused with a message, before the call that would abort After Effects, while the comp renderer
+   is `ADBE Calder`.
+7. Every script call watches the headless pid: if After Effects exits during the call it fails at
+   once with that message instead of waiting for the timeout, and a call with no headless instance
+   fails asking for `ae_launch`.
+8. `output_module` templates seen: `High Quality`, `High Quality with Alpha`, `Lossless`,
+   `Lossless with Alpha`, `Alpha Only`, `H.264 - Match Render Settings - 15 Mbps`, `Photoshop`,
+   `TIFF Sequence with Alpha`. Render queue status names are `QUEUED`, `UNQUEUED`, `DONE` and so on.
+9. `aerender` can crash mid-queue and still exit 0, so every output's frame count is checked.
    A ProRes movie with a timecode track lists `nb_frames` twice in `ffprobe`; the first value is
    the video stream's.
 

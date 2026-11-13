@@ -1,6 +1,8 @@
 import shutil
 import subprocess
 import tempfile
+import threading
+import time
 import unittest
 from pathlib import Path
 
@@ -62,6 +64,22 @@ class ProjectReportTest(unittest.TestCase):
     def test_relative_script_path_is_refused(self):
         with self.assertRaisesRegex(ValueError, "absolute path"):
             host.run_script("build.jsx", self.root / "out.aep", {}, 60)
+
+
+class WatchedCallTest(unittest.TestCase):
+    def test_call_returns_its_output_while_after_effects_lives(self):
+        app = subprocess.Popen(["sleep", "30"])
+        self.addCleanup(app.kill)
+        self.assertEqual(host.run_watched(["echo", "0"], 30, app.pid), (0, "0\n", ""))
+
+    def test_call_ends_with_an_error_when_after_effects_dies_mid_call(self):
+        app = subprocess.Popen(["sleep", "30"])
+        self.addCleanup(app.kill)
+        threading.Timer(1, lambda: (app.kill(), app.wait())).start()
+        started = time.monotonic()
+        with self.assertRaisesRegex(RuntimeError, "exited during the call"):
+            host.run_watched(["sleep", "30"], 60, app.pid, interval=0.1)
+        self.assertLess(time.monotonic() - started, 10)
 
 
 if __name__ == "__main__":
