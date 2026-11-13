@@ -26,7 +26,7 @@ The server speaks MCP over stdio. Client configuration:
 | `ae_status` | Installed After Effects, its version, and running headless and UI pids. |
 | `ae_launch` | Starts one headless instance (`open -n -g -a ... --args -noui`) and waits until it answers `app.project.numItems`. Refuses while After Effects runs with its UI. |
 | `ae_script` | Runs a `.jsx` file in the headless instance and returns its report (below). |
-| `ae_render_queue` | Runs `aerender` on a saved project's render queue, then checks each declared output movie's frame count with `ffprobe`. A movie that is missing, older than the render or short of frames is deleted and rendered once more on its own with `-comp`. |
+| `ae_render_queue` | Runs `aerender` on a saved project's render queue, then checks each declared output movie's frame count with `ffprobe`. A movie that is missing, older than the render or short of frames is deleted and rendered once more on its own with `-comp`. If that still leaves no movie or a short one, the movie is made from `saveFrameToPng` frames and `ffmpeg` (`.mp4` H.264 or `.mov` ProRes, from frame 0 at the comp's frame rate); each output's `path` reports `aerender` or `saveFrameToPng` (note 39). |
 | `after_effects_render` | Renders one declared AEP composition range to a new PNG sequence and pins it as an animation media receipt. Paths are relative to `CAVI_ADOBE_WORKSPACE`. |
 | `ae_inspect` | Lists project items (comps with size, duration, fps, layer count and renderer; footage with file and missing flag; folders), one comp's layers (type, in/out, 3D, parent, effects by matchName, keyframed properties) or the render queue (status, render flag, label, output file, templates). |
 | `ae_comp_new` | Creates a comp with size, duration, fps, background color and renderer; `replace` removes an existing comp of that name. |
@@ -47,7 +47,7 @@ The server speaks MCP over stdio. Client configuration:
 | `ae_comp_set` | Sets a comp's name, size, fps, duration, work area, background, renderer and the motion blur and frame blending switches; `duplicate_as` copies the comp first and changes the copy. |
 | `ae_import` | Imports files, an image sequence (from its first frame) or a layered PSD/AI as a comp into a named project folder, then sets alpha mode, conform frame rate and loop count. |
 | `ae_markers` | Sets comp or layer markers with comment, duration and chapter, and a beat grid from bpm and beats per bar (comment `bar.beat`, chapter `Bar n` on each downbeat); `clear` removes the existing ones. |
-| `ae_frame` | Renders the frame at each given time of a comp to PNG through `aerender` and a temporary render queue entry that is removed afterwards; returns the file paths. The comp background color is composited in; `alpha` keeps transparency. |
+| `ae_frame` | Renders the frame at each given time of a comp to PNG with `saveFrameToPng`, falling back to `aerender` through a temporary render queue entry that is removed afterwards (`method: aerender` uses only that); returns the file paths. The comp background color is composited in; `alpha` keeps transparency. |
 | `ae_shape_add` | Adds a shape layer, or a group on an existing shape layer: rectangle (roundness), ellipse, polystar (star or polygon) or bezier path, with trim paths, round corners, offset paths, wiggle paths, merge paths, fill, stroke (cap, join, dashes), gradient fill and stroke (linear or radial), repeater and a group transform. |
 | `ae_mask` | Adds a mask to a layer or changes an existing one (index or name): rect, ellipse or points path, mode, feather, expansion, opacity, invert and a keyframed path. |
 | `ae_effects` | Lists the installed effects (`app.effects`) with category, display name and matchName; `filter` and `category` narrow them. |
@@ -66,7 +66,7 @@ The server speaks MCP over stdio. Client configuration:
 | `ae_expressions` | Lists every expression in a comp or on one layer with its property path, enabled state and error text; `remove_broken` clears the ones After Effects reports an error for. |
 | `ae_material` | Sets a 3D layer's material options (casts shadows, accepts shadows and lights, ambient, diffuse, specular, shininess, metal, reflection, transparency ...); an option the comp's renderer hides is refused by name (note 36). |
 | `ae_export_frames` | Writes a frame range (`start`, `duration`, every `step`-th frame) as `frame_00001.png` ... without aerender, optionally encoded with ffmpeg to H.264 `.mp4` or ProRes `.mov` (alpha with ProRes); the render path that needs no Dynamic Link (note 38). |
-| `ae_properties` | Reads a layer's property tree to a depth, or one property or group by path, as path, match name, value, key count and expression. |
+| `ae_properties` | Reads a layer's property tree to a depth, or one property or group by path, as path, match name, value, key count and expression; with `time` the value is the animated value at that time, expressions evaluated. |
 | `ae_organize` | Creates project folders (nested paths), renames items and moves items into folders; an item name shared by two items is refused. |
 
 `ae_render_queue_set` takes template names exactly as `ae_presets` lists them and refuses others. `clear`
@@ -234,6 +234,11 @@ Measured with After Effects 2026 on macOS.
 38. `ae_export_frames` calls `Comp.saveFrameToPng` once per frame in one script, then waits for the files, because
     the PNGs land after the script returns. A comp whose frames are 161x91 encodes to H.264 at 160x90 (even sizes
     only); ProRes 4444 keeps odd sizes and alpha.
+39. `saveFrameToPng` frames match aerender frames: the same frame of a classic 3D comp and of an Advanced 3D comp
+    (3D solids and a light) is pixel-identical (PSNR infinite), and a glb model layer under an environment light
+    differs by under one level (PSNR 78.6 dB). The queue fallback encodes the comp from frame 0 for the declared
+    frame count, so it matches an aerender movie only for a render of the comp's start; a work area elsewhere is
+    not honored.
 
 ## Development
 

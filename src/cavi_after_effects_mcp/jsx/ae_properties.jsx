@@ -1,12 +1,14 @@
 $.evalFile(new File(CAVI_LIB));
 
+var AT = null;
+
 function plain(prop) {
     var v;
     if (prop.propertyValueType === PropertyValueType.NO_VALUE || prop.propertyValueType === PropertyValueType.CUSTOM_VALUE) { return null; }
     if (prop.propertyValueType === PropertyValueType.SHAPE) { return "shape"; }
     if (prop.propertyValueType === PropertyValueType.MARKER) { return "marker"; }
-    v = prop.value;
-    if (prop.propertyValueType === PropertyValueType.TEXT_DOCUMENT) { return v.text; }
+    if (prop.propertyValueType === PropertyValueType.TEXT_DOCUMENT) { return prop.value.text; }
+    v = AT === null ? prop.value : prop.valueAtTime(AT, false);
     if (typeof v === "object" && v !== null && v.length === undefined) { return null; }
     return v;
 }
@@ -38,6 +40,7 @@ function walk(group, path, depth, out, a) {
 
 (function () {
     var a = CAVI_ARGS, comp = caviComp(a.comp), layer = caviLayer(comp, a.layer), root = layer, out = {nodes: []}, base = layer.name;
+    AT = a.time;
     if (a.path !== null) {
         root = caviProp(layer, a.path);
         base = base + "/" + root.name;

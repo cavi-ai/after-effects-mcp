@@ -156,3 +156,12 @@ class EncodeFramesTest(unittest.TestCase):
             self.assertEqual(made.returncode, 0, made.stderr)
             codec, width, height, rate, frames = self.probe(movie)
             self.assertEqual((codec, int(width), int(height), int(frames)), ("prores", 21, 11, 3))
+
+
+class FallbackMovieTest(unittest.TestCase):
+    def test_a_format_ffmpeg_cannot_make_from_frames_is_refused_before_any_work(self):
+        with tempfile.TemporaryDirectory() as folder:
+            movie = Path(folder) / "out.avi"
+            with self.assertRaisesRegex(RuntimeError, r"\.mp4 \(H\.264\) or \.mov \(ProRes\), not \.avi"):
+                edit.fallback_movie(Path(folder) / "x.aep", {"comp": "a", "file": str(movie), "frames": 3})
+            self.assertEqual(list(Path(folder).iterdir()), [])

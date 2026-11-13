@@ -60,6 +60,7 @@ class Output(BaseModel):
 
 class RenderedOutput(Output):
     rerendered: bool
+    path: Literal["aerender", "saveFrameToPng"]
 
 
 class Render(Result):
@@ -108,8 +109,8 @@ async def ae_script(script: str, project: str, args: dict[str, Any] | None = Non
 async def ae_render_queue(project: str, outputs: Annotated[list[Output], Field(min_length=1)],
                           render_settings: str = "Best Settings",
                           output_module: str = "High Quality") -> Render:
-    """aerender a saved .aep queue; each output movie must have `frames` frames or renders once more."""
-    return await asyncio.to_thread(host.render_queue, project, [o.model_dump() for o in outputs],
+    """aerender a saved .aep queue; each output movie must have `frames` frames or renders once more. When aerender still leaves no movie or a short one, the movie is made from saveFrameToPng frames and ffmpeg (.mp4 H.264 or .mov ProRes from frame 0 at the comp's frame rate); each output's `path` says which path produced it."""
+    return await asyncio.to_thread(edit.render_outputs, project, [o.model_dump() for o in outputs],
                                    render_settings, output_module)
 
 
@@ -308,10 +309,11 @@ async def ae_organize(project: str, folders: list[str] = [], renames: list[model
 @mcp.tool(annotations=READ_ONLY)
 async def ae_properties(project: str, comp: str, layer: models.Layer, path: str | None = None,
                         depth: Annotated[int, Field(ge=1, le=8)] = 4,
-                        max_nodes: Annotated[int, Field(ge=1, le=5000)] = 1000) -> models.Properties:
-    """Read a layer's properties as {path, match name, value, key count, expression}: the whole tree to `depth` groups, or one property or group by `path` ("Transform", "Effects/Glow", "Text/Source Text" or a match name). Read before editing; values are at time 0 of the layer's current state."""
+                        max_nodes: Annotated[int, Field(ge=1, le=5000)] = 1000,
+                        time: Annotated[float, Field(ge=0)] | None = None) -> models.Properties:
+    """Read a layer's properties as {path, match name, value, key count, expression}: the whole tree to `depth` groups, or one property or group by `path` ("Transform", "Effects/Glow", "Text/Source Text" or a match name). Values are the stored value, or with `time` (comp seconds) the animated value at that time with expressions evaluated."""
     return await scene("ae_properties", project, {"comp": comp, "layer": layer, "path": path, "depth": depth,
-                                                  "max_nodes": max_nodes}, 120)
+                                                  "max_nodes": max_nodes, "time": time}, 120)
 
 
 @mcp.tool(annotations=WRITES)
@@ -516,10 +518,11 @@ async def ae_markers(project: str, comp: str, layer: models.Layer | None = None,
 
 @mcp.tool(annotations=WRITES)
 async def ae_frame(project: str, comp: str, times: Annotated[list[float], Field(min_length=1, max_length=50)],
-                   directory: str, alpha: bool = False) -> models.FramesRendered:
-    """Render the frame at each time (seconds) of a comp to PNG in `directory` through aerender and a temporary render queue entry; returns the file paths. The comp background color is in the frame; alpha keeps transparency instead."""
+                   directory: str, alpha: bool = False,
+                   method: Literal["auto", "aerender"] = "auto") -> models.FramesRendered:
+    """Render the frame at each time (seconds) of a comp to PNG in `directory`; returns the file paths. The comp background color is in the frame; alpha keeps transparency instead. `auto` writes the frames with saveFrameToPng and falls back to aerender through a temporary render queue entry; `aerender` uses only aerender."""
     host.absolute(directory)
-    frames = await asyncio.to_thread(edit.render_frames, project, comp, times, directory, alpha)
+    frames = await asyncio.to_thread(edit.render_frames, project, comp, times, directory, alpha, method == "auto")
     return {"project": project, "comp": comp, "frames": frames}
 
 

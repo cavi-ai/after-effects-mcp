@@ -275,18 +275,23 @@ def render_queue(project, outputs, settings, module):
         raise ValueError(f"No project at {project}")
     files = [absolute(item["file"]) for item in outputs]
     since = time.time() - 1
-    aerender("-project", str(project))
+    failure = None
+    try:
+        aerender("-project", str(project))
+    except RuntimeError as error:
+        failure = error
     results = []
     for item, file in zip(outputs, files, strict=True):
         again = not rendered(file, item["frames"], since)
         # aerender can exit 0 after a crash mid-queue; a short movie renders once more on its own.
         if again:
             file.unlink(missing_ok=True)
-            aerender("-project", str(project), "-comp", item["comp"], "-output", str(file),
-                     "-RStemplate", settings, "-OMtemplate", module)
-        results.append({"comp": item["comp"], "file": str(file), "frames": frame_count(file),
-                        "rerendered": again})
-    incomplete = [r["comp"] for r, item in zip(results, outputs, strict=True) if r["frames"] != item["frames"]]
-    if incomplete:
-        raise RuntimeError("aerender left incomplete movies for " + ", ".join(incomplete))
-    return {"project": str(project), "outputs": results}
+            try:
+                aerender("-project", str(project), "-comp", item["comp"], "-output", str(file),
+                         "-RStemplate", settings, "-OMtemplate", module)
+            except RuntimeError as error:
+                failure = error
+        results.append({"comp": item["comp"], "file": str(file),
+                        "frames": frame_count(file) if file.is_file() else None, "rerendered": again,
+                        "path": "aerender"})
+    return {"project": str(project), "outputs": results, "failure": str(failure) if failure else None}

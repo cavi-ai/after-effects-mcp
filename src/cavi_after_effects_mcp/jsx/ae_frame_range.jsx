@@ -15,6 +15,10 @@ function pad(n) {
     total = Math.round(span / rate);
     count = Math.floor((total - 1) / a.step) + 1;
     if (count < 1) { caviFail("The range holds no frames"); }
+    if (a.frames !== null) {
+        if (a.frames > count) { caviFail("The range holds " + count + " frames, fewer than the " + a.frames + " asked for"); }
+        count = a.frames;
+    }
     if (count > a.max_frames) { caviFail("The range holds " + count + " frames; the limit is " + a.max_frames); }
     if (a.background) {
         backdrop = comp.layers.addSolid(comp.bgColor, "cavi-frame-bg", comp.width, comp.height, comp.pixelAspect, comp.duration);
