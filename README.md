@@ -197,10 +197,12 @@ Measured with After Effects 2026 on macOS.
     `ae_project_settings` refuses names not in `listColorProfiles()`. `revision` and `numItems` are read-only. The
     GPU types CUDA, OpenCL, DirectX and Vulkan are not offered; metal and software set.
 31. `.glb`, `.gltf` and `.obj` import as footage and `comp.layers.add` makes a 3D model layer (`ADBE 3D Model Layer`)
-    in an Advanced 3D comp; other renderers are refused. All three render with aerender; a 2-unit cube at
-    scale 8 is about 120 px wide in a 640x360 comp and fills the frame at 100%. `LightType.ENVIRONMENT` exists and an environment light is
-    added like any light. A model layer's out point defaults to the footage length, so it is set to the comp
-    duration.
+    in an Advanced 3D comp; other renderers are refused. `fit` (default on) sets the layer centered with scale
+    `0.6 * comp height / (largest extent of sourceRectAtTime * sqrt(3))` percent; a 2-unit cube is 1024 px at 100%,
+    so it gets 20.3% in a 360 px comp. `fit: false` keeps the raw import, which fills the frame. A model without
+    normals renders flat gray whatever the lights; with normals an environment light alone shades the faces. An
+    environment light is invisible itself, so a comp holding only one renders like an empty comp. The model layer's
+    out point is set to the comp duration.
 32. `RQItem.setSettings` accepts Quality (Wireframe, Draft, Best), Resolution (Full, Half, Third, Quarter), Proxy Use
     (Use No Proxies, Use Comp Proxies Only, Use All Proxies), Effects (All On, All Off, Current Settings), Motion
     Blur and Frame Blending (On for Checked Layers, Off for All Layers, Current Settings). `Frame Rate` itself is

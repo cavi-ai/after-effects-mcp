@@ -45,7 +45,7 @@ function textLayer(comp, a) {
 }
 
 (function () {
-    var a = CAVI_ARGS, comp = caviComp(a.comp), layer, kind = a.kind, item, lights, w, h;
+    var a = CAVI_ARGS, comp = caviComp(a.comp), layer, kind = a.kind, item, lights, w, h, rect, fitted = null;
     if (kind === "solid" || kind === "adjustment") {
         w = a.width || comp.width; h = a.height || comp.height;
         layer = comp.layers.addSolid(a.color, a.name, w, h, 1, comp.duration);
@@ -64,6 +64,12 @@ function textLayer(comp, a) {
         }
         layer = comp.layers.add(footageItem(a.file));
         layer.outPoint = comp.duration;
+        if (a.fit) {
+            rect = layer.sourceRectAtTime(0, false);
+            fitted = 0.6 * comp.height / (Math.max(rect.width, rect.height) * Math.sqrt(3)) * 100;
+            layer.property("ADBE Transform Group").property("ADBE Position").setValue([comp.width / 2, comp.height / 2, 0]);
+            layer.property("ADBE Transform Group").property("ADBE Scale").setValue([fitted, fitted, fitted]);
+        }
     } else if (kind === "shape_rect") {
         layer = shapeRect(comp, a);
     } else if (kind === "null") {
@@ -95,6 +101,6 @@ function textLayer(comp, a) {
             caviEnum(TrackMatteType, a.track_matte.type, "track matte type"));
     }
     caviReport({comp: comp.name, layer: {index: layer.index, name: layer.name, kind: kind, three_d: caviIs3D(layer),
-        in_point: layer.inPoint, out_point: layer.outPoint, parent: layer.parent ? layer.parent.name : null},
+        in_point: layer.inPoint, out_point: layer.outPoint, parent: layer.parent ? layer.parent.name : null, fit_scale: fitted},
         errors: []});
 })();

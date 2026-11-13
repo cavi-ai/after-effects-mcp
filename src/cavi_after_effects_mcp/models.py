@@ -62,6 +62,7 @@ class LayerSpec(Model):
         None, description="Paragraph text box [width, height]")
     file: str | None = Field(None, description="Absolute footage or 3D model (.glb, .gltf, .obj) path, imported on first use")
     source: str | None = Field(None, description="Comp name for kind comp, a nested instance of that comp")
+    fit: bool = Field(True, description="Model layers: scale so its largest extent times the square root of 3 (a rotation-safe bound) is 60% of the comp height, centered; false keeps the raw import")
     light_type: Literal["point", "spot", "parallel", "ambient", "environment"] = "point"
     transform: Transform = Transform()
     three_d: bool = False
