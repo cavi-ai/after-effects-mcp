@@ -7,7 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class Model(BaseModel):
-    model_config = ConfigDict(extra="forbid")
+    model_config = ConfigDict(extra="forbid", allow_inf_nan=False)
 
 
 Color = Annotated[list[float], Field(min_length=3, max_length=3, description="RGB, 0 to 1")]
@@ -140,9 +140,47 @@ class QueueUpdate(Model):
     locked: bool = False
 
 
+class Status(Result):
+    app: str | None
+    version: str
+    aerender: str | None
+    headless_pids: list[int]
+    ui_pids: list[int]
+    error: str | None
+
+
 class Script(Result):
     project: str
     report: dict[str, Any]
+
+
+class Output(Model):
+    comp: str = Field(min_length=1)
+    file: str = Field(min_length=1)
+    frames: int = Field(ge=1)
+
+
+class RenderedOutput(Output):
+    rerendered: bool
+    path: Literal["aerender", "saveFrameToPng"]
+
+
+class Render(Result):
+    project: str
+    outputs: list[RenderedOutput]
+
+
+class AERender(Result):
+    status: Literal["inputs_unchanged"]
+    receipt: str
+    sha256: str
+    frame_count: int
+    fps: dict[str, int]
+    execution: dict
+    composition: str
+    timing_authority: Literal["caller_declared"]
+    dependencies_authority: Literal["caller_declared"]
+    launches_applications: Literal[True]
 
 
 class ProjectSettings(Script):

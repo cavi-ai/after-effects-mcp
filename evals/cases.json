@@ -1,0 +1,66 @@
+[
+  {
+    "id": "status-without-application",
+    "tool": "ae_status",
+    "arguments": {},
+    "expect": "success",
+    "equals": {"/app": null},
+    "required": ["/error"]
+  },
+  {
+    "id": "script-file-missing",
+    "tool": "ae_script",
+    "arguments": {"script": "{work}/missing.jsx", "project": "{work}/a.aep"},
+    "expect": "error",
+    "error": "No script at"
+  },
+  {
+    "id": "script-timeout-below-range",
+    "tool": "ae_script",
+    "arguments": {"script": "{work}/s.jsx", "project": "{work}/a.aep", "timeout": 1},
+    "expect": "error"
+  },
+  {
+    "id": "comp-fps-not-finite",
+    "tool": "ae_comp_set",
+    "arguments": {"project": "{work}/a.aep", "comp": "Title", "fps": "NaN"},
+    "expect": "error"
+  },
+  {
+    "id": "comp-size-out-of-range",
+    "tool": "ae_comp_new",
+    "arguments": {"project": "{work}/a.aep", "name": "Big", "width": 99999, "height": 720, "duration": 3},
+    "expect": "error"
+  },
+  {
+    "id": "beat-grid-too-large",
+    "tool": "ae_markers",
+    "arguments": {"project": "{work}/a.aep", "comp": "Title", "grid": {"bpm": 240, "end": 100000}},
+    "expect": "error",
+    "error": "5000"
+  },
+  {
+    "id": "preset-apply-refused",
+    "tool": "ae_preset_apply",
+    "arguments": {"project": "{work}/a.aep", "comp": "Title", "layer": 1, "preset": "x.ffx"},
+    "expect": "error"
+  },
+  {
+    "id": "mogrt-export-refused",
+    "tool": "ae_mogrt_export",
+    "arguments": {"project": "{work}/a.aep", "comp": "Title", "file": "{work}/t.mogrt"},
+    "expect": "error"
+  },
+  {
+    "id": "audio-convert-refused",
+    "tool": "ae_audio",
+    "arguments": {"project": "{work}/a.aep", "comp": "Title", "layer": 1, "convert_to_keyframes": true},
+    "expect": "error"
+  },
+  {
+    "id": "render-recipe-outside-workspace",
+    "tool": "after_effects_render",
+    "arguments": {"recipe": "../outside.json", "directory": "frames"},
+    "expect": "error"
+  }
+]
