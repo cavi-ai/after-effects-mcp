@@ -1,15 +1,18 @@
 """The server object and the helpers every tool module shares."""
 
 import asyncio
-from typing import Any
+from typing import Annotated, Any
 
 from cavi_mcp_core.server import Server
+from pydantic import Field
 
 from . import host
 
 mcp = Server("cavi-after-effects", package="cavi-after-effects-mcp",
              instructions="Headless After Effects: ae_launch, then ae_script or the typed ae_* scene tools; "
                          "ae_render_queue renders. Paths are absolute.")
+Project = Annotated[str, Field(description="Absolute path of the .aep the call works in and saves.")]
+Comp = Annotated[str, Field(description="Comp name.")]
 
 
 async def scene(name: str, project: str, args: dict[str, Any], timeout: int = 300) -> dict[str, Any]:

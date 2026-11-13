@@ -38,6 +38,16 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
                 reply = await client.call_tool("ae_render_queue", {"project": "/x.aep", "outputs": []})
                 self.assertTrue(reply.is_error)
 
+    async def test_every_tool_explains_its_inputs(self):
+        params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
+        async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
+            await client.initialize()
+            for tool in (await client.list_tools()).tools:
+                self.assertGreaterEqual(len(tool.description.strip()), 40, tool.name)
+                for name, schema in tool.input_schema.get("properties", {}).items():
+                    with self.subTest(tool=tool.name, parameter=name):
+                        self.assertTrue(schema.get("description", "").strip())
+
     async def test_scene_tools_refuse_bad_input_before_calling_after_effects(self):
         params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
         async with stdio_client(params) as (r, w), ClientSession(r, w) as client:

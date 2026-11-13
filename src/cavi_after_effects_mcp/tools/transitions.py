@@ -7,12 +7,12 @@ from cavi_mcp_core.server import READ_ONLY, WRITES
 from pydantic import Field
 
 from .. import host, models
-from ..app import mcp, scene
+from ..app import Comp, Project, mcp, scene
 from ..models import Color, Ease
 
 
 @mcp.tool(annotations=READ_ONLY)
-async def ae_transitions(project: str) -> models.Transitions:
+async def ae_transitions(project: Project) -> models.Transitions:
     """List the transition kinds this install has: effect-based wipes and dissolves, crossfade and dip."""
     report = await asyncio.to_thread(host.run_template, "ae_transitions", project,
                                      {"match_names": list(host.TRANSITIONS.values())}, 120)
@@ -28,12 +28,21 @@ def known(kind):
 
 
 @mcp.tool(annotations=WRITES)
-async def ae_transition(project: str, comp: str, kind: str, layer: models.Layer | None = None,
-                        edge: Literal["in", "out"] = "out", from_layer: models.Layer | None = None,
-                        to_layer: models.Layer | None = None, seconds: Annotated[float, Field(gt=0)] | None = None,
-                        frames: Annotated[int, Field(ge=1)] | None = None, color: Color = [0, 0, 0],
-                        ease: Ease | None = Ease()) -> models.Script:
-    """Transition on one layer's in/out point (`layer`, `edge`) or between `from_layer` and `to_layer` (starts at to_layer's in point). Kinds: see ae_transitions."""
+async def ae_transition(
+        project: Project, comp: Comp,
+        kind: Annotated[str, Field(description="Transition kind, as ae_transitions lists it.")],
+        layer: Annotated[models.Layer | None, Field(description="Layer to transition in or out.")] = None,
+        edge: Annotated[Literal["in", "out"], Field(description="Which end of layer.")] = "out",
+        from_layer: Annotated[models.Layer | None, Field(description="Outgoing layer of a transition between "
+                                                                     "two layers.")] = None,
+        to_layer: Annotated[models.Layer | None, Field(description="Incoming layer; the transition starts at its "
+                                                                   "in point.")] = None,
+        seconds: Annotated[Annotated[float, Field(gt=0)] | None, Field(description="Length in seconds.")] = None,
+        frames: Annotated[Annotated[int, Field(ge=1)] | None, Field(description="Length in frames.")] = None,
+        color: Annotated[Color, Field(description="Dip color, RGB 0 to 1.")] = [0, 0, 0],
+        ease: Annotated[Ease | None, Field(description="Ease of the transition keys.")] = Ease()
+) -> models.Script:
+    """Transition on one layer's in or out point, or between two layers."""
     known(kind)
     if (seconds is None) == (frames is None):
         raise ValueError("Give seconds or frames, not both")
@@ -48,10 +57,19 @@ async def ae_transition(project: str, comp: str, kind: str, layer: models.Layer 
 
 
 @mcp.tool(annotations=WRITES)
-async def ae_sequence_layers(project: str, comp: str, items: Annotated[list[models.SequenceItem], Field(min_length=1)],
-                             start: Annotated[float, Field(ge=0)] = 0, overlap: Annotated[float, Field(ge=0)] = 0,
-                             transition: models.SequenceTransition | None = None) -> models.Sequenced:
-    """Place existing layers and/or footage files end to end from `start`, each overlapping the previous by `overlap` seconds; earlier items sit above later ones. `transition` (a kind from ae_transitions) is applied at every join, default length the overlap. Refuses a sequence that runs past the comp."""
+async def ae_sequence_layers(
+        project: Project, comp: Comp,
+        items: Annotated[list[models.SequenceItem], Field(min_length=1, description="Existing layers or footage "
+                                                                                    "files, in order.")],
+        start: Annotated[float, Field(ge=0, description="Comp time the first item starts at, in "
+                                                        "seconds.")] = 0,
+        overlap: Annotated[float, Field(ge=0, description="Seconds each item overlaps the previous one.")] = 0,
+        transition: Annotated[models.SequenceTransition | None,
+                              Field(description="Transition at every join; its length defaults to the "
+                                                "overlap.")] = None
+) -> models.Sequenced:
+    """Place layers and footage end to end; earlier items sit above later ones. Refuses a sequence that runs
+    past the comp."""
     for item in items:
         if (item.layer is None) == (item.file is None):
             raise ValueError("Each item needs a layer or a file, not both")

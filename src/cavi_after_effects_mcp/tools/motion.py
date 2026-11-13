@@ -7,18 +7,31 @@ from cavi_mcp_core.server import READ_ONLY, WRITES
 from pydantic import Field
 
 from .. import edit, host, models
-from ..app import given, mcp, scene
+from ..app import Comp, Project, given, mcp, scene
 from ..models import Ease, ExpressionPreset, Keyframe
 
 
 @mcp.tool(annotations=WRITES)
-async def ae_keyframes(project: str, comp: str, layer: models.Layer, property: str,
-                       keyframes: list[Keyframe] = [], ease: Ease | None = None, expression: str | None = None,
-                       preset: ExpressionPreset | None = None, replace: bool = True, easy_ease: bool = False,
-                       hold: bool = False, spatial: Literal["bezier", "linear"] | None = None, rove: bool = False,
-                       remove: Literal["all"] | Annotated[list[float], Field(min_length=2, max_length=2)] | None = None
-                       ) -> models.Keyframed:
-    """Set keyframes on a layer property ("position", "Transform/Opacity" or match-name path), an expression or an expression preset (wiggle, loop_cycle, loop_pingpong, inertial_bounce, time_rotation). Without keyframes, easy_ease, ease, hold, spatial (position paths) and rove restyle the existing keys; remove drops all keys or those in [start, end]."""
+async def ae_keyframes(
+        project: Project, comp: Comp, layer: models.Layer,
+        property: Annotated[str, Field(description="Property path, such as position, Transform/Opacity or a "
+                                                   "match-name path.")],
+        keyframes: Annotated[list[Keyframe], Field(description="Keyframes to set.")] = [],
+        ease: Annotated[Ease | None, Field(description="Temporal ease for the keys.")] = None,
+        expression: Annotated[str | None, Field(description="Expression to set.")] = None,
+        preset: Annotated[ExpressionPreset | None, Field(description="wiggle, loop_cycle, loop_pingpong, "
+                                                                     "inertial_bounce or time_rotation.")] = None,
+        replace: Annotated[bool, Field(description="Remove the existing keys before setting new ones.")] = True,
+        easy_ease: Annotated[bool, Field(description="Easy ease the keys.")] = False,
+        hold: Annotated[bool, Field(description="Make the keys hold keys.")] = False,
+        spatial: Annotated[Literal["bezier", "linear"] | None, Field(description="Spatial interpolation of a "
+                                                                                 "position path.")] = None,
+        rove: Annotated[bool, Field(description="Rove the keys across time.")] = False,
+        remove: Annotated[Literal["all"] | Annotated[list[float], Field(min_length=2, max_length=2)] | None,
+                          Field(description="Drop all keys, or those in [start, end] seconds.")] = None
+) -> models.Keyframed:
+    """Set keyframes, an expression or an expression preset on a layer property. Without keyframes, easy_ease,
+    ease, hold, spatial and rove restyle the existing keys."""
     if expression is not None and preset is not None:
         raise ValueError("Give an expression or a preset, not both")
     if easy_ease and ease is None:
@@ -36,23 +49,34 @@ async def ae_keyframes(project: str, comp: str, layer: models.Layer, property: s
 
 
 @mcp.tool(annotations=WRITES)
-async def ae_expressions(project: str, comp: str, layer: models.Layer | None = None,
-                         remove_broken: bool = False) -> models.Expressions:
-    """List every expression in a comp (or one layer) as {layer, property path, expression, enabled, error}; `broken` counts expressions After Effects reports an error for. remove_broken clears those expressions."""
+async def ae_expressions(
+        project: Project, comp: Comp,
+        layer: Annotated[models.Layer | None, Field(description="List only this layer's expressions.")] = None,
+        remove_broken: Annotated[bool, Field(description="Clear the expressions that have an error.")] = False
+) -> models.Expressions:
+    """List every expression in a comp as {layer, property path, expression, enabled, error}; broken counts the
+    expressions After Effects reports an error for."""
     return await scene("ae_expressions", project, {"comp": comp, "layer": layer, "remove_broken": remove_broken})
 
 
 @mcp.tool(annotations=WRITES)
-async def ae_effect_add(project: str, comp: str, layer: models.Layer, match_name: str,
-                        params: dict[str, Any] | None = None, name: str | None = None) -> models.EffectAdded:
+async def ae_effect_add(
+        project: Project, comp: Comp, layer: models.Layer,
+        match_name: Annotated[str, Field(description="Effect matchName, as ae_effects lists it.")],
+        params: Annotated[dict[str, Any] | None, Field(description="Parameter values by name or "
+                                                                   "matchName.")] = None,
+        name: Annotated[str | None, Field(description="Name for the effect instance.")] = None
+) -> models.EffectAdded:
     """Add an effect by matchName (e.g. ADBE Glo2) and set parameters by name or matchName."""
     return await scene("ae_effect_add", project, {"comp": comp, "layer": layer, "match_name": match_name,
                                                   "params": params or {}, "name": name})
 
 
 @mcp.tool(annotations=WRITES)
-async def ae_preset_apply(project: str, comp: str, layer: models.Layer, preset: str,
-                          time: Annotated[float, Field(ge=0)] = 0) -> models.Script:
+async def ae_preset_apply(
+        project: Project, comp: Comp, layer: models.Layer,
+        preset: Annotated[str, Field(description="Animation preset name or absolute .ffx path.")],
+        time: Annotated[float, Field(ge=0, description="Comp time in seconds.")] = 0) -> models.Script:
     """Refused: layer.applyPreset exits headless After Effects. Resolves `preset` first, so bad names fail clearly."""
     await asyncio.to_thread(host.resolve_preset, preset)
     raise ValueError("Refused: applying an animation preset (layer.applyPreset) exits headless After Effects "
@@ -61,16 +85,27 @@ async def ae_preset_apply(project: str, comp: str, layer: models.Layer, preset: 
 
 
 @mcp.tool(annotations=WRITES)
-async def ae_text_animator(project: str, comp: str, layer: models.Layer,
-                           unit: Literal["characters", "words", "lines"] = "characters",
-                           opacity: float | None = None, position: models.Vector | None = None,
-                           tracking: float | None = None, scale: models.Vector | None = None,
-                           blur: models.Vector | None = None, rotation: float | None = None,
-                           start: Annotated[float, Field(ge=0)] = 0,
-                           duration: Annotated[float, Field(gt=0)] = 1, ease: Ease | None = Ease(),
-                           name: str | None = None, animators: list[models.TextAnimator] = [],
-                           path: models.TextPath | None = None) -> models.TextAnimated:
-    """Add a text animator whose range selector opens over characters, words or lines from `start` for `duration`; or `animators`, each with properties (fill and stroke color, stroke width, skew, character offset, per-character 3D rotation ...) and several selectors (range with shape, ease high and low, wiggly, expression); and/or text on a path from a layer mask (`path`, first and last margin)."""
+async def ae_text_animator(
+        project: Project, comp: Comp, layer: models.Layer,
+        unit: Annotated[Literal["characters", "words", "lines"], Field(description="What the range selector "
+                                                                                   "steps over.")] = "characters",
+        opacity: Annotated[float | None, Field(description="Animated opacity in percent.")] = None,
+        position: Annotated[models.Vector | None, Field(description="Animated position offset.")] = None,
+        tracking: Annotated[float | None, Field(description="Animated tracking.")] = None,
+        scale: Annotated[models.Vector | None, Field(description="Animated scale in percent.")] = None,
+        blur: Annotated[models.Vector | None, Field(description="Animated blur.")] = None,
+        rotation: Annotated[float | None, Field(description="Animated rotation in degrees.")] = None,
+        start: Annotated[float, Field(ge=0, description="When the range selector starts opening, comp "
+                                                        "seconds.")] = 0,
+        duration: Annotated[float, Field(gt=0, description="How long it takes to open, in seconds.")] = 1,
+        ease: Annotated[Ease | None, Field(description="Ease of the selector keys.")] = Ease(),
+        name: Annotated[str | None, Field(description="Animator name.")] = None,
+        animators: Annotated[list[models.TextAnimator],
+                             Field(description="Full animators, each with properties and selectors.")] = [],
+        path: Annotated[models.TextPath | None, Field(description="Text on a path from a layer mask.")] = None
+) -> models.TextAnimated:
+    """Add a text animator whose range selector opens over the text, or full animators with several selectors
+    (range, wiggly, expression), and/or put the text on a mask path."""
     properties = {"opacity": opacity, "position": position, "tracking": tracking, "scale": scale,
                   "blur": blur, "rotation": rotation}
     listed = [a.model_dump() for a in animators]
@@ -85,9 +120,14 @@ async def ae_text_animator(project: str, comp: str, layer: models.Layer,
 
 
 @mcp.tool(annotations=WRITES)
-async def ae_controls(project: str, comp: str, layer: models.Layer, controls: list[models.ControlSpec] = [],
-                      links: list[models.ControlLink] = []) -> models.ControlsSet:
-    """Add named Expression Controls (slider, angle, point, point3d, color, checkbox, layer, dropdown) to `layer` and set their values, and link target properties on any layer to a control with a generated expression (scale, offset, one axis of a vector)."""
+async def ae_controls(
+        project: Project, comp: Comp, layer: models.Layer,
+        controls: Annotated[list[models.ControlSpec], Field(description="Expression Controls to add to the "
+                                                                        "layer, with values.")] = [],
+        links: Annotated[list[models.ControlLink], Field(description="Properties to drive from a control.")] = []
+) -> models.ControlsSet:
+    """Add named Expression Controls (slider, angle, point, point3d, color, checkbox, layer, dropdown) to a layer
+    and link properties on any layer to a control with a generated expression (scale, offset, one axis)."""
     if not controls and not links:
         raise ValueError("Give controls or links")
     args = {"comp": comp, "layer": layer, "controls": [c.model_dump() for c in controls],
@@ -96,12 +136,20 @@ async def ae_controls(project: str, comp: str, layer: models.Layer, controls: li
 
 
 @mcp.tool(annotations=WRITES)
-async def ae_audio(project: str, comp: str, layer: models.Layer, enabled: bool | None = None,
-                   level: float | Annotated[list[float], Field(min_length=2, max_length=2)] | None = None,
-                   level_keys: list[Keyframe] = [], fade_in: Annotated[float, Field(gt=0)] | None = None,
-                   fade_out: Annotated[float, Field(gt=0)] | None = None, convert_to_keyframes: bool = False
-                   ) -> models.AudioSet:
-    """Set an audio layer's Audio Levels in dB (static `level`, or keyed `level_keys` with [left, right] or one value), fade in and out by seconds (from -100 dB), and audio on or off."""
+async def ae_audio(
+        project: Project, comp: Comp, layer: models.Layer,
+        enabled: Annotated[bool | None, Field(description="Audio switch.")] = None,
+        level: Annotated[float | Annotated[list[float], Field(min_length=2, max_length=2)] | None,
+                         Field(description="Static level in dB, one value or [left, right].")] = None,
+        level_keys: Annotated[list[Keyframe], Field(description="Keyed levels in dB.")] = [],
+        fade_in: Annotated[Annotated[float, Field(gt=0)] | None,
+                           Field(description="Fade in from -100 dB, in seconds.")] = None,
+        fade_out: Annotated[Annotated[float, Field(gt=0)] | None,
+                            Field(description="Fade out to -100 dB, in seconds.")] = None,
+        convert_to_keyframes: Annotated[bool, Field(description="Refused: exits headless After "
+                                                                "Effects.")] = False
+) -> models.AudioSet:
+    """Set an audio layer's Audio Levels, fades and audio switch."""
     if convert_to_keyframes:
         raise ValueError("Refused: Convert Audio to Keyframes (app.executeCommand of the menu command 4218) exits "
                          "headless After Effects (measured twice); use ae_keyframes with an expression or keys")
@@ -119,11 +167,19 @@ async def ae_audio(project: str, comp: str, layer: models.Layer, enabled: bool |
 
 
 @mcp.tool(annotations=WRITES)
-async def ae_time(project: str, comp: str, layer: models.Layer, time_remap: bool | None = None,
-                  remap_keys: list[models.RemapKey] = [], freeze_at: Annotated[float, Field(ge=0)] | None = None,
-                  reverse: bool | None = None, frame_blending: Literal["none", "mix", "pixel_motion"] | None = None
-                  ) -> models.TimeSet:
-    """Time remap on or off with keys [{time, source_time}], a freeze frame at a source time, reverse (stretch -100, keeping the in point), and the layer's frame blending (none, mix, pixel_motion; the comp switch is turned on)."""
+async def ae_time(
+        project: Project, comp: Comp, layer: models.Layer,
+        time_remap: Annotated[bool | None, Field(description="Time remapping on or off.")] = None,
+        remap_keys: Annotated[list[models.RemapKey], Field(description="Remap keys as [{time, "
+                                                                       "source_time}].")] = [],
+        freeze_at: Annotated[Annotated[float, Field(ge=0)] | None,
+                             Field(description="Freeze on this source time, in seconds.")] = None,
+        reverse: Annotated[bool | None, Field(description="Play backwards (stretch -100), keeping the in "
+                                                          "point.")] = None,
+        frame_blending: Annotated[Literal["none", "mix", "pixel_motion"] | None,
+                                  Field(description="Layer frame blending; turns the comp switch on.")] = None
+) -> models.TimeSet:
+    """Time remap with keys, a freeze frame, reverse playback and the layer's frame blending."""
     given(time_remap=time_remap, remap_keys=remap_keys or None, freeze_at=freeze_at, reverse=reverse,
           frame_blending=frame_blending)
     if freeze_at is not None and remap_keys:
@@ -134,10 +190,17 @@ async def ae_time(project: str, comp: str, layer: models.Layer, time_remap: bool
 
 
 @mcp.tool(annotations=READ_ONLY)
-async def ae_properties(project: str, comp: str, layer: models.Layer, path: str | None = None,
-                        depth: Annotated[int, Field(ge=1, le=8)] = 4,
-                        max_nodes: Annotated[int, Field(ge=1, le=5000)] = 1000,
-                        time: Annotated[float, Field(ge=0)] | None = None) -> models.Properties:
-    """Read a layer's properties as {path, match name, value, key count, expression}: the whole tree to `depth` groups, or one property or group by `path` ("Transform", "Effects/Glow", "Text/Source Text" or a match name). Values are the stored value, or with `time` (comp seconds) the animated value at that time with expressions evaluated."""
+async def ae_properties(
+        project: Project, comp: Comp, layer: models.Layer,
+        path: Annotated[str | None, Field(description="One property or group, such as Transform, Effects/Glow "
+                                                      "or a match name; the whole tree when omitted.")] = None,
+        depth: Annotated[int, Field(ge=1, le=8, description="Group levels to descend.")] = 4,
+        max_nodes: Annotated[int, Field(ge=1, le=5000, description="Most properties to return.")] = 1000,
+        time: Annotated[Annotated[float, Field(ge=0)] | None,
+                        Field(description="Comp seconds to read animated values at, expressions "
+                                          "evaluated.")] = None
+) -> models.Properties:
+    """Read a layer's properties as {path, match name, value, key count, expression}; values are the stored
+    ones unless time is given."""
     return await scene("ae_properties", project, {"comp": comp, "layer": layer, "path": path, "depth": depth,
                                                   "max_nodes": max_nodes, "time": time}, 120)
