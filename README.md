@@ -65,6 +65,9 @@ The server speaks MCP over stdio. Client configuration:
 | `ae_fonts` | Lists installed fonts as PostScript name, family and style, filtered by text. Text tools refuse a font that is not installed instead of silently substituting one. |
 | `ae_expressions` | Lists every expression in a comp or on one layer with its property path, enabled state and error text; `remove_broken` clears the ones After Effects reports an error for. |
 | `ae_material` | Sets a 3D layer's material options (casts shadows, accepts shadows and lights, ambient, diffuse, specular, shininess, metal, reflection, transparency ...); an option the comp's renderer hides is refused by name (note 36). |
+| `ae_export_frames` | Writes a frame range (`start`, `duration`, every `step`-th frame) as `frame_00001.png` ... without aerender, optionally encoded with ffmpeg to H.264 `.mp4` or ProRes `.mov` (alpha with ProRes); the render path that needs no Dynamic Link (note 38). |
+| `ae_properties` | Reads a layer's property tree to a depth, or one property or group by path, as path, match name, value, key count and expression. |
+| `ae_organize` | Creates project folders (nested paths), renames items and moves items into folders; an item name shared by two items is refused. |
 
 `ae_render_queue_set` takes template names exactly as `ae_presets` lists them and refuses others. `clear`
 removes only existing entries of the comps named in `add`.
@@ -228,6 +231,9 @@ Measured with After Effects 2026 on macOS.
     has an empty project) and refuses when the open project has unsaved changes. A tool call starts the headless
     instance when none runs. `ae_script` refuses scripts calling `applyPreset`, `executeCommand` and
     `findMenuCommandId`, which abort After Effects (crash reports show `ApplyPreset` and `DoCommandIfEnabled`).
+38. `ae_export_frames` calls `Comp.saveFrameToPng` once per frame in one script, then waits for the files, because
+    the PNGs land after the script returns. A comp whose frames are 161x91 encodes to H.264 at 160x90 (even sizes
+    only); ProRes 4444 keeps odd sizes and alpha.
 
 ## Development
 

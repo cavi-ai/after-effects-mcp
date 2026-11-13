@@ -15,7 +15,7 @@ TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effect
          "ae_import", "ae_markers", "ae_frame", "ae_shape_add", "ae_mask", "ae_effects", "ae_camera", "ae_essential_graphics", "ae_mogrt_export",
          "ae_template_render", "ae_collect", "ae_audio", "ae_time",
          "ae_controls", "ae_project_settings", "ae_sequence_layers", "ae_essential_override",
-         "ae_fonts", "ae_expressions", "ae_material"}
+         "ae_fonts", "ae_expressions", "ae_material", "ae_export_frames", "ae_properties", "ae_organize"}
 
 
 class ProtocolTest(unittest.IsolatedAsyncioTestCase):
@@ -187,6 +187,13 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
              "needs source"),
             ("ae_material", base | {"material": {}}, "at least one material option"),
             ("ae_fonts", {"project": "/x.aep", "limit": 0}, "limit"),
+            ("ae_organize", {"project": "/x.aep"}, "at least one of"),
+            ("ae_organize", {"project": "/x.aep", "folders": ["A//B"]}, "single slashes"),
+            ("ae_properties", base | {"depth": 0}, "depth"),
+            ("ae_export_frames", {"project": "/x.aep", "comp": "a", "directory": "/f", "movie": "/m.mov"},
+             "H.264 movie is a .mp4"),
+            ("ae_export_frames", {"project": "/x.aep", "comp": "a", "directory": "/f", "movie": "/m.mp4",
+                                  "alpha": True}, "no alpha"),
             ("ae_render_queue_set", {"project": "/x.aep", "update": [{"index": 1, "duplicate": True, "remove": True}]},
              "cannot be combined"),
         ]

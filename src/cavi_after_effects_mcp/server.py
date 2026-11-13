@@ -1,6 +1,7 @@
 """MCP server for headless Adobe After Effects."""
 
 import asyncio
+from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from cavi_adobe_mcp.config import workspace
@@ -293,6 +294,27 @@ async def ae_transitions(project: str) -> models.Transitions:
 
 
 @mcp.tool(annotations=WRITES)
+async def ae_organize(project: str, folders: list[str] = [], renames: list[models.ItemRename] = [],
+                      moves: list[models.ItemMove] = []) -> models.Organized:
+    """Tidy the project panel: create folders (nested paths such as Comps/Titles), rename items, then move items (by their new names) into folders. An item name shared by two items is refused."""
+    if not (folders or renames or moves):
+        raise ValueError("Give at least one of: folders, renames, moves")
+    if any(not f.strip("/") or "//" in f for f in folders):
+        raise ValueError("A folder path has non-empty names separated by single slashes")
+    return await scene("ae_organize", project, {"folders": folders, "renames": [r.model_dump() for r in renames],
+                                                "moves": [m.model_dump() for m in moves]})
+
+
+@mcp.tool(annotations=READ_ONLY)
+async def ae_properties(project: str, comp: str, layer: models.Layer, path: str | None = None,
+                        depth: Annotated[int, Field(ge=1, le=8)] = 4,
+                        max_nodes: Annotated[int, Field(ge=1, le=5000)] = 1000) -> models.Properties:
+    """Read a layer's properties as {path, match name, value, key count, expression}: the whole tree to `depth` groups, or one property or group by `path` ("Transform", "Effects/Glow", "Text/Source Text" or a match name). Read before editing; values are at time 0 of the layer's current state."""
+    return await scene("ae_properties", project, {"comp": comp, "layer": layer, "path": path, "depth": depth,
+                                                  "max_nodes": max_nodes}, 120)
+
+
+@mcp.tool(annotations=WRITES)
 async def ae_transition(project: str, comp: str, kind: str, layer: models.Layer | None = None,
                         edge: Literal["in", "out"] = "out", from_layer: models.Layer | None = None,
                         to_layer: models.Layer | None = None, seconds: Annotated[float, Field(gt=0)] | None = None,
@@ -499,6 +521,27 @@ async def ae_frame(project: str, comp: str, times: Annotated[list[float], Field(
     host.absolute(directory)
     frames = await asyncio.to_thread(edit.render_frames, project, comp, times, directory, alpha)
     return {"project": project, "comp": comp, "frames": frames}
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_export_frames(project: str, comp: str, directory: str, start: Annotated[float, Field(ge=0)] = 0,
+                           duration: Annotated[float, Field(gt=0)] | None = None,
+                           step: Annotated[int, Field(ge=1, le=240)] = 1, alpha: bool = False,
+                           movie: str | None = None, codec: Literal["h264", "prores"] = "h264",
+                           max_frames: Annotated[int, Field(ge=1, le=5000)] = 1800) -> models.FramesExported:
+    """Write a frame range of a comp as frame_00001.png ... in `directory` without aerender (every `step`-th frame from `start` for `duration` seconds, default to the end), optionally encoded with ffmpeg to `movie` (.mp4 H.264, or ProRes .mov, with alpha when alpha is set). Use it when aerender renders nothing."""
+    host.absolute(directory)
+    if movie:
+        suffix = Path(movie).suffix.lower()
+        if codec == "h264" and suffix != ".mp4":
+            raise ValueError("An H.264 movie is a .mp4 file")
+        if codec == "prores" and suffix != ".mov":
+            raise ValueError("A ProRes movie is a .mov file")
+        if alpha and codec == "h264":
+            raise ValueError("H.264 has no alpha; use codec prores or leave movie empty")
+    result = await asyncio.to_thread(edit.export_frames, project, comp, directory, start, duration, step, alpha,
+                                     movie, codec, max_frames)
+    return {"project": project, "comp": comp, "directory": directory, **result}
 
 
 @mcp.tool(annotations=WRITES)

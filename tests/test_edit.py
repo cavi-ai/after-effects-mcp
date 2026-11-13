@@ -125,3 +125,34 @@ class CrashingCallsTest(unittest.TestCase):
             script = Path(folder) / "ok.jsx"
             script.write_text("var comp = app.project.items.addComp('a', 100, 100, 1, 1, 30);\n")
             host.refuse_crashing_calls(script)
+
+
+@unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "ffmpeg is required")
+class EncodeFramesTest(unittest.TestCase):
+    def probe(self, movie):
+        out = subprocess.run(["ffprobe", "-v", "error", "-select_streams", "v", "-count_frames", "-show_entries",
+                              "stream=codec_name,width,height,nb_read_frames,r_frame_rate", "-of", "csv=p=0", str(movie)],
+                             check=True, capture_output=True, text=True).stdout.strip()
+        return out.split(",")
+
+    def test_numbered_frames_become_an_even_sized_h264_movie(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for n in range(1, 5):
+                png(root / f"frame_{n:05d}.png", 21, 11)
+            movie = root / "out.mp4"
+            made = subprocess.run(edit.encode_command(root, movie, 12, "h264", False), capture_output=True, text=True)
+            self.assertEqual(made.returncode, 0, made.stderr)
+            codec, width, height, rate, frames = self.probe(movie)
+            self.assertEqual((codec, int(width), int(height), rate, int(frames)), ("h264", 20, 10, "12/1", 4))
+
+    def test_prores_with_alpha_keeps_the_size_and_frame_count(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            for n in range(1, 4):
+                png(root / f"frame_{n:05d}.png", 21, 11)
+            movie = root / "out.mov"
+            made = subprocess.run(edit.encode_command(root, movie, 6, "prores", True), capture_output=True, text=True)
+            self.assertEqual(made.returncode, 0, made.stderr)
+            codec, width, height, rate, frames = self.probe(movie)
+            self.assertEqual((codec, int(width), int(height), int(frames)), ("prores", 21, 11, 3))

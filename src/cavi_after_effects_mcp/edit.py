@@ -83,6 +83,48 @@ def project_op(args, target):
     raise RuntimeError(f"The project call saved no report; the open project is not {target}")
 
 
+def encode_command(directory, movie, fps, codec, alpha):
+    """The ffmpeg command that turns directory/frame_#####.png into ``movie``."""
+    command = ["ffmpeg", "-y", "-v", "error", "-framerate", f"{fps:g}", "-i", str(Path(directory) / "frame_%05d.png")]
+    if codec == "prores":
+        pixel = "yuva444p10le" if alpha else "yuv422p10le"
+        return command + ["-c:v", "prores_ks", "-profile:v", "4444" if alpha else "3", "-pix_fmt", pixel, str(movie)]
+    return command + ["-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+                      "-movflags", "+faststart", str(movie)]
+
+
+def export_frames(project, comp, directory, start, duration, step, alpha, movie, codec, max_frames):
+    """Write a frame range as frame_#####.png with Comp.saveFrameToPng (no aerender), optionally encoded to ``movie``."""
+    project, directory = host.absolute(project, ".aep"), host.absolute(directory)
+    movie = host.absolute(movie) if movie else None
+    if movie and not shutil.which("ffmpeg"):
+        raise RuntimeError("ffmpeg is not installed, so no movie can be encoded; leave movie empty for the PNG sequence")
+    directory.mkdir(parents=True, exist_ok=True)
+    for old in directory.glob("frame_*.png"):
+        old.unlink()
+    report = host.run_template("ae_frame_range", project, {
+        "comp": comp, "directory": str(directory), "start": start, "duration": duration, "step": step,
+        "background": not alpha, "max_frames": max_frames}, 3600)
+    count = report["count"]
+    deadline = time.monotonic() + 60 + count
+    while time.monotonic() < deadline:
+        if len(list(directory.glob("frame_*.png"))) >= count:
+            break
+        time.sleep(0.25)
+    written = sorted(directory.glob("frame_*.png"))
+    if len(written) != count or any(f.stat().st_size == 0 for f in written):
+        raise RuntimeError(f"After Effects wrote {len(written)} of {count} frames to {directory}")
+    result = {"frames": count, "fps": report["fps"] / step, "first": str(written[0]), "last": str(written[-1]),
+              "movie": None}
+    if movie:
+        movie.parent.mkdir(parents=True, exist_ok=True)
+        made = run_sync(encode_command(directory, movie, result["fps"], codec, alpha), 3600)
+        if made.returncode or not movie.is_file():
+            raise RuntimeError("ffmpeg could not encode the movie: " + diagnostics(made))
+        result["movie"] = str(movie)
+    return result
+
+
 def direct_frames(project, comp, frames, alpha):
     """Write the frames with Comp.saveFrameToPng, which needs no aerender; False when After Effects did not write them all."""
     for frame in frames:

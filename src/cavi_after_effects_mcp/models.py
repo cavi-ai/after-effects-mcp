@@ -154,6 +154,30 @@ class Sequenced(Script):
     joins: list[dict[str, Any]]
 
 
+class ItemMove(Model):
+    item: str = Field(min_length=1, description="Project item name (comp, footage or folder)")
+    folder: str = Field(min_length=1, description="Folder path such as Footage/Audio, created when missing")
+
+
+class ItemRename(Model):
+    item: str = Field(min_length=1)
+    name: str = Field(min_length=1)
+
+
+class Organized(Script):
+    folders: list[str]
+    renamed: list[str]
+    moved: list[str]
+
+
+class Properties(Script):
+    comp: str
+    layer: str
+    count: int
+    truncated: bool
+    properties: list[dict[str, Any]]
+
+
 class Fonts(Script):
     fonts: list[dict[str, str]]
     count: int
@@ -289,6 +313,17 @@ class FramesRendered(Result):
     project: str
     comp: str
     frames: list[dict[str, Any]]
+
+
+class FramesExported(Result):
+    project: str
+    comp: str
+    directory: str
+    frames: int
+    fps: float
+    first: str
+    last: str
+    movie: str | None
 
 
 class BeatGrid(Model):
