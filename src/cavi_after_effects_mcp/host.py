@@ -1,51 +1,80 @@
 """Headless After Effects: launch, scripts over Apple Events, aerender and frame checks."""
 
 import json
+import math
 import os
-import plistlib
 import re
 import shutil
 import subprocess
+import threading
 import time
 from pathlib import Path
 
+from cavi_mcp_core import apps
 from cavi_mcp_core.proc import diagnostics, run_sync
 
 RUNNER = Path(__file__).with_name("runner.jsx")
 JSX = Path(__file__).with_name("jsx")
 RENDER_TIMEOUT = 3600
-CURRENT = [None]  # the project the last call saved to
+LAUNCH_WAIT = 60
+# More markers than this in one call would make a script too large for After Effects to run.
+MAX_MARKERS = 5000
+# Where Homebrew and the system keep FFmpeg when the client starts the server with a short PATH.
+TOOL_PATH = ":/opt/homebrew/bin:/usr/local/bin"
+
+# (name, bundle identifier, glob under /Applications, environment override)
+AFTER_EFFECTS = ("Adobe After Effects", "com.adobe.AfterEffects.application",
+                 "Adobe After Effects 20*/Adobe After Effects 20*.app", "CAVI_AFTER_EFFECTS_APP")
+
+# One After Effects instance runs one script at a time; a second call waits for the first.
+ACCESS = threading.RLock()
 
 
-def newest(pattern):
-    found = sorted(Path("/Applications").glob(pattern))
-    if not found:
-        raise ValueError(f"No /Applications/{pattern}")
-    return found[-1]
+class Session:
+    """What the last call left behind: the project it saved to."""
+
+    project = None
+
+
+session = Session()
+
+
+def application():
+    """The installed After Effects .app: the override in CAVI_AFTER_EFFECTS_APP, else the newest installed."""
+    return apps.bundle(*AFTER_EFFECTS).path
 
 
 def after_effects():
-    """The newest installed After Effects folder, which holds the app and aerender."""
-    return newest("Adobe After Effects 20*/aerender").parent
+    """The folder that holds the application, aerender and the Presets folder."""
+    return application().parent
 
 
 def processes():
-    """Running After Effects pids, split into headless (-noui) and UI instances."""
-    result = run_sync(["pgrep", "-fl", "MacOS/After Effects"], 10)
+    """Pids of the running After Effects, split into headless (-noui) and UI instances.
+
+    Only the application's own executable counts; its render engine and other helpers do not.
+    """
     headless, ui = [], []
-    for line in result.stdout.splitlines():
-        pid, _, command = line.partition(" ")
-        (headless if "-noui" in command else ui).append(int(pid))
+    for process in apps.processes(apps.bundle(*AFTER_EFFECTS).executable):
+        result = run_sync(["/bin/ps", "-o", "args=", "-p", str(process.pid)], 10)
+        if result.returncode:
+            continue  # the process ended meanwhile
+        (headless if "-noui" in result.stdout.split() else ui).append(process.pid)
     return headless, ui
 
 
 def status():
-    folder = after_effects()
-    app = next(folder.glob("Adobe After Effects 20*.app"))
-    info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
+    """What is installed and running; an application that is not installed is reported, never raised."""
+    try:
+        found = apps.bundle(*AFTER_EFFECTS)
+    except (apps.AppUnavailable, apps.AppMismatch) as failure:
+        return {"app": None, "version": "", "aerender": None, "headless_pids": [], "ui_pids": [],
+                "error": str(failure)}
+    aerender = found.path.parent / "aerender"
     headless, ui = processes()
-    return {"app": str(app), "version": info.get("CFBundleShortVersionString", ""),
-            "aerender": str(folder / "aerender"), "headless_pids": headless, "ui_pids": ui}
+    return {"app": str(found.path), "version": found.info.get("CFBundleShortVersionString", ""),
+            "aerender": str(aerender) if aerender.is_file() else None, "headless_pids": headless,
+            "ui_pids": ui, "error": None if aerender.is_file() else f"No aerender next to {found.path}"}
 
 
 def alive(pid):
@@ -77,37 +106,52 @@ def run_watched(command, timeout, pid, interval=0.5):
     return child.returncode, out, err
 
 
+def require_finite(value, where="arguments"):
+    """Raise ValueError naming the first NaN or infinite number in ``value``, which After Effects cannot take."""
+    if isinstance(value, float):
+        if not math.isfinite(value):
+            raise ValueError(f"{where} holds {value}; numbers must be finite")
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            require_finite(item, f"{where}.{key}")
+    elif isinstance(value, list | tuple):
+        for index, item in enumerate(value):
+            require_finite(item, f"{where}[{index}]")
+
+
 def do_script(code, timeout):
     """Run ExtendScript in the headless instance; DoScript answers 0 on success, 1 on any failure."""
-    headless, _ = processes()
-    if not headless:
-        launch()
+    with ACCESS:
         headless, _ = processes()
-    command = ["osascript", "-e", "on run argv", "-e", f"with timeout of {timeout} seconds",
-               "-e", f'tell application "{after_effects().name}" to set answer to DoScript '
-               "(item 1 of argv)", "-e", "end timeout", "-e", "return answer", "-e", "end run", code]
-    returncode, out, err = run_watched(command, timeout + 30, headless[0])
+        if not headless:
+            launch()
+            headless, _ = processes()
+        command = ["osascript", "-e", "on run argv", "-e", f"with timeout of {timeout} seconds",
+                   "-e", 'tell application (item 2 of argv) to set answer to DoScript (item 1 of argv)',
+                   "-e", "end timeout", "-e", "return answer", "-e", "end run", code, application().stem]
+        returncode, out, err = run_watched(command, timeout + 30, headless[0])
     if returncode or out.strip() != "0":
         raise RuntimeError("After Effects script failed: " + (err.strip() or out.strip() or f"exit {returncode}"))
 
 
 def launch():
     """Start one headless After Effects (-noui) and wait until it answers scripts."""
-    headless, ui = processes()
-    if ui:
-        raise RuntimeError(f"After Effects is running with its UI (pid {ui[0]}); quit it first")
-    if not headless:
-        result = run_sync(["open", "-n", "-g", "-a", after_effects().name, "--args", "-noui"], 60)
-        if result.returncode:
-            raise RuntimeError("After Effects did not launch: " + diagnostics(result))
-        for _ in range(120):
-            if processes()[0]:
-                break
-            time.sleep(0.5)
-        if not processes()[0]:
-            raise RuntimeError("After Effects did not start within 60 seconds")
-    do_script("app.project.numItems", 300)
-    return status()
+    with ACCESS:
+        headless, ui = processes()
+        if ui:
+            raise RuntimeError(f"After Effects is running with its UI (pid {ui[0]}); quit it first")
+        if not headless:
+            result = run_sync(["open", "-n", "-g", str(application()), "--args", "-noui"], 60)
+            if result.returncode:
+                raise RuntimeError("After Effects did not launch: " + diagnostics(result))
+            for _ in range(LAUNCH_WAIT * 2):
+                if processes()[0]:
+                    break
+                time.sleep(0.5)
+            if not processes()[0]:
+                raise RuntimeError(f"After Effects did not start within {LAUNCH_WAIT} seconds")
+        do_script("app.project.numItems", 300)
+        return status()
 
 
 # Calls that abort headless After Effects (measured), each with the tool that does the job safely.
@@ -120,7 +164,10 @@ CRASHING_CALLS = {
 
 def refuse_crashing_calls(script):
     """Refuse a script file that contains a call known to abort headless After Effects."""
-    text = Path(script).read_text(encoding="utf-8", errors="replace")
+    script = absolute(script, ".jsx")
+    if not script.is_file():
+        raise ValueError(f"No script at {script}")
+    text = script.read_text(encoding="utf-8", errors="replace")
     for call, reason in CRASHING_CALLS.items():
         if re.search(rf"\b{call}\s*\(", text):
             raise ValueError(f"Refused: {script.name} calls {call}. {reason}")
@@ -145,7 +192,9 @@ def ensure_open(project):
 
 def script_call(script, project, args):
     """DoScript code that runs ``script`` through runner.jsx with CAVI_ARGS."""
-    return (f"var CAVI_ARGS = {json.dumps(args)};\nvar CAVI_LIB = {json.dumps(str(JSX / 'lib.jsx'))};\nvar CAVI_SCRIPT = {json.dumps(str(script))};\n"
+    require_finite(args)
+    return (f"var CAVI_ARGS = {json.dumps(args, allow_nan=False)};\nvar CAVI_LIB = {json.dumps(str(JSX / 'lib.jsx'))};\n"
+            f"var CAVI_SCRIPT = {json.dumps(str(script))};\n"
             f"var CAVI_PROJECT = {json.dumps(str(project))};\n"
             f"$.evalFile(new File({json.dumps(str(RUNNER))}));")
 
@@ -156,8 +205,14 @@ def project_report(path):
     for encoding in ("utf-8", "utf-16-be"):
         start, end = "CAVI_REPORT".encode(encoding), "CAVI_END".encode(encoding)
         if start in raw:
-            body = raw[raw.index(start) + len(start):raw.index(end, raw.index(start))]
-            return json.loads(body.decode(encoding))
+            begin = raw.index(start) + len(start)
+            stop = raw.find(end, begin)
+            if stop < 0:
+                raise RuntimeError(f"{path} holds an unreadable report: its end marker is missing")
+            try:
+                return json.loads(raw[begin:stop].decode(encoding))
+            except ValueError as error:
+                raise RuntimeError(f"{path} holds an unreadable report: {error}") from error
     raise RuntimeError(f"{path} holds no report")
 
 
@@ -183,16 +238,18 @@ def run_script(script, project, args, timeout):
     script, project = absolute(script, ".jsx"), absolute(project, ".aep")
     if not script.is_file():
         raise ValueError(f"No script at {script}")
+    require_finite(args)
     project.parent.mkdir(parents=True, exist_ok=True)
-    before = fingerprint(project)
-    ensure_open(project)
-    do_script(script_call(script, project, args), timeout)
-    if fingerprint(project) in (None, before):
-        raise RuntimeError(f"The script saved no report to {project}")
-    report = project_report(project)
+    with ACCESS:
+        before = fingerprint(project)
+        ensure_open(project)
+        do_script(script_call(script, project, args), timeout)
+        if fingerprint(project) in (None, before):
+            raise RuntimeError(f"The script saved no report to {project}")
+        report = project_report(project)
     if report.get("errors"):
         raise RuntimeError("After Effects script: " + "; ".join(map(str, report["errors"])))
-    CURRENT[0] = project
+    session.project = project
     return report
 
 
@@ -238,17 +295,18 @@ def resolve_preset(preset, root=None):
     return Path(matches[0]["path"])
 
 
-def ffprobe():
-    found = shutil.which("ffprobe", path=os.environ.get("PATH", "") + ":/opt/homebrew/bin:/usr/local/bin")
+def tool(name, purpose):
+    """The path of an FFmpeg program, found on PATH or where Homebrew installs it."""
+    found = shutil.which(name, path=os.environ.get("PATH", "") + TOOL_PATH)
     if not found:
-        raise ValueError("Install ffprobe (FFmpeg) to verify rendered frames")
+        raise ValueError(f"Install {name} (FFmpeg) {purpose}")
     return found
 
 
 def frame_count(movie):
     """Video frames of a movie; a movie with a timecode track lists nb_frames twice, so take the first."""
-    result = run_sync([ffprobe(), "-v", "error", "-select_streams", "v:0", "-show_entries",
-                       "stream=nb_frames", "-of", "csv=p=0", str(movie)], 60)
+    result = run_sync([tool("ffprobe", "to verify rendered frames"), "-v", "error", "-select_streams", "v:0",
+                       "-show_entries", "stream=nb_frames", "-of", "csv=p=0", str(movie)], 60)
     counts = result.stdout.split()
     if result.returncode or not counts or not counts[0].isdigit():
         return None
@@ -262,8 +320,11 @@ def rendered(movie, frames, since=0.0):
 
 
 def aerender(*args):
-    result = run_sync([str(after_effects() / "aerender"), *args, "-v", "ERRORS_AND_PROGRESS",
-                       "-close", "DO_NOT_SAVE_CHANGES"], RENDER_TIMEOUT)
+    program = after_effects() / "aerender"
+    if not program.is_file():
+        raise RuntimeError(f"No aerender at {program}")
+    result = run_sync([str(program), *args, "-v", "ERRORS_AND_PROGRESS", "-close", "DO_NOT_SAVE_CHANGES"],
+                      RENDER_TIMEOUT)
     if result.returncode:
         raise RuntimeError("aerender failed: " + diagnostics(result))
 

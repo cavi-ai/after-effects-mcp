@@ -1,5 +1,7 @@
 """Editing helpers: project open/save, beat grids and single-frame renders through aerender."""
 
+import math
+import os
 import shutil
 import tempfile
 import time
@@ -51,6 +53,10 @@ def mask_shape(spec):
 def beat_grid(bpm, beats_per_bar, start, end):
     """Markers on every beat from ``start`` up to (not including) ``end``, commented bar.beat, chapter on each downbeat."""
     spacing = 60.0 / bpm
+    count = math.ceil((end - start) / spacing - 1e-9)
+    if count > host.MAX_MARKERS:
+        raise ValueError(f"The beat grid makes {count} markers; the limit is {host.MAX_MARKERS}. "
+                         "Shorten the span or split it into several calls")
     markers, beat = [], 0
     while start + beat * spacing < end - 1e-9:
         bar, number = divmod(beat, beats_per_bar)
@@ -69,23 +75,26 @@ def to_png(source, destination):
 
 def project_op(args, target):
     """Run ae_project.jsx; its report is saved in the project it names, or in a temporary one when refused."""
-    fallback = Path(tempfile.gettempdir()) / "cavi-ae-project.aep"
-    candidates = [p for p in (target, host.CURRENT[0], fallback) if p]
-    before = {p: host.fingerprint(p) for p in candidates}
-    host.do_script(host.script_call(host.JSX / "ae_project.jsx", fallback, {**args, "fallback": str(fallback)}), 300)
-    for path in candidates:
-        if host.fingerprint(path) not in (None, before[path]):
-            report = host.project_report(path)
-            if report.get("errors"):
-                raise RuntimeError("After Effects script: " + "; ".join(map(str, report["errors"])))
-            host.CURRENT[0] = Path(report["path"]) if report.get("path") else None
-            return report
+    host.require_finite(args)
+    fallback = Path(tempfile.gettempdir()) / f"cavi-ae-project-{os.getpid()}.aep"
+    candidates = [p for p in (target, host.session.project, fallback) if p]
+    with host.ACCESS:
+        before = {p: host.fingerprint(p) for p in candidates}
+        host.do_script(host.script_call(host.JSX / "ae_project.jsx", fallback,
+                                        {**args, "fallback": str(fallback)}), 300)
+        for path in candidates:
+            if host.fingerprint(path) not in (None, before[path]):
+                report = host.project_report(path)
+                if report.get("errors"):
+                    raise RuntimeError("After Effects script: " + "; ".join(map(str, report["errors"])))
+                host.session.project = Path(report["path"]) if report.get("path") else None
+                return report
     raise RuntimeError(f"The project call saved no report; the open project is not {target}")
 
 
 def encode_command(directory, movie, fps, codec, alpha):
     """The ffmpeg command that turns directory/frame_#####.png into ``movie``."""
-    command = ["ffmpeg", "-y", "-v", "error", "-framerate", f"{fps:g}", "-i", str(Path(directory) / "frame_%05d.png")]
+    command = [host.tool("ffmpeg", "to encode a movie"), "-y", "-v", "error", "-framerate", f"{fps:g}", "-i", str(Path(directory) / "frame_%05d.png")]
     if codec == "prores":
         pixel = "yuva444p10le" if alpha else "yuv422p10le"
         return command + ["-c:v", "prores_ks", "-profile:v", "4444" if alpha else "3", "-pix_fmt", pixel, str(movie)]
@@ -117,8 +126,8 @@ def export_frames(project, comp, directory, start, duration, step, alpha, movie,
     """Write a frame range as frame_#####.png with Comp.saveFrameToPng (no aerender), optionally encoded to ``movie``."""
     project, directory = host.absolute(project, ".aep"), host.absolute(directory)
     movie = host.absolute(movie) if movie else None
-    if movie and not shutil.which("ffmpeg"):
-        raise RuntimeError("ffmpeg is not installed, so no movie can be encoded; leave movie empty for the PNG sequence")
+    if movie:
+        host.tool("ffmpeg", "to encode a movie, or leave movie empty for the PNG sequence")
     directory.mkdir(parents=True, exist_ok=True)
     for old in directory.glob("frame_*.png"):
         old.unlink()
