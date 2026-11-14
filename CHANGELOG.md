@@ -10,6 +10,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - `ae_status` reports an application that is not installed in `error` instead of failing.
 - LICENSE, CONTRIBUTING, SECURITY, CODE_OF_CONDUCT, a release workflow, documentation under
   `docs/after-effects-mcp`, evaluations and package metadata.
+- Issue and pull request templates; CI runs the evaluations.
+- `examples/first-result` builds an animated lower third over real footage in headless After Effects.
 
 ### Changed
 
@@ -26,3 +28,4 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - A missing script file is named; a report without its end marker is reported as unreadable.
 - The application's render engine and other helpers are no longer counted as a running After Effects.
 - Two simultaneous calls take turns instead of interleaving scripts in the same instance.
+- A `shape_rect` layer with neither fill nor stroke is refused instead of being added invisible.

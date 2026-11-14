@@ -1,55 +1,68 @@
 # Your first comp
 
-This builds a 3-second title comp with a text layer that types on, a beat grid of markers, and two PNG frames.
-Every path is absolute; replace `/path/to` with a folder you own. The calls are the ones in the
-repository README's first result.
+This builds a 3.5-second lower third over a shot: the footage pushes in, a name bar slides in from the left,
+an accent line grows, and two lines of text rise in. Every path is absolute; replace `/path/to` with a folder
+you own. The shot is `examples/first-result/media/aisle.mp4` in the repository, and the calls are the ones
+`examples/first-result/run.py` makes.
 
 ## 1. Create the comp
 
 ```json
-{"tool": "ae_comp_new", "arguments": {"project": "/path/to/hello.aep", "name": "Title", "width": 1280,
- "height": 720, "duration": 3, "fps": 30, "background": [0.05, 0.07, 0.12], "replace": true}}
+{"tool": "ae_comp_new", "arguments": {"project": "/path/to/title.aep", "name": "Title", "width": 1280,
+ "height": 720, "duration": 3.5, "fps": 24, "background": [0.02, 0.02, 0.06], "replace": true}}
 ```
 
 The project is created and saved on the first call. `background` is RGB from 0 to 1.
 
-## 2. Add a text layer
+## 2. Add the shot and push in
 
 ```json
-{"tool": "ae_layer_add", "arguments": {"project": "/path/to/hello.aep", "layer": {"comp": "Title",
- "kind": "text", "name": "Headline", "text": "Hello, After Effects", "size": 90, "fill": [1, 1, 1],
- "justification": "center", "transform": {"position": [640, 380]}}}}
+{"tool": "ae_layer_add", "arguments": {"project": "/path/to/title.aep", "layer": {"comp": "Title",
+ "kind": "footage", "name": "Aisle", "file": "/path/to/aisle.mp4"}}}
+{"tool": "ae_keyframes", "arguments": {"project": "/path/to/title.aep", "comp": "Title", "layer": "Aisle",
+ "property": "scale", "keyframes": [{"time": 0, "value": [100, 100]}, {"time": 3.5, "value": [108, 108]}]}}
 ```
 
-A layer is addressed later by its 1-based index or its name.
+The footage is imported on first use. A layer is addressed later by its 1-based index or its name.
 
-## 3. Animate it
+## 3. Slide in the name bar
 
 ```json
-{"tool": "ae_text_animator", "arguments": {"project": "/path/to/hello.aep", "comp": "Title",
- "layer": "Headline", "opacity": 0, "duration": 1.2}}
+{"tool": "ae_layer_add", "arguments": {"project": "/path/to/title.aep", "layer": {"comp": "Title",
+ "kind": "shape_rect", "name": "Bar", "fill": [0.02, 0.03, 0.09], "width": 600, "height": 132,
+ "transform": {"position": [380, 590], "opacity": 82}}}}
+{"tool": "ae_keyframes", "arguments": {"project": "/path/to/title.aep", "comp": "Title", "layer": "Bar",
+ "property": "position", "keyframes": [{"time": 0.2, "value": [-320, 590]}, {"time": 0.7, "value": [380, 590]}],
+ "easy_ease": true}}
 ```
 
-The animator's range selector opens over characters for 1.2 seconds, so the letters appear one by one.
+A `shape_rect` is centered on its position and needs `fill` or `stroke`; `color` applies only to solids. The
+accent is a second rectangle, 8 by 132 at `[84, 590]` with a cyan `fill`, whose `scale` goes from `[100, 0]`
+at 0.6 seconds to `[100, 100]` at 0.9.
 
-## 4. Mark the beats
+## 4. Add the text and reveal it
 
 ```json
-{"tool": "ae_markers", "arguments": {"project": "/path/to/hello.aep", "comp": "Title",
- "grid": {"bpm": 120, "end": 3}}}
+{"tool": "ae_layer_add", "arguments": {"project": "/path/to/title.aep", "layer": {"comp": "Title",
+ "kind": "text", "name": "Headline", "text": "Aisle B", "font": "AvenirNext-Bold", "size": 64,
+ "fill": [1, 1, 1], "transform": {"position": [108, 585]}}}}
+{"tool": "ae_text_animator", "arguments": {"project": "/path/to/title.aep", "comp": "Title",
+ "layer": "Headline", "opacity": 0, "position": [0, 24], "start": 0.55, "duration": 0.6}}
 ```
 
-This sets a marker on every beat before 3 seconds, commented bar.beat, with a chapter on each downbeat.
+The animator's range selector opens over the characters from 0.55 seconds for 0.6 seconds, so each letter
+fades in and rises 24 pixels into place. The second line, "Racks online at 02:00" in `AvenirNext-Medium` at
+size 28, fades in the same way from 0.9 seconds.
 
 ## 5. Look at it
 
 ```json
-{"tool": "ae_frame", "arguments": {"project": "/path/to/hello.aep", "comp": "Title", "times": [0.2, 2.5],
+{"tool": "ae_frame", "arguments": {"project": "/path/to/title.aep", "comp": "Title", "times": [0.5, 1, 2.5],
  "directory": "/path/to/frames"}}
 ```
 
-The result lists `Title_0.2s.png` and `Title_2.5s.png`. At 0.2 seconds only the first letter shows; at 2.5
-seconds the whole line does.
+The result lists `Title_0.5s.png`, `Title_1s.png` and `Title_2.5s.png`. At 0.5 seconds the bar is sliding in;
+at 1 second the headline is rising in and the second line has started; at 2.5 seconds the title is complete.
 
 ## Next
 

@@ -1,66 +1,47 @@
-# After Effects MCP
+# Cavi After Effects MCP
 
-[![CI](https://github.com/cavi-ai/after-effects-mcp/actions/workflows/ci.yml/badge.svg)](https://github.com/cavi-ai/after-effects-mcp/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![PyPI version](https://img.shields.io/pypi/v/cavi-after-effects-mcp)](https://pypi.org/project/cavi-after-effects-mcp/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 MCP server for headless Adobe After Effects on macOS. It starts After Effects without its UI, runs
 ExtendScript with arguments and returns the script's JSON report, and renders saved projects with `aerender`,
 checking every output movie's frame count. 45 tools cover comps, layers, shapes, masks, text, keyframes,
 effects, 3D, transitions, templates, Essential Graphics and delivery.
 
-Built on [`cavi-adobe-mcp`](https://pypi.org/project/cavi-adobe-mcp/) and
-[`cavi-mcp-core`](https://pypi.org/project/cavi-mcp-core/). Every tool fails with a readable reason and
-never takes the server down.
+## Try one title
 
-## First result
+Put a lower third over a shot: the footage pushes in, a name bar slides in, and two lines of text rise in.
+The frame below was rendered by headless After Effects from that comp at 2.5 seconds.
 
-A 3-second title comp whose text types on, with a beat grid of markers and two frames to look at. This is the
-sequence the server ran against After Effects 26.5.0 for this README:
+![A server aisle in blue and magenta light with a lower third reading "Aisle B" and "Racks online at 02:00"](examples/first-result/Title_2.5s.png)
 
-| Call | Arguments | Result |
-|---|---|---|
-| `ae_status` | none | the installed app, its version and the running pids |
-| `ae_launch` | none | headless After Effects is up and answers scripts |
-| `ae_comp_new` | `project`, `name: "Title"`, 1280 x 720, 3 s, 30 fps, `replace: true` | the comp `Title` in a new `hello.aep` |
-| `ae_layer_add` | a text layer `Headline`, "Hello, After Effects", size 90, centered | the layer |
-| `ae_text_animator` | `layer: "Headline"`, `opacity: 0`, `duration: 1.2` | one animator |
-| `ae_markers` | `grid: {"bpm": 120, "end": 3}` | 6 markers, `bar.beat` comments |
-| `ae_frame` | `times: [0.2, 2.5]` | `Title_0.2s.png` and `Title_2.5s.png` |
-
-At 0.2 seconds the frame shows the first letter, at 2.5 seconds the whole line. Run it yourself with
-[examples/first-result](examples/first-result/README.md); the calls with their full arguments are in
-[Your first comp](docs/after-effects-mcp/source/pages/guides/first-comp.md).
+The calls are in [run.py](examples/first-result/run.py) and the shot is in
+[examples/first-result/media](examples/first-result/media). The comp is 1280 by 720, 3.5 seconds at 24 fps,
+with five layers. [Reproduce the title](examples/first-result/README.md) with one command; the calls are
+explained in [Your first comp](docs/after-effects-mcp/source/pages/guides/first-comp.md).
 
 ## Install
 
 Requires macOS, After Effects 2026 or later, FFmpeg (`ffmpeg` and `ffprobe` on `PATH`) and Python 3.15 or
-later.
+later with [uv](https://docs.astral.sh/uv/). You supply your own licensed Adobe applications.
 
 ```sh
 uv tool install cavi-after-effects-mcp
 ```
 
-or from a checkout:
-
-```sh
-uv sync
-uv run cavi-after-effects-mcp
-```
-
-The server speaks MCP over stdio. Client configuration:
-
-```json
-{
-  "mcpServers": {
-    "after-effects": {
-      "command": "uvx",
-      "args": ["cavi-after-effects-mcp"]
-    }
-  }
-}
-```
+Upgrade with `uv tool upgrade cavi-after-effects-mcp`. To work from a checkout instead, see
+[CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Quickstart
+
+Register the stdio server with your MCP client:
+
+```json
+{"mcpServers": {"after-effects": {"command": "cavi-after-effects-mcp"}}}
+```
+
+If your client does not inherit your shell's `PATH`, use the absolute path that
+`command -v cavi-after-effects-mcp` prints. Then ask your agent to:
 
 1. Call `ae_status`. It reports the After Effects it found and its version, or the reason it found none.
 2. Call `ae_launch`. It starts one headless instance and waits until it answers.
@@ -71,7 +52,7 @@ The server speaks MCP over stdio. Client configuration:
 Every tool that edits a project takes the project's absolute path and saves it. After Effects runs with no UI,
 so nothing is open on screen; a call that fails leaves the project as it was.
 
-## Tools
+## What it does
 
 | Area | Tools |
 |---|---|
@@ -84,9 +65,10 @@ so nothing is open on screen; a call that fails leaves the project as it was.
 
 Each tool carries its access in its annotations: read-only, write, or destructive. The
 [tool reference](docs/after-effects-mcp/source/pages/reference/tools.md) lists every tool's parameters and
-result fields, and a test fails when it and the server's registry differ. Three tools refuse by design
-because headless After Effects aborts on the underlying call: `ae_preset_apply`, `ae_mogrt_export` and
-`convert_to_keyframes` of `ae_audio`. See [Measured behavior](docs/after-effects-mcp/source/pages/reference/behavior-notes.md).
+result fields, and a test fails when it and the server's registry differ. Three calls always refuse, because
+headless After Effects aborts on the underlying operation, and name the supported alternative instead:
+`ae_preset_apply`, `ae_mogrt_export` and `convert_to_keyframes` of `ae_audio`. See
+[Measured behavior](docs/after-effects-mcp/source/pages/reference/behavior-notes.md).
 
 ## Script contract
 
@@ -113,34 +95,36 @@ path produced it. `ae_export_frames` writes a frame range without `aerender` at 
 [Rendering and the fallback](docs/after-effects-mcp/source/pages/guides/rendering.md).
 
 `after_effects_render` renders one declared composition range of a workspace project to a new PNG directory
-and writes a receipt:
+and writes a receipt. The recipe:
 
 ```json
 {
-  "version": 1, "name": "SpellLoop", "project": "effects/spell.aep",
-  "dependencies": ["effects/source.psd"], "composition": "SpellLoop", "start": 0, "end": 23,
-  "fps": {"numerator": 24, "denominator": 1}, "loop": true, "alpha": "straight",
-  "output_module": "Game RGBA PNG"
+  "version": 1, "name": "Title", "project": "titles/title.aep",
+  "dependencies": ["titles/aisle.mp4"], "composition": "Title", "start": 0, "end": 83,
+  "fps": {"numerator": 24, "denominator": 1}, "loop": false, "alpha": "straight",
+  "output_module": "RGBA PNG"
 }
 ```
 
-Start and end are inclusive. The output module must be an existing straight-alpha RGBA PNG template, and
-exactly one `aerender` must be installed.
+Start and end are inclusive frames. The output module must be an existing straight-alpha RGBA PNG template,
+and exactly one `aerender` must be installed.
 
 ## Documentation
 
-| Page | What it covers |
-|---|---|
-| [Overview](docs/after-effects-mcp/source/pages/introduction/overview.md) | What the server does and how a call travels |
-| [Setup](docs/after-effects-mcp/source/pages/guides/setup.md) | Requirements, installation, client configuration |
-| [Your first comp](docs/after-effects-mcp/source/pages/guides/first-comp.md) | The first result, call by call |
-| [Templates and Essential Graphics](docs/after-effects-mcp/source/pages/guides/templates-and-essential-graphics.md) | Filling a template and rendering it |
-| [Rendering and the fallback](docs/after-effects-mcp/source/pages/guides/rendering.md) | `aerender`, frame checks, the frame fallback |
-| [Troubleshooting](docs/after-effects-mcp/source/pages/guides/troubleshooting.md) | Errors and what to do |
-| [Tools](docs/after-effects-mcp/source/pages/reference/tools.md) | Every tool, parameter and result |
-| [Configuration](docs/after-effects-mcp/source/pages/reference/configuration.md) | Environment variables and fixed limits |
-| [Measured behavior](docs/after-effects-mcp/source/pages/reference/behavior-notes.md) | What headless After Effects does |
-| [Security model](docs/after-effects-mcp/source/pages/security/model.md) | What the server can touch |
+The documentation source is in `docs/after-effects-mcp/source`:
+
+- [Overview](docs/after-effects-mcp/source/pages/introduction/overview.md) and
+  [setup](docs/after-effects-mcp/source/pages/guides/setup.md)
+- Guides: [your first comp](docs/after-effects-mcp/source/pages/guides/first-comp.md),
+  [templates and Essential Graphics](docs/after-effects-mcp/source/pages/guides/templates-and-essential-graphics.md),
+  [rendering and the fallback](docs/after-effects-mcp/source/pages/guides/rendering.md) and
+  [troubleshooting](docs/after-effects-mcp/source/pages/guides/troubleshooting.md)
+- Reference: [tools](docs/after-effects-mcp/source/pages/reference/tools.md),
+  [configuration](docs/after-effects-mcp/source/pages/reference/configuration.md),
+  [measured behavior](docs/after-effects-mcp/source/pages/reference/behavior-notes.md) and
+  [testing and evaluation](docs/after-effects-mcp/source/pages/reference/testing.md)
+- [Security model](docs/after-effects-mcp/source/pages/security/model.md) and
+  [version and support](docs/after-effects-mcp/source/pages/release/version-and-support.md)
 
 ## Configuration
 
@@ -152,32 +136,38 @@ exactly one `aerender` must be installed.
 
 ## Security
 
-The server runs ExtendScript with the permissions of the user who started it. Only `after_effects_render` is
-confined to a workspace folder; the other tools take any absolute path and can write there, and `ae_script` runs
-arbitrary ExtendScript. Run it only for clients you trust. See the
-[security model](docs/after-effects-mcp/source/pages/security/model.md) and [SECURITY.md](SECURITY.md) to report
-a vulnerability.
+The server speaks MCP over stdio, sends no telemetry and uses no accounts. It runs ExtendScript with the
+permissions of the user who started it. Only `after_effects_render` is confined to a workspace folder; the
+other tools take any absolute path and can write there, and `ae_script` runs arbitrary ExtendScript. Run it
+only for clients you trust. See the [security model](docs/after-effects-mcp/source/pages/security/model.md) and
+[SECURITY.md](SECURITY.md).
 
 ## Tests
 
 ```sh
+uv sync --locked --dev
 uv run --locked ruff check .
 uv run --locked pytest -q
+uv run --locked python evals/run.py
 ```
 
-The tests drive the registered tools through the server and never start After Effects. A test fails when the
-tool reference and the registry differ, when the documentation build is not reproducible, or when a link in
-the README or the pages is broken. See [Testing and evaluation](docs/after-effects-mcp/source/pages/reference/testing.md).
+The unit tests and the evaluations drive the registered tools through the server and never start After
+Effects; tests that need FFmpeg skip without it. A test fails when the tool reference and the registry differ,
+when the documentation build is not reproducible, or when a link in the README or the pages is broken. The
+evaluations play each case in `evals/cases.json` against the server over stdio. See
+[Testing and evaluation](docs/after-effects-mcp/source/pages/reference/testing.md).
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) and the [Code of Conduct](CODE_OF_CONDUCT.md). Release history is in
-[CHANGELOG.md](CHANGELOG.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, checks and the rules for changes. This project follows
+the [Code of Conduct](CODE_OF_CONDUCT.md).
 
 ## License
 
-[MIT](LICENSE).
+MIT. See [LICENSE](LICENSE).
 
 ## Trademarks
 
-Adobe and After Effects are trademarks of Adobe Inc. This project is not affiliated with or endorsed by Adobe.
+Adobe and After Effects are either registered trademarks or trademarks of Adobe in the United States and/or
+other countries. This project is not affiliated with, endorsed by, or sponsored by Adobe. It does not include
+or redistribute Adobe software, templates or presets; you supply your own licensed applications.
