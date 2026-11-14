@@ -1,5 +1,7 @@
 # Contributing
 
+This project follows the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Setup
 
 Install Python 3.15 or newer and [uv](https://docs.astral.sh/uv/), then:

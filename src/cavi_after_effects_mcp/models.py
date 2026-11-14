@@ -74,6 +74,12 @@ class LayerSpec(Model):
     motion_blur: bool = False
     track_matte: TrackMatte | None = None
 
+    @model_validator(mode="after")
+    def visible(self):
+        if self.kind == "shape_rect" and self.fill is None and self.stroke is None:
+            raise ValueError("A shape_rect needs fill or stroke; color applies only to solids")
+        return self
+
 
 class SequenceItem(Model):
     layer: Layer | None = Field(None, description="Existing layer to move")

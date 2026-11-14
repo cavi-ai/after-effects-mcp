@@ -48,8 +48,8 @@ async def ae_render_queue_set(
         if entry.output:
             fixed = [k for k in ("format", "channels", "depth", "color") if getattr(entry.output, k) is not None]
             if fixed:
-                raise ValueError(f"{', '.join(fixed)} cannot be set from scripts (read-only in setSettings, "
-                                 "note 22); pick an output module template such as High Quality with Alpha")
+                raise ValueError(f"{', '.join(fixed)} cannot be set from scripts (read-only in setSettings); "
+                                 "pick an output module template such as High Quality with Alpha")
     if clear and not add:
         raise ValueError("clear removes the queue entries of the comps in add; add none to clear")
     args = {"add": [a.model_dump() for a in add], "update": [u.model_dump() for u in update], "clear": clear}

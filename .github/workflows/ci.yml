@@ -31,3 +31,4 @@ jobs:
       - run: uv sync --locked --dev
       - run: uv run --locked ruff check .
       - run: uv run --locked pytest -q
+      - run: uv run --locked python evals/run.py
