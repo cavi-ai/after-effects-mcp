@@ -4,6 +4,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 ## Unreleased
 
+## 0.1.0 - 2026-11-14
+
 ### Added
 
 - `CAVI_AFTER_EFFECTS_APP` chooses the application bundle.
