@@ -1,6 +1,5 @@
 # Cavi After Effects MCP
 
-[![PyPI version](https://img.shields.io/pypi/v/cavi-after-effects-mcp)](https://pypi.org/project/cavi-after-effects-mcp/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 MCP server for headless Adobe After Effects on macOS. It starts After Effects without its UI, runs
