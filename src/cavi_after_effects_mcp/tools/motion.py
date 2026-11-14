@@ -79,9 +79,8 @@ async def ae_preset_apply(
         time: Annotated[float, Field(ge=0, description="Comp time in seconds.")] = 0) -> models.Script:
     """Refused: layer.applyPreset exits headless After Effects. Resolves `preset` first, so bad names fail clearly."""
     await asyncio.to_thread(host.resolve_preset, preset)
-    raise ValueError("Refused: applying an animation preset (layer.applyPreset) exits headless After Effects "
-                     "(measured with two presets); build the look with ae_effect_add, ae_keyframes and "
-                     "ae_text_animator instead")
+    raise ValueError("Refused: applying an animation preset (layer.applyPreset) exits headless After Effects; "
+                     "build the look with ae_effect_add, ae_keyframes and ae_text_animator instead")
 
 
 @mcp.tool(annotations=WRITES)
@@ -152,7 +151,7 @@ async def ae_audio(
     """Set an audio layer's Audio Levels, fades and audio switch."""
     if convert_to_keyframes:
         raise ValueError("Refused: Convert Audio to Keyframes (app.executeCommand of the menu command 4218) exits "
-                         "headless After Effects (measured twice); use ae_keyframes with an expression or keys")
+                         "headless After Effects; use ae_keyframes with an expression or keys")
     given(enabled=enabled, level=level, level_keys=level_keys or None, fade_in=fade_in, fade_out=fade_out)
     if level is not None and level_keys:
         raise ValueError("Give level or level_keys, not both")

@@ -1,0 +1,60 @@
+name: Bug report
+description: A defect in the After Effects MCP server, a tool script or the documentation
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Do not attach Adobe account details or project files. For a security
+        vulnerability, use a private security advisory instead of an issue.
+
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      description: Release tag or commit SHA
+    validations:
+      required: true
+
+  - type: dropdown
+    id: surface
+    attributes:
+      label: Surface
+      options:
+        - MCP server (stdio)
+        - ExtendScript tool script
+        - Rendering (aerender or the frame fallback)
+        - Documentation
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction
+      description: Tool name and arguments, or the MCP request
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected result
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual result
+      description: Include the error message and the output of `ae_status`
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: macOS version, After Effects version, FFmpeg version, Python version, uv version
+    validations:
+      required: true

@@ -1,0 +1,35 @@
+name: Feature request
+description: An After Effects capability, tool or workflow the server does not cover yet
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: The motion or delivery task that is not expressible today
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposal
+      description: Proposed tool, argument or result change
+    validations:
+      required: true
+
+  - type: textarea
+    id: adobe-api
+    attributes:
+      label: Adobe API evidence
+      description: The documented After Effects scripting call this needs, and the After Effects version you checked
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Scope
+      options:
+        - label: This changes an existing tool contract
+        - label: This adds a mutation of an After Effects project
