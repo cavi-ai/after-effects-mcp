@@ -53,6 +53,13 @@ class NonFiniteNumbersTest(unittest.TestCase):
                 call("ae_script", {"script": str(script), "project": f"{folder}/x.aep", "args": {"n": float("nan")}})
 
 
+class InvisibleShapeTest(unittest.TestCase):
+    def test_a_rectangle_without_fill_or_stroke_is_refused(self):
+        layer = {"comp": "a", "kind": "shape_rect", "name": "Bar", "color": [0, 0, 0.1], "width": 600, "height": 132}
+        with mock.patch.object(host, "do_script", reached), self.assertRaisesRegex(ToolError, "fill or stroke"):
+            call("ae_layer_add", {"project": "/x.aep", "layer": layer})
+
+
 class BeatGridSizeTest(unittest.TestCase):
     def test_a_beat_grid_with_tens_of_thousands_of_markers_is_refused(self):
         with mock.patch.object(host, "do_script", reached), self.assertRaisesRegex(ToolError, "limit"):
