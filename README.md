@@ -1,23 +1,14 @@
 # Cavi After Effects MCP
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+![An illustrated red panda conducting a luminous animated sculpture](assets/after-effects-mcp-hero.png)
 
-MCP server for headless Adobe After Effects on macOS. It starts After Effects without its UI, runs
-ExtendScript with arguments and returns the script's JSON report, and renders saved projects with `aerender`,
-checking every output movie's frame count. 45 tools cover comps, layers, shapes, masks, text, keyframes,
-effects, 3D, transitions, templates, Essential Graphics and delivery.
+## Make an entrance.
 
-## Try one title
+Turn a direction into motion with an animation partner in After Effects. Build compositions with text, shapes and layers, animate them with keyframes, review frames and render the result. Your work is saved in an editable After Effects project.
 
-Put a lower third over a shot: the footage pushes in, a name bar slides in, and two lines of text rise in.
-The frame below was rendered by headless After Effects from that comp at 2.5 seconds.
+The server runs After Effects without its UI on macOS. Bring your own licensed application.
 
-![A server aisle in blue and magenta light with a lower third reading "Aisle B" and "Racks online at 02:00"](examples/first-result/Title_2.5s.png)
-
-The calls are in [run.py](examples/first-result/run.py) and the shot is in
-[examples/first-result/media](examples/first-result/media). The comp is 1280 by 720, 3.5 seconds at 24 fps,
-with five layers. [Reproduce the title](examples/first-result/README.md) with one command; the calls are
-explained in [Your first comp](docs/after-effects-mcp/source/pages/guides/first-comp.md).
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![PyPI weekly downloads](https://img.shields.io/pypi/dw/cavi-after-effects-mcp?label=PyPI%20downloads%2Fweek)](https://pypi.org/project/cavi-after-effects-mcp/)
 
 ## Install
 
@@ -39,74 +30,27 @@ Register the stdio server with your MCP client:
 {"mcpServers": {"after-effects": {"command": "cavi-after-effects-mcp"}}}
 ```
 
-If your client does not inherit your shell's `PATH`, use the absolute path that
-`command -v cavi-after-effects-mcp` prints. Then ask your agent to:
+If your client does not inherit your shell's `PATH`, use the absolute path that `command -v cavi-after-effects-mcp` prints. Then try a request like:
 
-1. Call `ae_status`. It reports the After Effects it found and its version, or the reason it found none.
-2. Call `ae_launch`. It starts one headless instance and waits until it answers.
-3. Create a comp with `ae_comp_new`, passing an absolute path for `project`. The project is created and saved.
-4. Add layers, animation and effects, then look with `ae_frame` or write a movie with `ae_export_frames`.
-5. Render a queue with `ae_render_queue_set` and `ae_render_queue`.
+> Create a lower third for this shot. Animate the name and title into place, show me a frame, and render the composition.
 
-Every tool that edits a project takes the project's absolute path and saves it. After Effects runs with no UI,
-so nothing is open on screen; a call that fails leaves the project as it was.
+The [setup guide](docs/after-effects-mcp/source/pages/guides/setup.md) and [first comp](docs/after-effects-mcp/source/pages/guides/first-comp.md) walk through the workflow. Project paths are absolute; edits are saved to the project.
 
-## What it does
+## Try one title
 
-| Area | Tools |
-|---|---|
-| Session | `ae_status`, `ae_launch`, `ae_script` |
-| Project | `ae_inspect`, `ae_project`, `ae_project_settings`, `ae_import`, `ae_footage_replace`, `ae_collect`, `ae_organize`, `ae_fonts`, `ae_effects`, `ae_presets` |
-| Comps and layers | `ae_comp_new`, `ae_comp_set`, `ae_layer_add`, `ae_layer_set`, `ae_layer_edit`, `ae_text_set`, `ae_shape_add`, `ae_mask`, `ae_camera`, `ae_material`, `ae_markers` |
-| Animation | `ae_keyframes`, `ae_expressions`, `ae_effect_add`, `ae_preset_apply`, `ae_text_animator`, `ae_controls`, `ae_audio`, `ae_time`, `ae_properties` |
-| Transitions | `ae_transitions`, `ae_transition`, `ae_sequence_layers` |
-| Delivery | `ae_render_queue_set`, `ae_render_queue`, `after_effects_render`, `ae_frame`, `ae_export_frames`, `ae_template_render`, `ae_essential_graphics`, `ae_essential_override`, `ae_mogrt_export` |
+This example adds an animated lower third over a shot and saves the composition as a project.
 
-Each tool carries its access in its annotations: read-only, write, or destructive. The
-[tool reference](docs/after-effects-mcp/source/pages/reference/tools.md) lists every tool's parameters and
-result fields, and a test fails when it and the server's registry differ. Three calls always refuse, because
-headless After Effects aborts on the underlying operation, and name the supported alternative instead:
-`ae_preset_apply`, `ae_mogrt_export` and `convert_to_keyframes` of `ae_audio`. See
-[Measured behavior](docs/after-effects-mcp/source/pages/reference/behavior-notes.md).
+![A frame from the example title: a server aisle with an animated lower third](examples/first-result/Title_2.5s.png)
 
-## Script contract
+[Explore the example](examples/first-result/README.md) or follow the [first comp guide](docs/after-effects-mcp/source/pages/guides/first-comp.md).
 
-`ae_script(script, project, args)` defines the global `CAVI_ARGS` (the `args` object), then runs the script. The
-script sets its report with `caviReport(object)`, which stores the JSON in the saved project. A script that
-never calls `caviReport` reports `{"value": <its last value>}`. A report with a non-empty `errors` list fails
-the call with those errors. Before running, the runner compiles the script inside `try`, so a syntax error
-comes back as a message with its line. A script that fails leaves no partial edits.
+## What you can do
 
-```js
-var comp = app.project.items.addComp("Title", 1920, 1080, 1, 2, 30);
-caviReport({comp: comp.name, frames: 60, errors: []});
-```
+- Create and inspect projects, compositions and layers.
+- Add text, shapes and masks, then animate properties with keyframes.
+- Review frames and render saved compositions.
 
-`ae_script` refuses scripts that call `applyPreset`, `executeCommand` or `findMenuCommandId`, which abort
-headless After Effects.
-
-## Rendering
-
-`ae_render_queue` runs `aerender` on a saved project's queue and checks each declared output's frame count with
-`ffprobe`. A movie that is missing, older than the render or short of frames is rendered again on its own. If
-that still fails, the movie is encoded from `saveFrameToPng` frames with `ffmpeg` and the output reports which
-path produced it. `ae_export_frames` writes a frame range without `aerender` at all. See
-[Rendering and the fallback](docs/after-effects-mcp/source/pages/guides/rendering.md).
-
-`after_effects_render` renders one declared composition range of a workspace project to a new PNG directory
-and writes a receipt. The recipe:
-
-```json
-{
-  "version": 1, "name": "Title", "project": "titles/title.aep",
-  "dependencies": ["titles/aisle.mp4"], "composition": "Title", "start": 0, "end": 83,
-  "fps": {"numerator": 24, "denominator": 1}, "loop": false, "alpha": "straight",
-  "output_module": "RGBA PNG"
-}
-```
-
-Start and end are inclusive frames. The output module must be an existing straight-alpha RGBA PNG template,
-and exactly one `aerender` must be installed.
+See the [tool reference](docs/after-effects-mcp/source/pages/reference/tools.md) for operations and parameters, [measured behavior](docs/after-effects-mcp/source/pages/reference/behavior-notes.md) for supported behavior, and the [rendering guide](docs/after-effects-mcp/source/pages/guides/rendering.md) for delivery.
 
 ## Documentation
 
@@ -140,21 +84,6 @@ permissions of the user who started it. Only `after_effects_render` is confined 
 other tools take any absolute path and can write there, and `ae_script` runs arbitrary ExtendScript. Run it
 only for clients you trust. See the [security model](docs/after-effects-mcp/source/pages/security/model.md) and
 [SECURITY.md](SECURITY.md).
-
-## Tests
-
-```sh
-uv sync --locked --dev
-uv run --locked ruff check .
-uv run --locked pytest -q
-uv run --locked python evals/run.py
-```
-
-The unit tests and the evaluations drive the registered tools through the server and never start After
-Effects; tests that need FFmpeg skip without it. A test fails when the tool reference and the registry differ,
-when the documentation build is not reproducible, or when a link in the README or the pages is broken. The
-evaluations play each case in `evals/cases.json` against the server over stdio. See
-[Testing and evaluation](docs/after-effects-mcp/source/pages/reference/testing.md).
 
 ## Contributing
 
