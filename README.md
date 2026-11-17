@@ -1,6 +1,6 @@
 # Cavi After Effects MCP
 
-![An illustrated red panda conducting a luminous animated sculpture](assets/after-effects-mcp-hero.png)
+![An illustrated red panda conducting a luminous animated sculpture](https://raw.githubusercontent.com/cavi-ai/after-effects-mcp/main/assets/after-effects-mcp-hero.png)
 
 ## Make an entrance.
 
@@ -40,7 +40,7 @@ The [setup guide](docs/after-effects-mcp/source/pages/guides/setup.md) and [firs
 
 This example adds an animated lower third over a shot and saves the composition as a project.
 
-![A frame from the example title: a server aisle with an animated lower third](examples/first-result/Title_2.5s.png)
+![A frame from the example title: a server aisle with an animated lower third](https://raw.githubusercontent.com/cavi-ai/after-effects-mcp/main/examples/first-result/Title_2.5s.png)
 
 [Explore the example](examples/first-result/README.md) or follow the [first comp guide](docs/after-effects-mcp/source/pages/guides/first-comp.md).
 
@@ -75,7 +75,6 @@ The documentation source is in `docs/after-effects-mcp/source`:
 |---|---|
 | `CAVI_AFTER_EFFECTS_APP` | Absolute path of the After Effects `.app` to use. A wrong path is reported, never replaced by another install. Default: the newest `Adobe After Effects 20*` in `/Applications`. |
 | `CAVI_ADOBE_WORKSPACE` | Workspace folder for `after_effects_render`; its recipe and output must stay inside it. |
-| `CAVI_ADOBE_DATA` | Private state directory of the shared Adobe package. |
 
 ## Security
 

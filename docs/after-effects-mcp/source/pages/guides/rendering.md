@@ -49,5 +49,4 @@ The `rerendered` flag of each output says whether step 2 ran.
 `after_effects_render` is the other render tool. It takes a recipe file in the workspace that declares the
 project, its dependencies, one composition, an inclusive frame range of at most 1000 frames and 300 seconds,
 a rational frame rate and an RGBA PNG output module. It renders into a new directory and returns a receipt of
-the inputs and the contiguous frames. It never uses an instance you have open. It is provided by
-`cavi-adobe-mcp`.
+the inputs and the contiguous frames. It never uses an instance you have open.

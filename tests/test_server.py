@@ -1,8 +1,10 @@
 import json
 import os
+import re
 import sys
 import tempfile
 import unittest
+from importlib import metadata
 from pathlib import Path
 
 from mcp import ClientSession, StdioServerParameters
@@ -16,6 +18,14 @@ TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effect
          "ae_template_render", "ae_collect", "ae_audio", "ae_time",
          "ae_controls", "ae_project_settings", "ae_sequence_layers", "ae_essential_override",
          "ae_fonts", "ae_expressions", "ae_material", "ae_export_frames", "ae_properties", "ae_organize"}
+
+
+class PackageTest(unittest.TestCase):
+    def test_installs_no_other_application_server(self):
+        required = {re.split(r"[^A-Za-z0-9._-]", line, maxsplit=1)[0]
+                    for line in metadata.requires("cavi-after-effects-mcp")}
+        self.assertNotIn("cavi-adobe-mcp", required)
+        self.assertIn("cavi-mcp-core", required)
 
 
 class ProtocolTest(unittest.IsolatedAsyncioTestCase):
