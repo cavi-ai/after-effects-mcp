@@ -4,6 +4,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 ## Unreleased
 
+## 0.1.1 - 2026-11-16
+
 ### Changed
 
 - No longer depends on `cavi-adobe-mcp`; `after_effects_render` writes its receipt through `cavi-mcp-core`.
