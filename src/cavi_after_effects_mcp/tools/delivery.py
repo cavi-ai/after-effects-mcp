@@ -4,12 +4,11 @@ import asyncio
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from cavi_adobe_mcp import native_media
-from cavi_adobe_mcp.config import workspace
 from cavi_mcp_core.server import DESTRUCTIVE, WRITES
 from pydantic import Field
 
 from .. import edit, host, models
+from .. import render as recipe_render
 from ..app import Comp, Project, mcp, scene
 from ..models import Output, QueueAdd, QueueUpdate
 
@@ -62,7 +61,7 @@ async def after_effects_render(
         directory: Annotated[str, Field(description="New workspace-relative directory for the PNGs.")]
 ) -> models.AERender:
     """aerender one declared AEP comp range to a new PNG directory (workspace-relative), max 300 s/8 GiB."""
-    return await asyncio.to_thread(native_media.ae_render, workspace(), recipe, directory)
+    return await asyncio.to_thread(recipe_render.ae_render, recipe_render.workspace(), recipe, directory)
 
 
 @mcp.tool(annotations=WRITES)

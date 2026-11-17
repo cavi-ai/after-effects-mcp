@@ -2,8 +2,13 @@
 
 from typing import Annotated, Any, Literal
 
-from cavi_adobe_mcp.contracts import Result
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+
+class Result(BaseModel):
+    """A tool result; fields beyond the declared ones are kept."""
+
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
 
 
 class Model(BaseModel):
