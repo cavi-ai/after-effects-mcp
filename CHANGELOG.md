@@ -52,6 +52,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
   merged into one key with the last value and the first key's interpolation.
 - Calls from two server processes take turns through a file lock, instead of running on whichever project the other
   process opened last and saving it over their own.
+- A comp or layer name two of them share is refused with their item ids or layer indices, instead of resolving to
+  the first; `ae_inspect` lists item ids and `ae_organize` renames or moves an item by id.
 - Read-only tools leave the `.aep` untouched: reports are written to a temporary JSON file, and a project is saved
   only when the call changed it or names another file. No `cavi-report` folder is added to projects.
 

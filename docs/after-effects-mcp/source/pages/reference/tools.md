@@ -24,11 +24,11 @@ A tool that fails raises an error with the reason; a script's `errors` field fai
 |---|---|---|---|---|
 | `ae_project` | destructive | `action`*, `path`, `discard`, `overwrite`, `comps` | `project`, `report`, `action`, `removed`, `path`, `previous`, `items`, `comps`, `footage` | Opens, saves, saves as, reports (`info`), reduces to `comps`, removes unused footage or consolidates duplicates. |
 | `ae_project_settings` | write | `project`*, `bits_per_channel`, `linear_blending`, `working_space`, `display_start_frame`, `time_display`, `frames_count`, `expression_engine`, `gpu` | `project`, `report`, `settings` | Sets project-wide bit depth, color space, time display, expression engine and GPU mode. |
-| `ae_inspect` | read-only | `project`*, `scope`, `comp` | `project`, `report`, `scope` | Lists project items, one comp's layers or the render queue. |
+| `ae_inspect` | read-only | `project`*, `scope`, `comp` | `project`, `report`, `scope` | Lists project items with their ids, one comp's layers or the render queue. |
 | `ae_import` | write | `project`*, `files`*, `folder`, `sequence`, `import_as`, `alpha`, `conform_fps`, `loop` | `project`, `report`, `items` | Imports footage, an image sequence or a layered file as a comp. |
 | `ae_footage_replace` | write | `project`*, `item`*, `file`* | `project`, `report`, `item`, `layers_using` | Replaces a footage item's source file in place. |
 | `ae_collect` | write | `project`*, `folder`* | `project`, `folder`, `items`, `copied`, `relinked`, `skipped`, `missing` | Copies used footage into a folder and relinks it. |
-| `ae_organize` | write | `project`*, `folders`, `renames`, `moves` | `project`, `report`, `folders`, `renamed`, `moved` | Creates folders, renames items and moves them. |
+| `ae_organize` | write | `project`*, `folders`, `renames`, `moves` | `project`, `report`, `folders`, `renamed`, `moved` | Creates folders, renames items and moves them; an item is named or given by its id from `ae_inspect`. |
 | `ae_fonts` | read-only | `project`*, `filter`, `limit` | `project`, `report`, `fonts`, `count` | Lists installed fonts by PostScript name. |
 | `ae_effects` | read-only | `project`*, `filter`, `category`, `limit` | `project`, `report`, `effects`, `total`, `categories` | Lists installed effects with their match names. |
 | `ae_presets` | read-only | `project`*, `filter`, `limit` | `project`, `report`, `render_settings`, `output_modules`, `animation_presets` | Lists render settings and output module templates and installed `.ffx` presets. |

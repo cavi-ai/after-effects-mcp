@@ -8,12 +8,12 @@ $.evalFile(new File(CAVI_LIB));
             item = app.project.item(i);
             if (item.name === "cavi-report") { continue; }
             if (item instanceof CompItem) {
-                report.comps.push({name: item.name, width: item.width, height: item.height, duration: item.duration,
+                report.comps.push({id: item.id, name: item.name, width: item.width, height: item.height, duration: item.duration,
                     fps: item.frameRate, layers: item.numLayers, renderer: item.renderer});
             } else if (item instanceof FolderItem) {
-                report.folders.push({name: item.name, items: item.numItems});
+                report.folders.push({id: item.id, name: item.name, items: item.numItems});
             } else {
-                report.footage.push({name: item.name, file: item.mainSource.file ? item.mainSource.file.fsName : null,
+                report.footage.push({id: item.id, name: item.name, file: item.mainSource.file ? item.mainSource.file.fsName : null,
                     missing: item.footageMissing === true, width: item.width, height: item.height, duration: item.duration,
                     solid: item.mainSource instanceof SolidSource});
             }

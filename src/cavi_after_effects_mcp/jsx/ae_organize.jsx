@@ -1,7 +1,12 @@
 $.evalFile(new File(CAVI_LIB));
 
+// A project item by its id from ae_inspect, or by a name no other item has.
 function itemByName(name, what) {
     var i, found = null;
+    if (typeof name === "number") {
+        found = app.project.itemByID(name);
+        return found ? found : caviFail("No " + what + " with id " + name);
+    }
     for (i = 1; i <= app.project.numItems; i++) {
         if (app.project.item(i).name === name && app.project.item(i).name !== "cavi-report") {
             if (found) { caviFail("More than one project item is named " + name + "; rename one first"); }

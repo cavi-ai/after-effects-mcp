@@ -203,13 +203,17 @@ class Sequenced(Script):
     joins: list[dict[str, Any]]
 
 
+ItemRef = Annotated[int | Annotated[str, Field(min_length=1)],
+                    Field(description="Project item name (comp, footage or folder), or its id from ae_inspect")]
+
+
 class ItemMove(Model):
-    item: str = Field(min_length=1, description="Project item name (comp, footage or folder)")
+    item: ItemRef
     folder: str = Field(min_length=1, description="Folder path such as Footage/Audio, created when missing")
 
 
 class ItemRename(Model):
-    item: str = Field(min_length=1)
+    item: ItemRef
     name: str = Field(min_length=1)
 
 

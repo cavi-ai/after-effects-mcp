@@ -8,19 +8,26 @@ function caviFail(message) {
     throw new Error(message);
 }
 
+// The one comp named ``name``; a name two comps share is refused with their item ids.
 function caviComp(name) {
-    var i, item;
+    var i, item, found = [], ids = [];
     for (i = 1; i <= app.project.numItems; i++) {
         item = app.project.item(i);
         if (item instanceof CompItem && item.name === name) {
-            return item;
+            found.push(item);
+            ids.push(item.id);
         }
     }
-    return caviFail("No comp named " + name);
+    if (found.length > 1) {
+        caviFail(found.length + " comps are named " + name + " (item ids " + ids.join(", ")
+            + "); rename all but one with ae_organize");
+    }
+    return found.length ? found[0] : caviFail("No comp named " + name);
 }
 
+// A layer by index, or the one layer named ``ref``; a name two layers share is refused with their indices.
 function caviLayer(comp, ref) {
-    var i;
+    var i, found = [];
     if (typeof ref === "number") {
         if (ref < 1 || ref > comp.numLayers) {
             caviFail("Comp " + comp.name + " has no layer " + ref);
@@ -29,10 +36,14 @@ function caviLayer(comp, ref) {
     }
     for (i = 1; i <= comp.numLayers; i++) {
         if (comp.layer(i).name === ref) {
-            return comp.layer(i);
+            found.push(i);
         }
     }
-    return caviFail("Comp " + comp.name + " has no layer named " + ref);
+    if (found.length > 1) {
+        caviFail("Comp " + comp.name + " has " + found.length + " layers named " + ref + " (indices "
+            + found.join(", ") + "); pass the index");
+    }
+    return found.length ? comp.layer(found[0]) : caviFail("Comp " + comp.name + " has no layer named " + ref);
 }
 
 // A property by path: "position", "Transform/Position" or match names, joined with "/".
