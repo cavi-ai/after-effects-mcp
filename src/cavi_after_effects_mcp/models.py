@@ -89,7 +89,8 @@ class LayerSpec(Model):
 class SequenceItem(Model):
     layer: Layer | None = Field(None, description="Existing layer to move")
     file: str | None = Field(None, description="Absolute footage path to add as a layer")
-    duration: float | None = Field(None, gt=0, description="Seconds on the timeline; default the layer's own length")
+    duration: float | None = Field(None, gt=0, description="Seconds on the timeline, at most the source left from "
+                                                           "the layer's in point; default the layer's own length")
 
 
 class SequenceTransition(Model):
