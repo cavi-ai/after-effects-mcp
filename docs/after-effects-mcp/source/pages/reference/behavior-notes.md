@@ -130,3 +130,6 @@ messages refer to these notes by number.
     would receive a copy of the open project. Such a call runs only when the open project is untitled and holds no items, and is refused otherwise;
     `ae_project` `new` closes the open project (a dirty one only with `discard`) and saves the untitled, empty
     project After Effects leaves to the path; `app.newProject` exits the headless instance (measured twice, 26.5).
+41. A Dropdown Menu Control whose menu is set with `setPropertyParameters` is rebuilt as an effect with a
+    `Pseudo/@@...` match name; its first parameter has `isDropdownEffect` true (26.5). An expression reads a
+    control's value as `effect("name")(1)`, which does not depend on the parameter's translated display name.
