@@ -112,6 +112,8 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_comp_new", {"project": "/x.aep", "name": "a", "width": 64}, "needs width, height and duration"),
             ("ae_comp_new", {"project": "/x.aep", "name": "a", "footage": "clip.mp4"}, "absolute path"),
             ("ae_text_set", base, "at least one"),
+            ("ae_text_set", {**base, "ranges": [{"start": 6, "end": 5, "size": 10}]}, "ends at or before its start"),
+            ("ae_text_set", {**base, "ranges": [{"start": 0, "end": 5}]}, "Range 0-5 sets no style"),
             ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "split"}, "needs a time"),
             ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "reorder"}, "needs move_to"),
             ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "precompose"}, "needs a name"),

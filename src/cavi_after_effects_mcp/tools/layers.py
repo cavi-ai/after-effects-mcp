@@ -204,13 +204,18 @@ async def ae_text_set(
         justification: Annotated[Literal["left", "center", "right", "full"] | None,
                                  Field(description="Paragraph alignment.")] = None,
         box: Annotated[Annotated[list[float], Field(min_length=2, max_length=2)] | None,
-                       Field(description="Paragraph box size [width, height] in pixels.")] = None
+                       Field(description="Paragraph box size [width, height] in pixels.")] = None,
+        ranges: Annotated[list[models.TextRange], Field(
+            max_length=1000, description="Character ranges [start, end) styled after the whole text, in "
+                                         "order.")] = []
 ) -> models.TextChanged:
-    """Replace the source text and/or style of an existing text layer; its animators and keyframes stay."""
+    """Replace the source text and/or style of an existing text layer, and style character ranges; its animators
+    and keyframes stay."""
     style = {"text": text, "font": font, "size": size, "fill": fill, "stroke": stroke, "stroke_width": stroke_width,
              "tracking": tracking, "leading": leading, "justification": justification, "box": box}
-    given(**style)
-    return await scene("ae_text_set", project, {"comp": comp, "layer": layer, **style})
+    given(**style, ranges=ranges or None)
+    return await scene("ae_text_set", project, {"comp": comp, "layer": layer, **style,
+                                                "ranges": [r.model_dump() for r in ranges]})
 
 
 @mcp.tool(annotations=WRITES)
