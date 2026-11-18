@@ -328,6 +328,29 @@ class LayerChanged(Script):
     values: dict[str, Any]
 
 
+class TextRange(Model):
+    start: int = Field(ge=0, description="First character, 0-based")
+    end: int = Field(gt=0, description="Character after the last one")
+    font: str | None = Field(None, description="PostScript font name, as ae_fonts lists it")
+    size: float | None = Field(None, gt=0, description="Font size in pixels")
+    fill: Color | None = None
+    stroke: Color | None = None
+    stroke_width: float | None = Field(None, ge=0)
+    tracking: float | None = Field(None, description="Thousandths of an em")
+    bold: bool | None = Field(None, description="Faux bold")
+    italic: bool | None = Field(None, description="Faux italic")
+    baseline_shift: float | None = Field(None, description="Pixels")
+
+    @model_validator(mode="after")
+    def styled(self):
+        if self.end <= self.start:
+            raise ValueError(f"Range {self.start}-{self.end} ends at or before its start")
+        if all(getattr(self, k) is None for k in ("font", "size", "fill", "stroke", "stroke_width", "tracking",
+                                                  "bold", "italic", "baseline_shift")):
+            raise ValueError(f"Range {self.start}-{self.end} sets no style")
+        return self
+
+
 class TextChanged(Script):
     comp: str
     layer: str
