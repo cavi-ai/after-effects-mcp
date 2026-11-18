@@ -97,7 +97,7 @@ function caviEase(prop, key, ease) {
     return list;
 }
 
-// Keys as [{time, value, ease_in, ease_out, interpolation}]; the first listed time wins on a repeat.
+// Keys as [{time, value, ease_in, ease_out, interpolation}] at distinct times; the tools refuse a repeated time.
 function caviKeys(prop, keys, fallback) {
     var i, k, key, inEase, outEase, kind, kinds = {LINEAR: KeyframeInterpolationType.LINEAR,
         BEZIER: KeyframeInterpolationType.BEZIER, HOLD: KeyframeInterpolationType.HOLD};

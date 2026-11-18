@@ -43,6 +43,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
   deleting it as unreadable, rendering it again and failing.
 - `ae_sequence_layers` refuses an item `duration` longer than its source, instead of ending the layer at the end of
   its source and leaving a gap before the next item.
+- `ae_keyframes`, `ae_audio`, `ae_time` and `ae_mask` refuse a key list that repeats a time, which After Effects
+  merged into one key with the last value and the first key's interpolation.
 - Read-only tools leave the `.aep` untouched: reports are written to a temporary JSON file, and a project is saved
   only when the call changed it or names another file. No `cavi-report` folder is added to projects.
 

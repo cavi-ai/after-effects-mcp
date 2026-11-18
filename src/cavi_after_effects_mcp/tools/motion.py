@@ -7,7 +7,7 @@ from cavi_mcp_core.server import READ_ONLY, WRITES
 from pydantic import Field
 
 from .. import edit, host, models
-from ..app import Comp, Project, given, mcp, scene
+from ..app import Comp, Project, distinct_times, given, mcp, scene
 from ..models import Ease, ExpressionPreset, Keyframe
 
 
@@ -34,6 +34,7 @@ async def ae_keyframes(
     ease, hold, spatial and rove restyle the existing keys."""
     if expression is not None and preset is not None:
         raise ValueError("Give an expression or a preset, not both")
+    distinct_times("keyframes", keyframes)
     if easy_ease and ease is None:
         ease = Ease(speed=0, influence=33.333)
     restyle = hold or spatial is not None or rove or (ease is not None and not keyframes)
@@ -157,6 +158,7 @@ async def ae_audio(
     given(enabled=enabled, level=level, level_keys=level_keys or None, fade_in=fade_in, fade_out=fade_out)
     if level is not None and level_keys:
         raise ValueError("Give level or level_keys, not both")
+    distinct_times("level_keys", level_keys)
 
     def both(value):
         return [value, value] if isinstance(value, int | float) else value
@@ -185,6 +187,7 @@ async def ae_time(
           frame_blending=frame_blending)
     if freeze_at is not None and remap_keys:
         raise ValueError("Give freeze_at or remap_keys, not both")
+    distinct_times("remap_keys", remap_keys)
     args = {"comp": comp, "layer": layer, "time_remap": time_remap, "remap_keys": [k.model_dump() for k in remap_keys],
             "freeze_at": freeze_at, "reverse": reverse, "frame_blending": frame_blending}
     return await scene("ae_time", project, args)

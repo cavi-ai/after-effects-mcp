@@ -29,6 +29,15 @@ async def scene(name: str, project: str, args: dict[str, Any], timeout: int = 30
     return {"project": project, "report": report, **{k: v for k, v in report.items() if k != "errors"}}
 
 
+def distinct_times(name, keys):
+    """Refuse a key list that repeats a time: After Effects keeps one key there, mixing the repeats' settings."""
+    seen = set()
+    for key in keys:
+        if key.time in seen:
+            raise ValueError(f"{name} lists time {key.time:g} twice; give one key per time")
+        seen.add(key.time)
+
+
 def given(**fields):
     """Refuse a call that sets none of ``fields``."""
     if all(v is None for v in fields.values()):

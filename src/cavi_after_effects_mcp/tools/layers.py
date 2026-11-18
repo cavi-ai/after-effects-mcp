@@ -6,7 +6,7 @@ from cavi_mcp_core.server import DESTRUCTIVE, WRITES
 from pydantic import Field
 
 from .. import edit, host, models
-from ..app import Comp, Project, given, mcp, scene
+from ..app import Comp, Project, distinct_times, given, mcp, scene
 from ..models import (
     BeatGrid,
     CameraSpec,
@@ -229,6 +229,7 @@ async def ae_mask(
     keyframed path."""
     if mask is None and shape is None and not path_keys:
         raise ValueError("A new mask needs a shape or path_keys")
+    distinct_times("path_keys", path_keys)
     given(shape=shape, name=name, mode=mode, feather=feather, expansion=expansion, opacity=opacity, invert=invert,
           path_keys=path_keys or None)
     args = {"comp": comp, "layer": layer, "mask": mask, "name": name, "mode": mode, "feather": feather,
