@@ -8,6 +8,10 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 - `ae_project` `new` saves an empty project at a path.
 
+### Changed
+
+- Tool results are built on the `cavi-mcp-core` `Result` model instead of a local copy.
+
 ### Fixed
 
 - A call on a project path with no file starts it only from an untitled, empty project; otherwise it is refused, so
