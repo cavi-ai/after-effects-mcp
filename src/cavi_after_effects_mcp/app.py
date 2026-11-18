@@ -1,6 +1,7 @@
 """The server object and the helpers every tool module shares."""
 
 import asyncio
+from contextvars import ContextVar
 from typing import Annotated, Any
 
 from cavi_mcp_core.contracts import failure
@@ -21,10 +22,18 @@ mcp = AfterEffectsServer("cavi-after-effects", package="cavi-after-effects-mcp",
                          "ae_render_queue renders. Paths are absolute.")
 Project = Annotated[str, Field(description="Absolute path of the .aep the call works in and saves.")]
 Comp = Annotated[str, Field(description="Comp name.")]
+BATCH: ContextVar[list[dict[str, Any]] | None] = ContextVar("batch", default=None)
 
 
 async def scene(name: str, project: str, args: dict[str, Any], timeout: int = 300) -> dict[str, Any]:
-    """Run the packaged script ``name`` on ``project`` and return its report with the report's fields lifted."""
+    """Run the packaged script ``name`` on ``project`` and return its report with the report's fields lifted.
+
+    Inside ``ae_batch`` the script and its arguments are added to the batch instead of run.
+    """
+    batch = BATCH.get()
+    if batch is not None:
+        batch.append({"name": name, "args": args})
+        return {"project": project, "report": {}}
     report = await asyncio.to_thread(host.run_template, name, project, args, timeout)
     return {"project": project, "report": report, **{k: v for k, v in report.items() if k != "errors"}}
 

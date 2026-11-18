@@ -14,6 +14,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
   with the file as layer 1.
 - `ae_layer_parts` removes, switches on or off and moves a layer's effects, masks, shape groups and text animators
   by path.
+- `ae_batch` runs typed write tools in order in one After Effects call with one save, and rolls every step back
+  when one fails: six steps take 1.7 s instead of 10.2 s as six calls.
 
 ### Changed
 

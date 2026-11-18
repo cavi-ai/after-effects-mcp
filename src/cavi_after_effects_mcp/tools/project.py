@@ -4,10 +4,11 @@ import asyncio
 from typing import Annotated, Literal
 
 from cavi_mcp_core.server import DESTRUCTIVE, READ_ONLY, WRITES
+from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
 from .. import edit, host, models
-from ..app import Project, given, mcp, scene
+from ..app import BATCH, Project, given, mcp, scene
 
 
 def folder_path(path):
@@ -142,6 +143,45 @@ async def ae_organize(
         folder_path(path)
     return await scene("ae_organize", project, {"folders": folders, "renames": [r.model_dump() for r in renames],
                                                 "moves": [m.model_dump() for m in moves]})
+
+
+# Write tools whose call runs one packaged script and returns its report.
+BATCHABLE = frozenset({
+    "ae_comp_new", "ae_comp_set", "ae_layer_add", "ae_layer_set", "ae_layer_edit", "ae_layer_parts", "ae_text_set",
+    "ae_shape_add", "ae_mask", "ae_camera", "ae_material", "ae_markers", "ae_keyframes", "ae_expressions",
+    "ae_effect_add", "ae_text_animator", "ae_controls", "ae_audio", "ae_time", "ae_transition",
+    "ae_essential_graphics", "ae_essential_override", "ae_render_queue_set", "ae_project_settings", "ae_import",
+    "ae_footage_replace", "ae_organize"})
+
+
+@mcp.tool(annotations=DESTRUCTIVE)
+async def ae_batch(
+        project: Project,
+        steps: Annotated[list[models.BatchStep], Field(min_length=1, max_length=200, description="Typed write "
+                                                       "tool calls in order, each {tool, args} without project.")],
+        timeout: Annotated[int, Field(ge=10, le=3600, description="Seconds for the whole batch.")] = 600
+) -> models.Batched:
+    """Run typed write tools in order in one After Effects call. Each step's arguments are checked as its tool
+    checks them before anything runs; the project is saved once after the last step, and a failing step leaves
+    the project as it was before the batch. Returns each step's report in order."""
+    planned = []
+    token = BATCH.set(planned)
+    try:
+        for number, step in enumerate(steps, 1):
+            label = f"Step {number} ({step.tool})"
+            if step.tool not in BATCHABLE:
+                raise ValueError(f"{label} is not a batchable tool; use one of {', '.join(sorted(BATCHABLE))}")
+            if "project" in step.args:
+                raise ValueError(f"{label}: project is given once, for the batch")
+            try:
+                await mcp._tool_manager.get_tool(step.tool).run({"project": project, **step.args}, None)
+            except ToolError as error:
+                raise ValueError(f"{label}: {str(error).removeprefix(f'Error executing tool {step.tool}: ')}") from error
+            if len(planned) != number:
+                raise RuntimeError(f"{label} ran {len(planned) - number + 1} scripts instead of one")
+    finally:
+        BATCH.reset(token)
+    return await scene("ae_batch", project, {"steps": planned}, timeout)
 
 
 @mcp.tool(annotations=READ_ONLY)
