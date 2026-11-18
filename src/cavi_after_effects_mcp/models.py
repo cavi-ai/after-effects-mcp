@@ -356,6 +356,15 @@ class PartEdit(Model):
         return self
 
 
+class BatchStep(Model):
+    tool: str = Field(min_length=1, description="A typed write tool, such as ae_layer_add or ae_keyframes")
+    args: dict[str, Any] = Field(default_factory=dict, description="The tool's arguments without project")
+
+
+class Batched(Script):
+    steps: list[dict[str, Any]]
+
+
 class PartsEdited(Script):
     comp: str
     layer: str

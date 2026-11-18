@@ -18,7 +18,7 @@ TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effect
          "ae_template_render", "ae_collect", "ae_audio", "ae_time",
          "ae_controls", "ae_project_settings", "ae_sequence_layers", "ae_essential_override",
          "ae_fonts", "ae_expressions", "ae_material", "ae_export_frames", "ae_properties", "ae_organize",
-         "ae_layer_parts"}
+         "ae_layer_parts", "ae_batch"}
 
 
 class PackageTest(unittest.TestCase):
@@ -118,6 +118,15 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_layer_parts", {**base, "edits": [{"path": "Effects/Glow", "action": "move"}]}, "only with move"),
             ("ae_layer_parts", {**base, "edits": [{"path": "Effects/Glow", "action": "remove", "to": 1}]},
              "only with move"),
+            ("ae_batch", {"project": "/x.aep", "steps": [{"tool": "ae_inspect"}]},
+             "Step 1 (ae_inspect) is not a batchable tool"),
+            ("ae_batch", {"project": "/x.aep", "steps": [
+                {"tool": "ae_comp_new", "args": {"name": "a", "width": 64, "height": 36, "duration": 1}},
+                {"tool": "ae_layer_set", "args": {"comp": "a", "layer": 1}}]},
+             "Step 2 (ae_layer_set): Give at least one of"),
+            ("ae_batch", {"project": "/x.aep", "steps": [
+                {"tool": "ae_layer_set", "args": {"project": "/y.aep", "comp": "a", "layer": 1, "label": 2}}]},
+             "project is given once"),
             ("ae_comp_set", {"project": "/x.aep", "comp": "a"}, "at least one"),
             ("ae_import", {"project": "/x.aep", "files": ["relative.png"]}, "absolute path"),
             ("ae_markers", {"project": "/x.aep", "comp": "a"}, "markers or a beat grid"),
