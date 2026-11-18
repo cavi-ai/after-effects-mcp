@@ -2,10 +2,11 @@
 
 import os
 import re
-from pathlib import Path
 
 from cavi_mcp_core import media
 from cavi_mcp_core.workspace import root
+
+from . import host
 
 WORKSPACE = "CAVI_ADOBE_WORKSPACE"
 FIELDS = {"version", "name", "project", "dependencies", "composition", "start", "end", "fps", "loop", "alpha",
@@ -40,11 +41,11 @@ def ae_render(workspace, recipe, directory):
         raise ValueError("Use an existing AEP project")
     inputs = [source, project, *(media.inside(workspace, p) for p in spec["dependencies"])]
     fingerprints = {str(p): media.digest(p) for p in inputs}
-    binaries = sorted(Path("/Applications").glob("Adobe After Effects */aerender"))
-    if len(binaries) != 1 or not os.access(binaries[0], os.X_OK):
-        raise ValueError("Exactly one executable Adobe After Effects aerender must be installed")
+    program = host.after_effects() / "aerender"
+    if not os.access(program, os.X_OK):
+        raise ValueError(f"No aerender at {program}")
     target.mkdir(parents=True, exist_ok=False)
-    command = [str(binaries[0]), "-project", str(project), "-comp", spec["composition"],
+    command = [str(program), "-project", str(project), "-comp", spec["composition"],
                "-s", str(spec["start"]), "-e", str(spec["end"]), "-OMtemplate", spec["output_module"],
                "-output", str(target / "frame_[#####].png")]
     try:

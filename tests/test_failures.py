@@ -3,6 +3,8 @@
 import asyncio
 import json
 import os
+import plistlib
+import re
 import sys
 import tempfile
 import threading
@@ -13,7 +15,7 @@ from unittest import mock
 
 from mcp.server.mcpserver.exceptions import ToolError
 
-from cavi_after_effects_mcp import host
+from cavi_after_effects_mcp import host, render
 from cavi_after_effects_mcp.server import mcp
 
 
@@ -112,6 +114,34 @@ class ApplicationLookupTest(unittest.TestCase):
         data = status.structured_content
         self.assertIsNone(data["app"])
         self.assertIn("CAVI_AFTER_EFFECTS_APP", data["error"])
+
+
+class RenderApplicationTest(unittest.TestCase):
+    def test_after_effects_render_uses_the_application_the_override_names(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            app = root / "Other" / "Adobe After Effects 2099.app"
+            (app / "Contents" / "MacOS").mkdir(parents=True)
+            (app / "Contents" / "MacOS" / "After Effects").write_bytes(b"")
+            with (app / "Contents" / "Info.plist").open("wb") as stream:
+                plistlib.dump({"CFBundleIdentifier": "com.adobe.AfterEffects.application",
+                               "CFBundleExecutable": "After Effects", "CFBundleShortVersionString": "99.0"}, stream)
+            (root / "cut.aep").write_bytes(b"RIFX")
+            (root / "recipe.json").write_text(json.dumps({
+                "version": 1, "name": "shot", "project": "cut.aep", "dependencies": [], "composition": "Main",
+                "start": 0, "end": 9, "fps": {"numerator": 30, "denominator": 1}, "loop": False,
+                "alpha": "straight", "output_module": "PNG"}))
+            scan = Path.glob
+
+            def installed(self, pattern, *args, **kwargs):
+                # The installs on this machine stay out of the test.
+                return iter(()) if self == Path("/Applications") else scan(self, pattern, *args, **kwargs)
+
+            with mock.patch.dict(os.environ, {"CAVI_AFTER_EFFECTS_APP": str(app)}), \
+                    mock.patch.object(Path, "glob", installed), \
+                    self.assertRaisesRegex(ValueError, f"No aerender at {re.escape(str(root / 'Other'))}"):
+                render.ae_render(str(root), "recipe.json", "frames")
+            self.assertFalse((root / "frames").exists())
 
 
 class SerializedAccessTest(unittest.TestCase):
