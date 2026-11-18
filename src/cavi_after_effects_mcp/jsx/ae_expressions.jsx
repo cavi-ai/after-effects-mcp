@@ -21,10 +21,14 @@ function visit(prop, path, layer, out, a) {
 
 (function () {
     var a = CAVI_ARGS, comp = caviComp(a.comp), out = {items: [], broken: 0, removed: 0}, i, layer;
-    for (i = 1; i <= comp.numLayers; i++) {
-        layer = comp.layer(i);
-        if (a.layer !== null && layer.index !== caviLayer(comp, a.layer).index) { continue; }
+    if (a.layer !== null) {
+        layer = caviLayer(comp, a.layer);
         visit(layer, layer.name, layer, out, a);
+    } else {
+        for (i = 1; i <= comp.numLayers; i++) {
+            layer = comp.layer(i);
+            visit(layer, layer.name, layer, out, a);
+        }
     }
     caviReport({comp: comp.name, expressions: out.items, broken: out.broken, removed: out.removed, errors: []});
 })();
