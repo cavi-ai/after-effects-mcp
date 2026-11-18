@@ -56,6 +56,9 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
   the first; `ae_inspect` lists item ids and `ae_organize` renames or moves an item by id.
 - `ae_import` `folder` is a folder path from the root, as in `ae_organize`, instead of a root folder whose name
   holds the slashes; folder paths with an empty name are refused for `ae_import` and `ae_organize` moves too.
+- `ae_controls` links read a control's parameter by index, `effect("name")(1)`, instead of by its English display
+  name, and a link to an effect that is not an Expression Control is refused by name instead of failing with a
+  `TypeError`.
 - Read-only tools leave the `.aep` untouched: reports are written to a temporary JSON file, and a project is saved
   only when the call changed it or names another file. No `cavi-report` folder is added to projects.
 
