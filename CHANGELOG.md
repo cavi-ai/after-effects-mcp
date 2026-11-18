@@ -15,6 +15,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - `ae_template_render` saves the opened template to `project` before filling it, so an existing `project` file is
   replaced by the filled template instead of being edited, and its queue entries no longer fail on missing render
   settings.
+- Reports escape every control character, so a text, marker comment or other value holding one is returned as it is
+  in the project instead of without it.
 
 ## 0.1.1 - 2026-11-16
 

@@ -1,3 +1,4 @@
+import json
 import shutil
 import subprocess
 import tempfile
@@ -64,6 +65,23 @@ class ProjectReportTest(unittest.TestCase):
     def test_relative_script_path_is_refused(self):
         with self.assertRaisesRegex(ValueError, "absolute path"):
             host.run_script("build.jsx", self.root / "out.aep", {}, 60)
+
+
+@unittest.skipUnless(shutil.which("node"), "node is required")
+class ReportJsonTest(unittest.TestCase):
+    def stringify(self, value):
+        source = host.RUNNER.read_text()
+        start = source.index("function caviStringify")
+        stop = source.index("\n}\n", start) + 3
+        script = source[start:stop] + "process.stdout.write(caviStringify(JSON.parse(process.argv[1])));"
+        out = subprocess.run(["node", "-e", script, json.dumps(value)], capture_output=True, text=True, check=True)
+        return out.stdout
+
+    def test_control_characters_round_trip(self):
+        value = {"text": "one\u0003two", "name": "a\"b\\c\nd\te\u0000\u001f"}
+        out = self.stringify(value)
+        self.assertTrue(out.isprintable())
+        self.assertEqual(json.loads(out), value)
 
 
 class WatchedCallTest(unittest.TestCase):
