@@ -1,5 +1,7 @@
 """Headless After Effects: launch, scripts over Apple Events, aerender and frame checks."""
 
+import asyncio
+import contextlib
 import fcntl
 import glob
 import json
@@ -8,7 +10,6 @@ import os
 import re
 import shutil
 import signal
-import subprocess
 import tempfile
 import threading
 import time
@@ -17,7 +18,7 @@ from pathlib import Path
 
 from cavi_mcp_core import apps, resident
 from cavi_mcp_core.contracts import OperationRejected
-from cavi_mcp_core.proc import diagnostics, run_sync
+from cavi_mcp_core.proc import diagnostics, run, run_sync
 
 RUNNER = Path(__file__).with_name("runner.jsx")
 JSX = Path(__file__).with_name("jsx")
@@ -126,23 +127,25 @@ def alive(pid):
     return True
 
 
-def run_watched(command, timeout, pid, interval=0.5):
-    """Run ``command`` while process ``pid`` lives; stop it and raise as soon as ``pid`` exits."""
-    child = subprocess.Popen(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                             start_new_session=True)
-    deadline = time.monotonic() + timeout
-    while child.poll() is None:
-        if not alive(pid):
-            child.kill()
-            child.wait()
+async def watched(command, timeout, pid, interval):
+    call = asyncio.ensure_future(run(command, timeout))
+    while not call.done():
+        await asyncio.wait({call}, timeout=interval)
+        if not call.done() and not alive(pid):
+            call.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await call
             raise RuntimeError(f"After Effects (pid {pid}) exited during the call; the next tool call starts it again")
-        if time.monotonic() > deadline:
-            child.kill()
-            child.wait()
-            raise RuntimeError(f"After Effects did not answer within {timeout} seconds")
-        time.sleep(interval)
-    out, err = child.communicate()
-    return child.returncode, out, err
+    try:
+        result = call.result()
+    except TimeoutError:
+        raise RuntimeError(f"After Effects did not answer within {timeout} seconds") from None
+    return result.returncode, result.stdout, result.stderr
+
+
+def run_watched(command, timeout, pid, interval=0.5):
+    """Run ``command`` while process ``pid`` lives; stop its process group and raise as soon as ``pid`` exits."""
+    return asyncio.run(watched(command, timeout, pid, interval))
 
 
 def require_finite(value, where="arguments"):

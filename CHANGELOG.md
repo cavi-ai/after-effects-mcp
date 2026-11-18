@@ -33,6 +33,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 ### Fixed
 
+- A script call that ends because After Effects exited or did not answer stops the whole process group of its
+  command through `cavi-mcp-core` `proc.run`, so no process it started is left running.
 - A call on a project path with no file starts it only from an untitled, empty project; otherwise it is refused, so
   a new project no longer inherits the items of the project open before it.
 - `ae_template_render` saves the opened template to `project` before filling it, so an existing `project` file is

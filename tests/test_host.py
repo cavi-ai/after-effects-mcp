@@ -1,5 +1,7 @@
 import json
+import os
 import shutil
+import signal
 import subprocess
 import tempfile
 import threading
@@ -193,6 +195,22 @@ class WatchedCallTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "exited during the call"):
             host.run_watched(["sleep", "30"], 60, app.pid, interval=0.1)
         self.assertLess(time.monotonic() - started, 10)
+
+    def test_a_call_stopped_by_an_exit_leaves_no_process_it_started(self):
+        app = subprocess.Popen(["sleep", "30"])
+        self.addCleanup(app.kill)
+        folder = Path(tempfile.mkdtemp(prefix="ae-watched-"))
+        self.addCleanup(shutil.rmtree, folder)
+        marker = folder / "pid"
+        threading.Timer(1, lambda: (app.kill(), app.wait())).start()
+        with self.assertRaisesRegex(RuntimeError, "exited during the call"):
+            host.run_watched(["sh", "-c", f'sleep 60 & echo $! > "{marker}"; wait'], 60, app.pid, interval=0.1)
+        started = int(marker.read_text())
+        self.addCleanup(lambda: host.alive(started) and os.kill(started, signal.SIGKILL))
+        deadline = time.monotonic() + 5
+        while host.alive(started) and time.monotonic() < deadline:
+            time.sleep(0.1)
+        self.assertFalse(host.alive(started), f"pid {started} outlived the call")
 
 
 class PresetTest(unittest.TestCase):
