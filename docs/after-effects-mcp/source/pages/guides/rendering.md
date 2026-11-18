@@ -33,7 +33,8 @@ nothing into a missing one. The tool works through three steps and reports which
    frame rate, is an error.
 
 Movie frame counts are read with `ffprobe`. An image sequence output keeps its `[#####]` in `file` and counts the
-non-empty frame files written during the call. A render that ends with the wrong count after the fallback is an
+non-empty frame files written during the call. An audio-only output, such as the `AIFF 48kHz` template, counts
+its duration in frames at the entry's frame rate. A render that ends with the wrong count after the fallback is an
 error that names the comp, the count it has and the failure `aerender` reported.
 
 The `rerendered` flag of each output says whether step 2 ran.

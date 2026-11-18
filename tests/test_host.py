@@ -40,6 +40,28 @@ class RenderedMovieTest(unittest.TestCase):
         self.assertFalse(host.rendered(self.movie, 90, since))
 
 
+@unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "ffmpeg is required")
+class RenderedAudioTest(unittest.TestCase):
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp(prefix="ae-audio-"))
+        self.addCleanup(shutil.rmtree, self.root)
+        self.audio = self.root / "mix.aif"
+        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+                        "sine=frequency=440:duration=3:sample_rate=48000", str(self.audio)], check=True)
+
+    def test_an_audio_output_counts_its_duration_in_frames(self):
+        self.assertEqual(host.written(self.audio, 0, 30), 90)
+        self.assertTrue(host.rendered(self.audio, 90, 0, 30))
+        self.assertFalse(host.rendered(self.audio, 150, 0, 30))
+
+    def test_a_movie_with_audio_counts_its_video_frames(self):
+        movie = self.root / "end.mov"
+        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+                        "testsrc=s=320x180:r=30:d=2", "-i", str(self.audio), "-c:v", "prores_ks", "-shortest",
+                        str(movie)], check=True)
+        self.assertEqual(host.written(movie, 0, 30), 60)
+
+
 class RenderedSequenceTest(unittest.TestCase):
     def setUp(self):
         self.root = Path(tempfile.mkdtemp(prefix="ae-sequence-"))
