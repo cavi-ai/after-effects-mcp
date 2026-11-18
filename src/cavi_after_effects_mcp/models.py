@@ -167,11 +167,15 @@ class Script(Result):
 
 class Output(Model):
     comp: str = Field(min_length=1)
-    file: str = Field(min_length=1)
-    frames: int = Field(ge=1)
+    file: str = Field(min_length=1, description="The output file of its queue entry; an image sequence keeps [#####]")
+    frames: int | None = Field(None, ge=1, description="Frames the output must have; defaults to the queue entry's "
+                                                       "time span at its frame rate, and a different count is refused")
 
 
-class RenderedOutput(Output):
+class RenderedOutput(Model):
+    comp: str
+    file: str
+    frames: int
     rerendered: bool
     path: Literal["aerender", "saveFrameToPng"]
 

@@ -95,18 +95,21 @@ def encode_command(directory, movie, fps, codec, alpha):
 MOVIE_CODECS = {".mp4": "h264", ".mov": "prores"}
 
 
-def fallback_movie(project, item):
-    """Make the movie of one queue output from saveFrameToPng frames and ffmpeg; returns its frame count."""
+def fallback_movie(project, item, entry):
+    """Make the movie of one queue entry's time span from saveFrameToPng frames and ffmpeg; returns its frame count."""
     movie = host.absolute(item["file"])
     codec = MOVIE_CODECS.get(movie.suffix.lower())
     if codec is None:
         raise RuntimeError(f"The fallback encodes .mp4 (H.264) or .mov (ProRes), not {movie.suffix}")
+    if entry["fps"] != entry["comp_fps"]:
+        raise RuntimeError(f"The fallback renders at the comp's {entry['comp_fps']:g} fps, not the entry's "
+                           f"{entry['fps']:g} fps")
     movie.parent.mkdir(parents=True, exist_ok=True)
     movie.unlink(missing_ok=True)
     work = Path(tempfile.mkdtemp(prefix="frames-", dir=movie.parent))
     try:
-        export_frames(project, item["comp"], work, 0, None, 1, False, movie, codec, item["frames"],
-                      frames=item["frames"])
+        export_frames(project, item["comp"], work, entry["span_start"], entry["span_duration"], 1, False, movie,
+                      codec, entry["frames"], frames=entry["frames"])
     finally:
         shutil.rmtree(work, ignore_errors=True)
     return host.frame_count(movie)
@@ -251,24 +254,22 @@ def template_render(template, project, texts, footage, renders, discard):
            for q in queue if q["comp"] not in names and q["render"]]
     add = [{**r, "locked": False, "time_span": None, "output": None, "settings": None} for r in renders]
     host.run_template("ae_render_queue_set", project, {"add": add, "update": off, "clear": True})
-    comps = {c["name"]: c for c in host.run_template("ae_inspect", project, {"scope": "project", "comp": None})["comps"]}
-    outputs = [{"comp": r["comp"], "file": r["file"], "frames": round(comps[r["comp"]]["duration"] * comps[r["comp"]]["fps"])}
-               for r in renders]
-    return render_outputs(project, outputs, renders[0]["render_settings"], renders[0]["output_module"])["outputs"]
+    outputs = [{"comp": r["comp"], "file": r["file"], "frames": None} for r in renders]
+    return render_outputs(project, outputs)["outputs"]
 
 
-def render_outputs(project, outputs, settings, module):
+def render_outputs(project, outputs):
     """aerender the queue; an output it leaves missing or short is made from saveFrameToPng frames and ffmpeg."""
-    report = host.render_queue(project, outputs, settings, module)
-    for item, made in zip(outputs, report["outputs"], strict=True):
-        if made["frames"] == item["frames"]:
+    report = host.render_queue(project, outputs)
+    for item, entry, made in zip(outputs, report["entries"], report["outputs"], strict=True):
+        if made["frames"] == entry["frames"]:
             continue
         try:
-            made["frames"] = fallback_movie(project, item)
+            made["frames"] = fallback_movie(project, item, entry)
         except (RuntimeError, ValueError) as error:
-            raise RuntimeError(f"{item['comp']}: aerender left {made['frames']} of {item['frames']} frames "
+            raise RuntimeError(f"{item['comp']}: aerender left {made['frames']} of {entry['frames']} frames "
                                f"({report['failure'] or 'no error'}); the fallback failed: {error}") from error
         made["path"] = "saveFrameToPng"
-        if made["frames"] != item["frames"]:
-            raise RuntimeError(f"{item['comp']}: the fallback wrote {made['frames']} of {item['frames']} frames")
+        if made["frames"] != entry["frames"]:
+            raise RuntimeError(f"{item['comp']}: the fallback wrote {made['frames']} of {entry['frames']} frames")
     return {"project": report["project"], "outputs": report["outputs"]}

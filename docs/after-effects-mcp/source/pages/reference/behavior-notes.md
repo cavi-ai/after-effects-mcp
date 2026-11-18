@@ -120,9 +120,11 @@ messages refer to these notes by number.
     only); ProRes 4444 keeps odd sizes and alpha.
 39. `saveFrameToPng` frames match aerender frames: the same frame of a classic 3D comp and of an Advanced 3D comp
     (3D solids and a light) is pixel-identical (PSNR infinite), and a glb model layer under an environment light
-    differs by under one level (PSNR 78.6 dB). The queue fallback encodes the comp from frame 0 for the declared
-    frame count, so it matches an aerender movie only for a render of the comp's start; a work area elsewhere is
-    not honored.
+    differs by under one level (PSNR 78.6 dB). The queue fallback encodes the queue entry's time span at the
+    comp's frame rate, so it matches the entry's aerender movie; an entry with its own frame rate has no fallback.
+    A queue entry's `Frame Rate` setting reads 0 as a number while it uses the comp's rate, and
+    `Use this frame rate` then holds the comp's rate (26.5). After Effects renders nothing into a missing output
+    folder.
 40. A call saves the open project to the `project` it names when that is another file, so a path with no file
     would receive a copy of the open project. Such a call runs only when the open project is untitled and holds no items, and is refused otherwise;
     `ae_project` `new` closes the open project (a dirty one only with `discard`) and saves the untitled, empty

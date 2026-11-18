@@ -1,5 +1,6 @@
 """Headless After Effects: launch, scripts over Apple Events, aerender and frame checks."""
 
+import glob
 import json
 import math
 import os
@@ -325,10 +326,41 @@ def frame_count(movie):
     return int(counts[0])
 
 
-def rendered(movie, frames, since=0.0):
-    """A finished movie: written after ``since``, readable, with exactly ``frames`` frames."""
-    path = Path(movie)
-    return path.is_file() and path.stat().st_mtime >= since and frame_count(path) == frames
+SEQUENCE = re.compile(r"\[(#+)\]")
+
+
+def frame_files(output):
+    """The files of an image sequence output whose name holds [###]; None for a movie."""
+    path = Path(output)
+    mark = SEQUENCE.search(path.name)
+    if not mark:
+        return None
+    name = (glob.escape(path.name[:mark.start()]) + "[0-9]" * len(mark.group(1))
+            + glob.escape(path.name[mark.end():]))
+    return sorted(path.parent.glob(name))
+
+
+def written(output, since=0.0):
+    """Frames of ``output`` written after ``since``: a movie's frame count, or an image sequence's non-empty files."""
+    files = frame_files(output)
+    if files is not None:
+        return sum(1 for f in files if f.stat().st_mtime >= since and f.stat().st_size > 0) or None
+    path = Path(output)
+    if not path.is_file() or path.stat().st_mtime < since:
+        return None
+    return frame_count(path)
+
+
+def rendered(output, frames, since=0.0):
+    """A finished output: written after ``since``, readable, with exactly ``frames`` frames."""
+    return written(output, since) == frames
+
+
+def discard(output):
+    """Delete a movie, or every frame of an image sequence."""
+    files = frame_files(output)
+    for file in files if files is not None else [Path(output)]:
+        file.unlink(missing_ok=True)
 
 
 def aerender(*args):
@@ -341,12 +373,34 @@ def aerender(*args):
         raise RuntimeError("aerender failed: " + diagnostics(result))
 
 
-def render_queue(project, outputs, settings, module):
-    """Render a saved project's queue, then render once more each movie left incomplete."""
+def queue_entries(project, outputs):
+    """The render queue entry of each output, matched by comp and file; refuses a frame count the entry does not render."""
+    queue = run_template("ae_inspect", project, {"scope": "queue", "comp": None})["queue"]
+    entries = []
+    for item in outputs:
+        file = absolute(item["file"]).resolve()
+        found = [q for q in queue if q["comp"] == item["comp"] and q["file"] and Path(q["file"]).resolve() == file]
+        if not found:
+            raise ValueError(f"No queue entry renders {item['comp']} to {file}; add it with ae_render_queue_set")
+        entry = found[-1]
+        if item.get("frames") is not None and item["frames"] != entry["frames"]:
+            raise ValueError(f"{item['comp']}: the queue entry renders {entry['frames']} frames "
+                             f"({entry['span_duration']:g} s from {entry['span_start']:g} s at {entry['fps']:g} fps); "
+                             f"frames says {item['frames']}")
+        entries.append(entry)
+    return entries
+
+
+def render_queue(project, outputs):
+    """Render a saved project's queue, then render once more by itself each queued output left incomplete."""
     project = absolute(project, ".aep")
     if not project.is_file():
         raise FileNotFoundError(f"No project at {project}")
+    entries = queue_entries(project, outputs)
     files = [absolute(item["file"]) for item in outputs]
+    for file in files:
+        # After Effects does not create a missing output folder; the entry then renders nothing.
+        file.parent.mkdir(parents=True, exist_ok=True)
     since = time.time() - 1
     failure = None
     try:
@@ -354,17 +408,16 @@ def render_queue(project, outputs, settings, module):
     except RuntimeError as error:
         failure = error
     results = []
-    for item, file in zip(outputs, files, strict=True):
-        again = not rendered(file, item["frames"], since)
-        # aerender can exit 0 after a crash mid-queue; a short movie renders once more on its own.
+    for item, entry, file in zip(outputs, entries, files, strict=True):
+        again = not rendered(file, entry["frames"], since)
+        # aerender can exit 0 after a crash mid-queue; a short output renders once more with its entry's settings.
         if again:
-            file.unlink(missing_ok=True)
+            discard(file)
             try:
-                aerender("-project", str(project), "-comp", item["comp"], "-output", str(file),
-                         "-RStemplate", settings, "-OMtemplate", module)
+                aerender("-project", str(project), "-rqindex", str(entry["index"]))
             except RuntimeError as error:
                 failure = error
-        results.append({"comp": item["comp"], "file": str(file),
-                        "frames": frame_count(file) if file.is_file() else None, "rerendered": again,
-                        "path": "aerender"})
-    return {"project": str(project), "outputs": results, "failure": str(failure) if failure else None}
+        results.append({"comp": item["comp"], "file": str(file), "frames": written(file, since),
+                        "rerendered": again, "path": "aerender"})
+    return {"project": str(project), "outputs": results, "entries": entries,
+            "failure": str(failure) if failure else None}

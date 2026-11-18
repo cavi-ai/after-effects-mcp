@@ -16,16 +16,14 @@ from ..models import Output, QueueAdd, QueueUpdate
 @mcp.tool(annotations=DESTRUCTIVE)
 async def ae_render_queue(
         project: Annotated[str, Field(description="Absolute path of the saved .aep to render.")],
-        outputs: Annotated[list[Output], Field(min_length=1, description="Comps to render, each with its movie "
-                                                                         "and frame count.")],
-        render_settings: Annotated[str, Field(description="Render settings template.")] = "Best Settings",
-        output_module: Annotated[str, Field(description="Output module template.")] = "High Quality"
+        outputs: Annotated[list[Output], Field(min_length=1, description="Queue entries to check, each by its comp "
+                                                                         "and output file.")]
 ) -> models.Render:
-    """aerender a saved .aep queue; a movie short of its frames renders once more. When aerender still leaves no
-    movie or a short one, it is made from saveFrameToPng frames and ffmpeg (.mp4 H.264 or .mov ProRes); each
-    output's path says which way produced it."""
-    return await asyncio.to_thread(edit.render_outputs, project, [o.model_dump() for o in outputs],
-                                   render_settings, output_module)
+    """aerender a saved .aep queue; an output short of its entry's frames renders once more by itself
+    (aerender -rqindex). When aerender still leaves no movie or a short one, it is made from saveFrameToPng frames
+    of the entry's time span and ffmpeg (.mp4 H.264 or .mov ProRes); each output's path says which way produced
+    it."""
+    return await asyncio.to_thread(edit.render_outputs, project, [o.model_dump() for o in outputs])
 
 
 @mcp.tool(annotations=WRITES)

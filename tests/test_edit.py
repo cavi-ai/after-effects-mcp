@@ -159,5 +159,6 @@ class FallbackMovieTest(unittest.TestCase):
         with tempfile.TemporaryDirectory() as folder:
             movie = Path(folder) / "out.avi"
             with self.assertRaisesRegex(RuntimeError, r"\.mp4 \(H\.264\) or \.mov \(ProRes\), not \.avi"):
-                edit.fallback_movie(Path(folder) / "x.aep", {"comp": "a", "file": str(movie), "frames": 3})
+                edit.fallback_movie(Path(folder) / "x.aep", {"comp": "a", "file": str(movie), "frames": 3},
+                                    {"span_start": 0, "span_duration": 0.1, "fps": 30, "comp_fps": 30, "frames": 3})
             self.assertEqual(list(Path(folder).iterdir()), [])

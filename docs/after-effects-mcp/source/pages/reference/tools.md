@@ -76,7 +76,7 @@ A tool that fails raises an error with the reason; a script's `errors` field fai
 | Tool | Access | Parameters | Result | What it does |
 |---|---|---|---|---|
 | `ae_render_queue_set` | write | `project`*, `add`, `update`, `clear` | `project`, `report`, `queue` | Fills and edits the render queue and lists it. |
-| `ae_render_queue` | destructive | `project`*, `outputs`*, `render_settings`, `output_module` | `project`, `outputs` | Renders the saved queue with `aerender`, renders short movies again and falls back to frames and FFmpeg. |
+| `ae_render_queue` | destructive | `project`*, `outputs`* | `project`, `outputs` | Renders the saved queue with `aerender`, renders a short output again from its queue entry and falls back to frames of the entry's time span and FFmpeg. |
 | `ae_template_render` | destructive | `template`*, `project`*, `renders`*, `texts`, `footage`, `discard` | `project`, `texts`, `footage`, `outputs` | Fills a template and renders the named comps. |
 | `ae_frame` | write | `project`*, `comp`*, `times`*, `directory`*, `alpha`, `method` | `project`, `comp`, `frames` | Writes PNG frames at given times. |
 | `ae_export_frames` | destructive | `project`*, `comp`*, `directory`*, `start`, `duration`, `step`, `alpha`, `movie`, `codec`, `max_frames` | `project`, `comp`, `directory`, `frames`, `fps`, `first`, `last`, `movie` | Writes a frame range as PNGs and optionally a movie, without `aerender`. |

@@ -6,6 +6,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 from cavi_after_effects_mcp import host
 
@@ -37,6 +38,54 @@ class RenderedMovieTest(unittest.TestCase):
     def test_movie_from_before_the_render_is_not_rendered(self):
         since = self.movie.stat().st_mtime + 60
         self.assertFalse(host.rendered(self.movie, 90, since))
+
+
+class RenderedSequenceTest(unittest.TestCase):
+    def setUp(self):
+        self.root = Path(tempfile.mkdtemp(prefix="ae-sequence-"))
+        self.addCleanup(shutil.rmtree, self.root)
+        self.output = self.root / "shot [v2]_[#####].tif"
+        for frame in (15, 16, 17):
+            (self.root / f"shot [v2]_{frame:05d}.tif").write_bytes(b"II*\x00")
+        (self.root / "shot [v2]_00018.tif").write_bytes(b"")
+
+    def test_an_image_sequence_counts_its_written_frames(self):
+        self.assertTrue(host.rendered(self.output, 3))
+        self.assertFalse(host.rendered(self.output, 4))
+
+    def test_frames_from_before_the_render_do_not_count(self):
+        self.assertFalse(host.rendered(self.output, 3, time.time() + 60))
+
+
+class QueueEntryTest(unittest.TestCase):
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.root = Path(folder.name)
+        self.project = self.root / "p.aep"
+        self.project.write_bytes(b"RIFX")
+        self.entry = {"index": 1, "comp": "R", "file": str(self.root / "work.mov"), "render": True,
+                      "span_start": 0.5, "span_duration": 0.5, "fps": 30, "comp_fps": 30, "frames": 15}
+
+    def render(self, frames):
+        def queue(name, project, args, timeout=300):
+            return {"queue": [self.entry], "errors": []}
+
+        def aerender(*args):
+            raise AssertionError("aerender ran")
+
+        output = {"comp": "R", "file": str(self.root / "work.mov"), "frames": frames}
+        with mock.patch.object(host, "run_template", queue), mock.patch.object(host, "aerender", aerender):
+            return host.render_queue(self.project, [output])
+
+    def test_frames_that_differ_from_the_queue_entry_are_refused_before_rendering(self):
+        with self.assertRaisesRegex(ValueError, r"R: the queue entry renders 15 frames \(0\.5 s from 0\.5 s at 30 fps\)"):
+            self.render(60)
+
+    def test_an_output_with_no_queue_entry_is_refused_before_rendering(self):
+        self.entry["file"] = str(self.root / "other.mov")
+        with self.assertRaisesRegex(ValueError, "No queue entry renders R to"):
+            self.render(None)
 
 
 class ScriptPathTest(unittest.TestCase):
