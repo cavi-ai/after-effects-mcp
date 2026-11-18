@@ -46,9 +46,11 @@ This example adds an animated lower third over a shot and saves the composition 
 
 ## What you can do
 
-- Create and inspect projects, compositions and layers.
-- Add text, shapes and masks, then animate properties with keyframes.
-- Review frames and render saved compositions.
+- Create and inspect projects, compositions and layers, including a comp built from a clip and the keyframes
+  already on a layer.
+- Add text, shapes and masks, style text by character range, then animate properties with keyframes.
+- Run several edits as one batch that saves once and rolls back together.
+- Review frames, render saved compositions, and run long renders in the background with progress.
 
 See the [tool reference](docs/after-effects-mcp/source/pages/reference/tools.md) for operations and parameters, [measured behavior](docs/after-effects-mcp/source/pages/reference/behavior-notes.md) for supported behavior, and the [rendering guide](docs/after-effects-mcp/source/pages/guides/rendering.md) for delivery.
 

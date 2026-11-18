@@ -11,19 +11,23 @@ sign in or accept terms.
 
 - Runs your own `.jsx` file with `ae_script`, or one of the typed tools that build and change a project:
   comps, layers, text, shapes, masks, cameras and lights, keyframes, expressions, effects, text animators,
-  transitions, time remapping, audio levels, markers and project settings.
-- Inspects what is there: project items, a comp's layers, any layer's property tree, installed effects,
-  fonts, render templates and animation presets.
+  transitions, time remapping, audio levels, markers and project settings. `ae_batch` runs several typed steps
+  in one After Effects call with one save, and rolls all of them back when one fails.
+- Inspects what is there: project items, a comp's layers, any layer's property tree and keyframes, installed
+  effects, fonts, render templates and animation presets.
 - Fills templates: opens a template project, sets text layers by name, swaps footage and renders the named
   comps.
-- Delivers: aerender of a saved render queue with frame counts checked, single frames, frame sequences and
-  H.264 or ProRes movies written without `aerender`.
+- Delivers: aerender of a saved render queue with frame counts checked, one queue entry rendered in the
+  background with its progress (`ae_render_start`), single frames, frame sequences and H.264 or ProRes movies
+  written without `aerender`.
 
 ## How a call works
 
-1. A tool call carries the project path (`.aep`, absolute) and the arguments.
-2. The server makes sure the project is the one open in the headless instance, runs the packaged script and
-   saves the project. The script's report is stored inside the saved project, and the server reads it back.
+1. A tool call carries the project path (`.aep`, absolute) and the arguments. `ae_project` `new` creates an
+   empty project at a path.
+2. The server makes sure the project is the one open in the headless instance and runs the packaged script.
+   The script writes its report to a temporary JSON file, and the server reads it back. The project is saved
+   only when the call changed it or names another file, so read-only tools leave the `.aep` untouched.
 3. A report with `errors` fails the call. A script that throws leaves the project as it was on disk.
 
 One instance runs one script at a time, so two simultaneous calls take turns, also when they come from two server
