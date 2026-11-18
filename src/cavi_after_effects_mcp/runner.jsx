@@ -1,6 +1,6 @@
-// Runs the script at CAVI_SCRIPT with CAVI_ARGS. Scripts in -noui cannot write files, so the report
-// is the comment of the project folder "cavi-report", saved with the project at CAVI_PROJECT.
+// Runs the script at CAVI_SCRIPT with CAVI_ARGS and writes its report as JSON to CAVI_REPORT_FILE.
 // A script calls caviReport(object) to set its report; otherwise the report is its last value.
+// The project is saved to CAVI_PROJECT only when it changed or is not yet that file, so a read leaves it alone.
 var CAVI_REPORTED = false;
 
 function caviStringify(value) {
@@ -48,18 +48,14 @@ function caviStringify(value) {
 }
 
 function caviReport(report) {
-    var folder = null, i, item;
-    for (i = 1; i <= app.project.numItems; i++) {
-        item = app.project.item(i);
-        if (item instanceof FolderItem && item.name === "cavi-report") {
-            folder = item;
-        }
+    var target = CAVI_PROJECT ? new File(CAVI_PROJECT) : null, open = app.project.file, out = new File(CAVI_REPORT_FILE);
+    if (target && (app.project.dirty || !open || open.fsName !== target.fsName)) {
+        app.project.save(target);
     }
-    if (!folder) {
-        folder = app.project.items.addFolder("cavi-report");
+    out.encoding = "UTF-8";
+    if (!out.open("w") || !out.write(caviStringify(report)) || !out.close()) {
+        throw new Error("Cannot write the report to " + CAVI_REPORT_FILE + ": " + out.error);
     }
-    folder.comment = "CAVI_REPORT" + caviStringify(report) + "CAVI_END";
-    app.project.save(new File(CAVI_PROJECT));
     CAVI_REPORTED = true;
 }
 
@@ -67,8 +63,8 @@ function caviReport(report) {
 // Returns "restored" when the open project is the target as saved before the script, "failed" when the reload
 // failed, so that an empty project is never saved over the target, and "kept" otherwise.
 function caviRollback() {
-    var target = new File(CAVI_PROJECT), open = app.project.file;
-    if (CAVI_REPORTED || !target.exists || !open || open.fsName !== target.fsName) { return "kept"; }
+    var target = CAVI_PROJECT ? new File(CAVI_PROJECT) : null, open = app.project.file;
+    if (CAVI_REPORTED || !target || !target.exists || !open || open.fsName !== target.fsName) { return "kept"; }
     if (!app.project.dirty) { return "restored"; }
     try {
         app.project.close(CloseOptions.DO_NOT_SAVE_CHANGES);

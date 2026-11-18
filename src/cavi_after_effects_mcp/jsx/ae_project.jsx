@@ -11,8 +11,8 @@ function counts() {
 
 (function () {
     var a = CAVI_ARGS, open = app.project.file ? app.project.file.fsName : null, target = new File(a.path || ""), report, keep = [], removed = null, i;
-    // Reports of a refused call go to the fallback project so a project on disk is never overwritten.
-    CAVI_PROJECT = a.fallback;
+    // A refused call saves no project.
+    CAVI_PROJECT = null;
     if (a.action === "open") {
         if (!target.exists) { caviFail("No project at " + a.path); }
         if (app.project.dirty && !a.discard) {
@@ -38,17 +38,16 @@ function counts() {
         } else {
             removed = app.project.consolidateFootage();
         }
-        CAVI_PROJECT = a.path || open || a.fallback;
+        CAVI_PROJECT = a.path || open;
     } else if (a.action === "save_as") {
         if (target.exists && !a.overwrite) { caviFail(a.path + " exists; set overwrite to replace it"); }
         CAVI_PROJECT = a.path;
     } else {
         if (a.action === "save" && !open) { caviFail("The open project has no file; use save_as"); }
         if (open && a.path !== null && target.fsName !== open) {
-            CAVI_PROJECT = open;
             caviFail("The open project is " + open + ", not " + a.path);
         }
-        CAVI_PROJECT = open || a.fallback;
+        CAVI_PROJECT = open;
     }
     report = counts();
     report.action = a.action;

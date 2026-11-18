@@ -34,9 +34,9 @@ A typed tool whose script failed and whose project was reloaded as saved before 
 script failure, and any `ae_script` failure, ends with `outcome` `unknown` and `next_action` `ae_inspect`: list the
 project and its render queue before calling again.
 
-## "The script saved no report" or "... holds an unreadable report"
+## "... wrote no report" or "... wrote an unreadable report"
 
-The script ended without calling `caviReport`, or the saved project does not hold a complete report. For
+After Effects ended or failed before the runner wrote the report file, or the file is incomplete. For
 `ae_script`, call `caviReport(object)` once at the end; otherwise its last value becomes the report.
 
 ## "numbers must be finite"

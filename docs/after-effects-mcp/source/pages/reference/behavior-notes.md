@@ -4,7 +4,9 @@ What headless After Effects does, measured with After Effects 2026 on macOS. Too
 messages refer to these notes by number.
 
 1. Headless After Effects (`-noui`) has no BridgeTalk. `DoScript` returns only `0` (success) or `1` (any failure),
-   and scripts cannot write files (`Comp.saveFrameToPng` aside, note 34). Reports travel inside the saved project.
+   so the thrown message never reaches the caller. Scripts write files with `File.write` (measured, 26.5), so each
+   call's report is a JSON file the server reads and deletes; the project is saved only when the call changed it or
+   names another file.
 2. Headless After Effects starts with a project open, and `app.newProject()` crashes it. Scripts reuse the open
    project: remove its items and render queue entries instead.
 3. `$.evalFile` of a file with a syntax error aborts `DoScript` before any `catch` runs. ExtendScript is ES3, so
@@ -33,9 +35,8 @@ messages refer to these notes by number.
     of note 7.
 13. `aerender` can crash mid-queue and still exit 0, so every output's frame count is checked. A ProRes movie with
     a timecode track lists `nb_frames` twice in `ffprobe`; the first value is the video stream's.
-14. After Effects opens a saved project headless with `app.open`, and `app.project.dirty` is readable. A call that
-    fails saves its report into the open project, so `ae_project` sends refusals to a temporary project and a
-    refused open leaves the project on disk untouched.
+14. After Effects opens a saved project headless with `app.open`, and `app.project.dirty` is readable. A refused
+    `ae_project` call saves no project, so a refused open leaves the project on disk untouched.
 15. An output module's `Format` is read-only from scripts and no PNG template ships, so `ae_frame` renders the
     `TIFF Sequence with Alpha` template and converts each frame with `sips`. The frames carry alpha, so `ae_frame`
     adds a solid of the comp's background color at the bottom for the render and removes it afterwards unless
@@ -122,7 +123,7 @@ messages refer to these notes by number.
     differs by under one level (PSNR 78.6 dB). The queue fallback encodes the comp from frame 0 for the declared
     frame count, so it matches an aerender movie only for a render of the comp's start; a work area elsewhere is
     not honored.
-40. A call saves its report to the `project` it names, so a path with no file would receive a copy of the open
-    project. Such a call runs only when the open project is untitled and holds no items, and is refused otherwise;
+40. A call saves the open project to the `project` it names when that is another file, so a path with no file
+    would receive a copy of the open project. Such a call runs only when the open project is untitled and holds no items, and is refused otherwise;
     `ae_project` `new` closes the open project (a dirty one only with `discard`) and saves the untitled, empty
     project After Effects leaves to the path; `app.newProject` exits the headless instance (measured twice, 26.5).
