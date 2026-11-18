@@ -121,5 +121,60 @@ class SerializedAccessTest(unittest.TestCase):
         self.assertEqual(most[0], 1)
 
 
+class ErrorContractTest(unittest.TestCase):
+    """The error a client receives: rejected only when After Effects kept nothing, else unknown with ae_inspect next."""
+
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.project = Path(folder.name) / "a.aep"
+        self.project.write_bytes(b"RIFX")
+
+    def error(self, name, arguments, application):
+        with mock.patch.object(host, "do_script", application):
+            try:
+                call(name, arguments)
+            except ToolError as error:
+                return str(error), mcp.failure(name, error).structured_content["error"]
+        self.fail(f"{name} succeeded")
+
+    def reporting(self, report):
+        def application(code, timeout):
+            if "CAVI_PROJECT" in code:
+                self.project.write_bytes(b"RIFX" + f"CAVI_REPORT{json.dumps(report)}CAVI_END".encode())
+        return application
+
+    def test_a_script_error_after_a_rollback_is_rejected(self):
+        report = {"errors": ["Error: Comp C has no layer named Missing (line 8)"], "restored": True}
+        arguments = {"project": str(self.project), "comp": "C", "layer": "Missing", "name": "x"}
+        message, error = self.error("ae_layer_set", arguments, self.reporting(report))
+        self.assertIn("no layer named Missing", message)
+        self.assertEqual((error["outcome"], error["code"], error["next_action"]),
+                         ("rejected", "AE_SCRIPT_REFUSED", "inspect_inputs"))
+
+    def test_a_script_error_without_a_rollback_points_at_ae_inspect(self):
+        report = {"errors": ["Error: Comp C has no layer named Missing (line 8)"], "restored": False}
+        arguments = {"project": str(self.project), "comp": "C", "layer": "Missing", "name": "x"}
+        _, error = self.error("ae_layer_set", arguments, self.reporting(report))
+        self.assertEqual((error["outcome"], error["code"], error["next_action"]),
+                         ("unknown", "OUTCOME_UNKNOWN", "ae_inspect"))
+
+    def test_an_unsaved_open_project_is_refused_by_name(self):
+        def application(code, timeout):
+            if "app.project.dirty" in code:
+                raise RuntimeError("After Effects script failed: 1")  # DoScript's answer to a thrown error
+            raise Reached("the call went past the unsaved-changes check")
+
+        message, error = self.error("ae_inspect", {"project": str(self.project)}, application)
+        self.assertIn("unsaved changes", message)
+        self.assertEqual((error["outcome"], error["code"]), ("rejected", "AE_PROJECT_UNSAVED"))
+
+    def test_launching_beside_an_instance_with_its_ui_is_rejected(self):
+        with mock.patch.object(host, "processes", lambda: ([], [4242])):
+            message, error = self.error("ae_launch", {}, reached)
+        self.assertIn("pid 4242", message)
+        self.assertEqual((error["outcome"], error["code"]), ("rejected", "AE_UI_RUNNING"))
+
+
 if __name__ == "__main__":
     sys.exit(unittest.main())

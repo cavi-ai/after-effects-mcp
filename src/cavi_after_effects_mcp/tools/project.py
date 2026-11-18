@@ -41,7 +41,7 @@ async def ae_project(
         raise ValueError("reduce needs comps")
     target = host.absolute(path, ".aep") if path else host.session.project
     if action == "open" and not target.is_file():
-        raise ValueError(f"No project at {target}")
+        raise FileNotFoundError(f"No project at {target}")
     if action == "new" and target.exists() and not overwrite:
         raise ValueError(f"{target} exists; set overwrite to replace it")
     if action in ("save", "info", "reduce", "remove_unused", "consolidate") and target is None:

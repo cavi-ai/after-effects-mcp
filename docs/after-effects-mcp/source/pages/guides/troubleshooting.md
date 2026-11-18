@@ -29,6 +29,11 @@ The first form means the Apple Event call itself failed or timed out: the messag
 carries the errors the script reported, such as `No comp named X`. The project is reloaded from disk when it was
 open and had changed.
 
+A typed tool whose script failed and whose project was reloaded as saved before the call ends with `outcome`
+`rejected` and `code` `AE_SCRIPT_REFUSED`, and its message ends with `the project was left as it was`. Every other
+script failure, and any `ae_script` failure, ends with `outcome` `unknown` and `next_action` `ae_inspect`: list the
+project and its render queue before calling again.
+
 ## "The script saved no report" or "... holds an unreadable report"
 
 The script ended without calling `caviReport`, or the saved project does not hold a complete report. For
