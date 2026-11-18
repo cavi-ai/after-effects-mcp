@@ -34,6 +34,19 @@ annotation, that every tool rejects an unknown argument, and the cases in `evals
 an out-of-range timeout and comp size, a non-finite frame rate, an oversized beat grid, the refused tools and a
 recipe outside the workspace. It prints each failure and exits non-zero when there is one.
 
+## Protocol probes
+
+```sh
+npm install
+npm run eval:probe
+```
+
+`evals/probe.py` runs the [MCP Eval](https://github.com/cavi-ai/mcp-eval) probes in `evals/manifest.json`
+against the server over stdio, with the same missing application path. It fails when the catalog has more than
+60 tools, 120,000 schema bytes or 30,000 tokens, or a tool over 2,000 tokens, when pagination or the declared
+surfaces are wrong, or when an unknown protocol version is not refused. `MCPEVAL_EXECUTABLE` selects another
+`mcpeval` binary. The report goes to `.tmp/evals/<run>/after-effects.json`.
+
 ## Checked against After Effects
 
 Behavior that needs the application is checked by hand: launch, scripts, frames and movies. See

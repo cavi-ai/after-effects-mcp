@@ -26,6 +26,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 - Tool results are built on the `cavi-mcp-core` `Result` model instead of a local copy.
 - The tests parse every packaged script with Node.js.
+- CI runs the MCP Eval probes in `evals/manifest.json`: catalog budgets, pagination, declared surfaces and
+  protocol negotiation.
 - The footage lookup, property setter, path shape, frame backdrop, renderer check and light types live once in
   `lib.jsx` instead of in two or three scripts each.
 
