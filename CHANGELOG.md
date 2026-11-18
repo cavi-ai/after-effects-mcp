@@ -19,6 +19,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - `ae_markers` `onsets` adds a marker where the level of an audio or video file jumps, found with FFmpeg.
 - `ae_text_set` `ranges` styles character ranges: font, size, fill, stroke, tracking, faux bold and italic, and
   baseline shift.
+- `ae_render_start`, `ae_render_status` and `ae_render_cancel` render one queue entry in the background under a
+  `cavi-mcp-core` resident owner, report its frames as progress and stop it with its `aerendercore`.
 
 ### Changed
 

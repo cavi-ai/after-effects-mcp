@@ -168,6 +168,17 @@ class Output(Model):
                                                        "time span at its frame rate, and a different count is refused")
 
 
+class RenderJob(Result):
+    job: str
+    state: Literal["running", "done", "failed", "cancelled", "unresolved"]
+    comp: str
+    file: str
+    frames: int = Field(description="Frames the queue entry renders")
+    done: int = Field(description="Frames aerender has logged")
+    written: int | None = Field(None, description="Frames the output has, once the render ended")
+    error: str | None = None
+
+
 class RenderedOutput(Model):
     comp: str
     file: str
