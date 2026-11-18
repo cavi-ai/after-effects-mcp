@@ -22,6 +22,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - An open project with unsaved changes is refused as `AE_PROJECT_UNSAVED` with its message instead of
   `After Effects script failed: 1`, and an instance running with its UI as `AE_UI_RUNNING`.
 - A missing project or script file is reported as `INPUT_NOT_FOUND`.
+- `after_effects_render` runs the `aerender` next to the application `CAVI_AFTER_EFFECTS_APP` names, or the newest
+  install, instead of refusing when `/Applications` holds two installs and ignoring the override.
 - `ae_frame` names each PNG `<comp>_<position>_<time>s.png` with `/` and `:` in the comp name replaced, so close
   times no longer share a file and a comp name with `/` no longer fails the call.
 - `ae_render_queue` checks each output against its queue entry: the entry's time span at its frame rate sets the
