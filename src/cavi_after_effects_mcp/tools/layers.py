@@ -175,6 +175,19 @@ async def ae_layer_edit(
     return await scene("ae_layer_edit", project, args)
 
 
+@mcp.tool(annotations=DESTRUCTIVE)
+async def ae_layer_parts(
+        project: Project, comp: Comp, layer: models.Layer,
+        edits: Annotated[list[models.PartEdit], Field(min_length=1, description="Edits applied in order; each "
+                                                                                "path is looked up when its "
+                                                                                "edit runs.")]
+) -> models.PartsEdited:
+    """Remove, switch on or off, or move effects, masks, shape groups and text animators of a layer by path.
+    Returns each changed group's members in order."""
+    return await scene("ae_layer_parts", project, {"comp": comp, "layer": layer,
+                                                   "edits": [e.model_dump() for e in edits]})
+
+
 @mcp.tool(annotations=WRITES)
 async def ae_text_set(
         project: Project, comp: Comp, layer: models.Layer,

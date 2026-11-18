@@ -12,6 +12,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - `ae_layer_set` sets collapse transformations, guide, auto-orient, quality, sampling and adjustment switches.
 - `ae_comp_new` `footage` builds a comp from a video or still: its size, pixel aspect, duration and frame rate,
   with the file as layer 1.
+- `ae_layer_parts` removes, switches on or off and moves a layer's effects, masks, shape groups and text animators
+  by path.
 
 ### Changed
 

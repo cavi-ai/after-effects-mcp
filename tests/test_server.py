@@ -17,7 +17,8 @@ TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effect
          "ae_import", "ae_markers", "ae_frame", "ae_shape_add", "ae_mask", "ae_effects", "ae_camera", "ae_essential_graphics", "ae_mogrt_export",
          "ae_template_render", "ae_collect", "ae_audio", "ae_time",
          "ae_controls", "ae_project_settings", "ae_sequence_layers", "ae_essential_override",
-         "ae_fonts", "ae_expressions", "ae_material", "ae_export_frames", "ae_properties", "ae_organize"}
+         "ae_fonts", "ae_expressions", "ae_material", "ae_export_frames", "ae_properties", "ae_organize",
+         "ae_layer_parts"}
 
 
 class PackageTest(unittest.TestCase):
@@ -114,6 +115,9 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "split"}, "needs a time"),
             ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "reorder"}, "needs move_to"),
             ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "precompose"}, "needs a name"),
+            ("ae_layer_parts", {**base, "edits": [{"path": "Effects/Glow", "action": "move"}]}, "only with move"),
+            ("ae_layer_parts", {**base, "edits": [{"path": "Effects/Glow", "action": "remove", "to": 1}]},
+             "only with move"),
             ("ae_comp_set", {"project": "/x.aep", "comp": "a"}, "at least one"),
             ("ae_import", {"project": "/x.aep", "files": ["relative.png"]}, "absolute path"),
             ("ae_markers", {"project": "/x.aep", "comp": "a"}, "markers or a beat grid"),

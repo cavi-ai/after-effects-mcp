@@ -342,6 +342,26 @@ class LayersEdited(Script):
     layer_count: int
 
 
+class PartEdit(Model):
+    path: str = Field(min_length=1, description="An effect, mask, shape group or text animator by property path, "
+                                                "such as Effects/Glow, Masks/Mask 1, Contents/Group 1 or "
+                                                "Text/Animators/Animator 1")
+    action: Literal["remove", "enable", "disable", "move"]
+    to: int | None = Field(None, ge=1, description="move: the new 1-based position among its siblings")
+
+    @model_validator(mode="after")
+    def target(self):
+        if (self.action == "move") != (self.to is not None):
+            raise ValueError("to is given with move and only with move")
+        return self
+
+
+class PartsEdited(Script):
+    comp: str
+    layer: str
+    groups: dict[str, list[dict[str, Any]]]
+
+
 class CompChanged(Script):
     comp: str
     source: str

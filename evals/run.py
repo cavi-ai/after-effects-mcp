@@ -19,7 +19,7 @@ from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
 ROOT = Path(__file__).resolve().parents[1]
-TOOL_COUNT = 45
+TOOL_COUNT = 46
 
 
 def pointer(value, path):
