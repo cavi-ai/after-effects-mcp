@@ -1,6 +1,7 @@
 """Editing helpers: project open/save, beat grids and single-frame renders through aerender."""
 
 import math
+import re
 import shutil
 import tempfile
 import time
@@ -165,11 +166,16 @@ def direct_frames(project, comp, frames, alpha):
     return False
 
 
+def frame_name(comp, index, time):
+    """The PNG name of the frame at position ``index`` of a call: unique per call, with no folder separator."""
+    return f"{re.sub(r'[/:\x00-\x1f]', '_', comp)}_{index + 1:02d}_{time:.3f}s.png"
+
+
 def render_frames(project, comp, times, directory, alpha=False, use_direct=True):
     """Render the frame at each time to ``directory`` as PNG through a temporary queue entry that is removed again; the comp background is composited in unless ``alpha``."""
     project, directory = host.absolute(project, ".aep"), host.absolute(directory)
     directory.mkdir(parents=True, exist_ok=True)
-    direct = [{"time": t, "file": str(directory / f"{comp}_{t:g}s.png")} for t in times]
+    direct = [{"time": t, "file": str(directory / frame_name(comp, i, t))} for i, t in enumerate(times)]
     if use_direct and direct_frames(project, comp, direct, alpha):
         return direct
     work = Path(tempfile.mkdtemp(prefix="frames-", dir=directory))
@@ -194,7 +200,7 @@ def render_frames(project, comp, times, directory, alpha=False, use_direct=True)
             if len(made) != 1:
                 raise RuntimeError(f"aerender wrote {len(made)} frames for time {t} after {RENDER_ATTEMPTS} attempts; it "
                                    "exits without rendering when the Adobe Media Encoder service it launches fails")
-            png = directory / f"{comp}_{t:g}s.png"
+            png = directory / frame_name(comp, i, t)
             to_png(made[0], png)
             out.append({"time": t, "file": str(png)})
         return out

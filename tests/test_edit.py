@@ -5,6 +5,7 @@ import tempfile
 import unittest
 import zlib
 from pathlib import Path
+from unittest import mock
 
 from cavi_after_effects_mcp import edit, host
 from cavi_after_effects_mcp.models import MaskShape, PathShape
@@ -152,6 +153,23 @@ class EncodeFramesTest(unittest.TestCase):
             self.assertEqual(made.returncode, 0, made.stderr)
             codec, width, height, rate, frames = self.probe(movie)
             self.assertEqual((codec, int(width), int(height), int(frames)), ("prores", 21, 11, 3))
+
+
+class FrameNameTest(unittest.TestCase):
+    def test_each_time_gets_its_own_file_in_the_folder(self):
+        def application(name, project, args, timeout=300):
+            for frame in args["frames"]:
+                png(Path(frame["file"]), 4, 4)
+            return {"errors": []}
+
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder) / "frames"
+            with mock.patch.object(host, "run_template", application):
+                frames = edit.render_frames(Path(folder) / "p.aep", "A/B", [1.0, 1.0000001, 1.5], directory)
+            files = [Path(f["file"]) for f in frames]
+            self.assertEqual(len(set(files)), 3)
+            self.assertEqual({f.parent for f in files}, {directory})
+            self.assertTrue(all(f.is_file() for f in files))
 
 
 class FallbackMovieTest(unittest.TestCase):
