@@ -326,6 +326,20 @@ def frame_count(movie):
     return int(counts[0])
 
 
+def audio_frames(path, fps):
+    """Frames at ``fps`` that an output with audio and no video stream lasts; None for any other file."""
+    result = run_sync([tool("ffprobe", "to verify rendered audio"), "-v", "error", "-show_entries",
+                       "stream=codec_type,duration", "-of", "json", str(path)], 60)
+    try:
+        streams = json.loads(result.stdout)["streams"]
+    except (ValueError, KeyError):
+        return None
+    if any(s.get("codec_type") == "video" for s in streams):
+        return None
+    durations = [s["duration"] for s in streams if s.get("codec_type") == "audio" and "duration" in s]
+    return round(float(durations[0]) * fps) if durations else None
+
+
 SEQUENCE = re.compile(r"\[(#+)\]")
 
 
@@ -340,20 +354,22 @@ def frame_files(output):
     return sorted(path.parent.glob(name))
 
 
-def written(output, since=0.0):
-    """Frames of ``output`` written after ``since``: a movie's frame count, or an image sequence's non-empty files."""
+def written(output, since=0.0, fps=None):
+    """Frames of ``output`` written after ``since``: a movie's frame count, an image sequence's non-empty files, or
+    an audio file's duration at ``fps``."""
     files = frame_files(output)
     if files is not None:
         return sum(1 for f in files if f.stat().st_mtime >= since and f.stat().st_size > 0) or None
     path = Path(output)
     if not path.is_file() or path.stat().st_mtime < since:
         return None
-    return frame_count(path)
+    frames = frame_count(path)
+    return audio_frames(path, fps) if frames is None and fps else frames
 
 
-def rendered(output, frames, since=0.0):
+def rendered(output, frames, since=0.0, fps=None):
     """A finished output: written after ``since``, readable, with exactly ``frames`` frames."""
-    return written(output, since) == frames
+    return written(output, since, fps) == frames
 
 
 def discard(output):
@@ -409,7 +425,7 @@ def render_queue(project, outputs):
         failure = error
     results = []
     for item, entry, file in zip(outputs, entries, files, strict=True):
-        again = not rendered(file, entry["frames"], since)
+        again = not rendered(file, entry["frames"], since, entry["fps"])
         # aerender can exit 0 after a crash mid-queue; a short output renders once more with its entry's settings.
         if again:
             discard(file)
@@ -417,7 +433,7 @@ def render_queue(project, outputs):
                 aerender("-project", str(project), "-rqindex", str(entry["index"]))
             except RuntimeError as error:
                 failure = error
-        results.append({"comp": item["comp"], "file": str(file), "frames": written(file, since),
+        results.append({"comp": item["comp"], "file": str(file), "frames": written(file, since, entry["fps"]),
                         "rerendered": again, "path": "aerender"})
     return {"project": str(project), "outputs": results, "entries": entries,
             "failure": str(failure) if failure else None}
