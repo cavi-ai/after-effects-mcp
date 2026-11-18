@@ -231,8 +231,9 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_organize", {"project": "/x.aep", "folders": ["A//B"]}, "single slashes"),
             ("ae_organize", {"project": "/x.aep", "moves": [{"item": "a", "folder": "A//B"}]}, "single slashes"),
             ("ae_import", {"project": "/x.aep", "files": ["/a.png"], "folder": "Footage//Stills"}, "single slashes"),
-            # An item id from ae_inspect passes validation; the call stops only at the missing project.
-            ("ae_organize", {"project": "/x.aep", "renames": [{"item": 13, "name": "A2"}]}, "No project at /x.aep"),
+            # An item id from ae_inspect passes validation and reaches the folder check.
+            ("ae_organize", {"project": "/x.aep", "folders": ["A//B"], "renames": [{"item": 13, "name": "A2"}]},
+             "single slashes"),
             ("ae_properties", base | {"depth": 0}, "depth"),
             ("ae_export_frames", {"project": "/x.aep", "comp": "a", "directory": "/f", "movie": "/m.mov"},
              "H.264 movie is a .mp4"),
