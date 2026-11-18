@@ -18,7 +18,7 @@ TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effect
          "ae_template_render", "ae_collect", "ae_audio", "ae_time",
          "ae_controls", "ae_project_settings", "ae_sequence_layers", "ae_essential_override",
          "ae_fonts", "ae_expressions", "ae_material", "ae_export_frames", "ae_properties", "ae_organize",
-         "ae_layer_parts", "ae_batch"}
+         "ae_layer_parts", "ae_batch", "ae_render_start", "ae_render_status", "ae_render_cancel"}
 
 
 class PackageTest(unittest.TestCase):
@@ -195,6 +195,10 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_project", {"action": "reduce", "path": "/x.aep"}, "reduce needs comps"),
             ("ae_project", {"action": "remove_unused"}, "needs a path"),
             ("ae_collect", {"project": "/x.aep", "folder": "relative"}, "absolute path"),
+            ("ae_render_start", {"project": "/nope/x.aep", "output": {"comp": "a", "file": "/x/o.mov"}},
+             "No project at"),
+            ("ae_render_status", {"job": "nope"}, "No render job nope"),
+            ("ae_render_cancel", {"job": "0123456789ab"}, "No render job 0123456789ab"),
         ]
         async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
             await client.initialize()

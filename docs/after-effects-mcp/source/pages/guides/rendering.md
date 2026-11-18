@@ -39,6 +39,25 @@ error that names the comp, the count it has and the failure `aerender` reported.
 
 The `rerendered` flag of each output says whether step 2 ran.
 
+## Render in the background
+
+```json
+{"tool": "ae_render_start", "arguments": {"project": "/path/to/cut.aep",
+ "output": {"comp": "Main", "file": "/path/to/out/main.mov"}}}
+```
+
+`ae_render_start` checks the output against its queue entry as `ae_render_queue` does, starts
+`aerender -rqindex` for that entry and returns its `job` at once. The render runs under a resident owner from
+`cavi-mcp-core`, so it continues if the server exits; its files live in `cavi-after-effects-renders` in the
+temporary folder. One render runs at a time: a second start while one runs is refused as `AE_RENDER_BUSY`.
+
+`ae_render_status` reads a job: `running`, `done` (aerender exited 0 and the output has every frame), `failed`,
+`cancelled` or `unresolved`, with `done` frames from the aerender log and, once it ended, `written` frames read
+from the output. With `wait`, it waits up to that many seconds for the render to end and reports the frames as
+MCP progress. `ae_render_cancel` stops the render and waits up to 30 s for it; the output is left as aerender
+wrote it. A job that ends without its frames also stops its `aerendercore`, which aerender starts outside its
+own process group and which ignores SIGTERM. There is no fallback to `saveFrameToPng` frames.
+
 ## Frames without a render
 
 - `ae_frame` writes one PNG per time. `method: "auto"` uses `saveFrameToPng` and falls back to `aerender`

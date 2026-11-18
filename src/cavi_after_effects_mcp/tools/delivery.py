@@ -1,10 +1,12 @@
 """Delivery: render queue, renders, frames, templates, Essential Graphics."""
 
 import asyncio
+import time
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
-from cavi_mcp_core.server import DESTRUCTIVE, WRITES
+from cavi_mcp_core.server import DESTRUCTIVE, READ_ONLY, WRITES
+from mcp.server.mcpserver import Context
 from pydantic import Field
 
 from .. import edit, host, models
@@ -24,6 +26,42 @@ async def ae_render_queue(
     of the entry's time span and ffmpeg (.mp4 H.264 or .mov ProRes); each output's path says which way produced
     it."""
     return await asyncio.to_thread(edit.render_outputs, project, [o.model_dump() for o in outputs])
+
+
+@mcp.tool(annotations=DESTRUCTIVE)
+async def ae_render_start(
+        project: Annotated[str, Field(description="Absolute path of the saved .aep to render.")],
+        output: Annotated[Output, Field(description="The queue entry to render, by its comp and output file.")]
+) -> models.RenderJob:
+    """Start rendering one queue entry in the background (aerender -rqindex) and return its job at once. The render
+    outlives this server; read it with ae_render_status and stop it with ae_render_cancel. One render runs at a
+    time."""
+    return await asyncio.to_thread(host.render_start, project, output.model_dump())
+
+
+@mcp.tool(annotations=READ_ONLY)
+async def ae_render_status(
+        ctx: Context,
+        job: Annotated[str, Field(description="Job id from ae_render_start.")],
+        wait: Annotated[float, Field(ge=0, le=600, description="Seconds to wait for the render to end, reporting "
+                                                               "frames as progress.")] = 0
+) -> models.RenderJob:
+    """A background render's state: running, done (aerender exited 0 and the output has every frame), failed,
+    cancelled or unresolved; frames logged so far, and the frames the output has once it ended."""
+    deadline = time.monotonic() + wait
+    status = await asyncio.to_thread(host.render_status, job)
+    while status["state"] == "running" and time.monotonic() < deadline:
+        await ctx.report_progress(status["done"], status["frames"],
+                                  f"{status['comp']}: {status['done']} of {status['frames']} frames")
+        await asyncio.sleep(min(1.0, max(0.0, deadline - time.monotonic())))
+        status = await asyncio.to_thread(host.render_status, job)
+    return status
+
+
+@mcp.tool(annotations=DESTRUCTIVE)
+async def ae_render_cancel(job: Annotated[str, Field(description="Job id from ae_render_start.")]) -> models.RenderJob:
+    """Stop a background render; its output is left as aerender wrote it."""
+    return await asyncio.to_thread(host.render_cancel, job)
 
 
 @mcp.tool(annotations=WRITES)

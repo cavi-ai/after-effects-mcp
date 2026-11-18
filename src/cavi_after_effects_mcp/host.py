@@ -7,13 +7,15 @@ import math
 import os
 import re
 import shutil
+import signal
 import subprocess
 import tempfile
 import threading
 import time
+import uuid
 from pathlib import Path
 
-from cavi_mcp_core import apps
+from cavi_mcp_core import apps, resident
 from cavi_mcp_core.contracts import OperationRejected
 from cavi_mcp_core.proc import diagnostics, run_sync
 
@@ -507,3 +509,115 @@ def render_queue(project, outputs):
                         "rerendered": again, "path": "aerender"})
     return {"project": str(project), "outputs": results, "entries": entries,
             "failure": str(failure) if failure else None}
+
+
+RENDER_JOBS = Path(tempfile.gettempdir()).resolve() / "cavi-after-effects-renders"
+JOB_ID = re.compile(r"[0-9a-f]{12}")
+# aerender -v ERRORS_AND_PROGRESS logs each frame as "<timecode> (<frame number>): <seconds> Seconds".
+FRAME_DONE = re.compile(r"\((\d+)\): \d+ Seconds")
+
+
+def render_jobs():
+    """The private folder holding each background render's job file and resident directory."""
+    RENDER_JOBS.mkdir(mode=0o700, exist_ok=True)
+    info = RENDER_JOBS.stat()
+    if info.st_uid != os.getuid() or info.st_mode & 0o077:
+        raise RuntimeError(f"{RENDER_JOBS} must belong to this user alone")
+    return RENDER_JOBS
+
+
+def render_start(project, item):
+    """Start ``aerender -rqindex`` for one queue entry under a resident owner that outlives this process."""
+    project = absolute(project, ".aep")
+    if not project.is_file():
+        raise FileNotFoundError(f"No project at {project}")
+    program = after_effects() / "aerender"
+    if not program.is_file():
+        raise RuntimeError(f"No aerender at {program}")
+    with ACCESS:
+        root = render_jobs()
+        for path in sorted(root.glob("*.json")):
+            if JOB_ID.fullmatch(path.stem) and render_status(path.stem)["state"] == "running":
+                raise OperationRejected(f"Render job {path.stem} is running; wait for it with ae_render_status or "
+                                        "stop it with ae_render_cancel", code="AE_RENDER_BUSY")
+        entry = queue_entries(project, [item])[0]
+        file = absolute(item["file"])
+        file.parent.mkdir(parents=True, exist_ok=True)
+        job = uuid.uuid4().hex[:12]
+        (root / f"{job}.json").write_text(json.dumps({
+            "project": str(project), "comp": item["comp"], "file": str(file), "frames": entry["frames"],
+            "fps": entry["fps"], "index": entry["index"], "since": time.time() - 1}), encoding="utf-8")
+        env = {k: os.environ[k] for k in ("HOME", "USER", "LOGNAME", "PATH", "TMPDIR", "LANG") if k in os.environ}
+        resident.start([str(program), "-project", str(project), "-rqindex", str(entry["index"]),
+                        "-v", "ERRORS_AND_PROGRESS", "-close", "DO_NOT_SAVE_CHANGES"],
+                       cwd=str(project.parent.resolve()), env=env, directory=root / job, max_seconds=RENDER_TIMEOUT,
+                       max_rss_kib=os.sysconf("SC_PHYS_PAGES") * os.sysconf("SC_PAGE_SIZE") // 1024,
+                       minimum_available_kib=0)
+    return render_status(job)
+
+
+CORE_PARENT = re.compile(r"-aerenderpid (\d+)$")
+
+
+def stop_render_core(aerender_pid, project):
+    """Kill the aerendercore an aerender started: it runs outside aerender's process group, outlives a stopped
+    aerender and ignores SIGTERM."""
+    result = run_sync(["/bin/ps", "-axww", "-o", "pid=,args="], 10)
+    for line in result.stdout.splitlines():
+        pid, _, args = line.strip().partition(" ")
+        parent = CORE_PARENT.search(args)
+        if "aerendercore" in args and parent and int(parent.group(1)) == aerender_pid and f"-project {project} " in args:
+            try:
+                os.kill(int(pid), signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+
+
+def render_job(job):
+    """The job file of a background render."""
+    path = render_jobs() / f"{job}.json"
+    if not JOB_ID.fullmatch(job) or not path.is_file():
+        raise ValueError(f"No render job {job}")
+    return json.loads(path.read_text(encoding="utf-8"))
+
+
+def render_status(job):
+    """A background render's state, the frames aerender logged and, once it ended, the frames its output has."""
+    meta = render_job(job)
+    directory = render_jobs() / job
+    value = resident.inspect(directory)
+    log = directory / "processes" / "worker.log"
+    text = log.read_text(encoding="utf-8", errors="replace") if log.is_file() else ""
+    done = max((int(n) for n in FRAME_DONE.findall(text)), default=0)
+    status = {"job": job, "state": value["state"], "comp": meta["comp"], "file": meta["file"],
+              "frames": meta["frames"], "done": min(done, meta["frames"])}
+    if value["state"] == "running":
+        return status
+    status["written"] = written(meta["file"], meta["since"], meta["fps"]) or 0
+    receipt = value["receipt"] or {}
+    if value["state"] == "finished":
+        if receipt.get("exit_code") == 0 and status["written"] == meta["frames"]:
+            status["state"] = "done"
+        else:
+            status["state"] = "cancelled" if (directory / "cancel.json").exists() else "failed"
+    if status["state"] != "done":
+        if receipt.get("pid"):
+            stop_render_core(receipt["pid"], meta["project"])
+        errors = [line.strip() for line in text.splitlines() if "error" in line.lower()]
+        status["error"] = (receipt.get("error") or receipt.get("cleanup_error") or (errors[-1] if errors else None)
+                           or f"aerender exited {receipt.get('exit_code')} after writing {status['written']} of "
+                              f"{meta['frames']} frames")
+    return status
+
+
+def render_cancel(job):
+    """Have the resident owner of a background render stop aerender, wait up to 30 s for it, and report the job;
+    reading the ended job stops its aerendercore."""
+    render_job(job)
+    directory = render_jobs() / job
+    resident.cancel(directory)
+    try:
+        resident.wait(directory, timeout=30)
+    except TimeoutError:
+        pass
+    return render_status(job)
