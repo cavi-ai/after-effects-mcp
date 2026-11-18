@@ -22,6 +22,11 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - An open project with unsaved changes is refused as `AE_PROJECT_UNSAVED` with its message instead of
   `After Effects script failed: 1`, and an instance running with its UI as `AE_UI_RUNNING`.
 - A missing project or script file is reported as `INPUT_NOT_FOUND`.
+- `ae_render_queue` checks each output against its queue entry: the entry's time span at its frame rate sets the
+  expected frames (a different `frames` is refused), a short output renders again from its entry with
+  `aerender -rqindex`, the fallback renders the entry's time span, image sequences count their frame files, and
+  output folders are created first. `frames` is optional; `render_settings` and `output_module` are removed, since
+  the entry's templates are used. An output with no queue entry is refused.
 - Read-only tools leave the `.aep` untouched: reports are written to a temporary JSON file, and a project is saved
   only when the call changed it or names another file. No `cavi-report` folder is added to projects.
 

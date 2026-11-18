@@ -16,21 +16,25 @@ Output format, channels, depth and color cannot be set from scripts. Pick an out
 
 ```json
 {"tool": "ae_render_queue", "arguments": {"project": "/path/to/cut.aep",
- "outputs": [{"comp": "Main", "file": "/path/to/out/main.mov", "frames": 150}]}}
+ "outputs": [{"comp": "Main", "file": "/path/to/out/main.mov"}]}}
 ```
 
-`frames` is the frame count the finished movie must have. The tool works through three steps and reports which
-one produced each movie in `path`:
+Each output names a queue entry by its comp and output `file`; an output with no entry is refused. The entry's
+time span at its frame rate sets the frame count the output must have. `frames`, when given, must equal it, or
+the call is refused before anything renders. Output folders are created first, since After Effects renders
+nothing into a missing one. The tool works through three steps and reports which one produced each output in
+`path`:
 
 1. `aerender` renders the saved project's queue.
-2. Each movie that is missing, older than the call, unreadable or not exactly `frames` frames long is deleted
-   and rendered again by itself, with the `render_settings` and `output_module` arguments.
-3. A movie that is still wrong is made from `saveFrameToPng` frames and FFmpeg: `.mp4` as H.264, `.mov` as
-   ProRes, from frame 0 at the comp's frame rate. Its `path` is `saveFrameToPng`. Any other extension is an
-   error.
+2. Each output that is missing, older than the call, unreadable or short of its frames is deleted and rendered
+   again by itself from its entry (`aerender -rqindex`), with the entry's templates, time span and settings.
+3. A movie that is still wrong is made from `saveFrameToPng` frames of the entry's time span and FFmpeg: `.mp4`
+   as H.264, `.mov` as ProRes. Its `path` is `saveFrameToPng`. Any other extension, and an entry with its own
+   frame rate, is an error.
 
-Frame counts are read with `ffprobe`. A render that ends with the wrong count after the fallback is an error that
-names the comp, the count it has and the failure `aerender` reported.
+Movie frame counts are read with `ffprobe`. An image sequence output keeps its `[#####]` in `file` and counts the
+non-empty frame files written during the call. A render that ends with the wrong count after the fallback is an
+error that names the comp, the count it has and the failure `aerender` reported.
 
 The `rerendered` flag of each output says whether step 2 ran.
 
