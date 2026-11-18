@@ -3,8 +3,9 @@
 Every tool is listed with its parameters and the fields of its result. A parameter marked `*` is required.
 Access is what the tool annotations declare: `read-only` changes nothing, `write` changes a project or writes
 files, `destructive` can delete or overwrite (a comp, a movie, a layer, unsaved work, or whatever a script
-does). A tool that runs a packaged script saves the script's report into its `project`, which is created
-when it does not exist, and returns it as `report` with its fields repeated at the top of the result. Paths
+does). A tool that runs a packaged script saves the script's report into its `project` and returns it
+as `report` with its fields repeated at the top of the result. A `project` with no file is created only from an
+untitled, empty open project; `ae_project` `new` creates one otherwise. Paths
 are absolute. Layers are a 1-based index or a name. Colors are RGB from 0 to 1.
 
 A tool that fails raises an error with the reason; a script's `errors` field fails the call.

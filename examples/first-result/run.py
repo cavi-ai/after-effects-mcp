@@ -31,6 +31,7 @@ def reveal(layer, start, **properties):
 STEPS = [
     ("ae_status", {}),
     ("ae_launch", {}),
+    ("ae_project", {"action": "new", "path": PROJECT, "overwrite": True}),
     ("ae_comp_new", {"project": PROJECT, "name": COMP, "width": 1280, "height": 720, "duration": 3.5, "fps": 24,
                      "background": [0.02, 0.02, 0.06], "replace": True}),
     add({"kind": "footage", "name": "Aisle", "file": str(HERE / "media" / "aisle.mp4")}),

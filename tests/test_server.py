@@ -124,6 +124,23 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(reply.is_error, (name, arguments))
                 self.assertIn(message, reply.content[0].text, (name, arguments))
 
+    async def test_new_project_keeps_an_existing_file_without_overwrite(self):
+        params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
+        with tempfile.TemporaryDirectory() as folder:
+            taken = Path(folder) / "taken.aep"
+            taken.write_bytes(b"RIFX")
+            calls = [
+                ({"action": "new"}, "new needs a path"),
+                ({"action": "new", "path": str(taken)}, "exists; set overwrite"),
+            ]
+            async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
+                await client.initialize()
+                for arguments, message in calls:
+                    reply = await client.call_tool("ae_project", arguments)
+                    self.assertTrue(reply.is_error, arguments)
+                    self.assertIn(message, reply.content[0].text, arguments)
+            self.assertEqual(taken.read_bytes(), b"RIFX")
+
     async def test_motion_tools_refuse_bad_input_before_calling_after_effects(self):
         params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
         base = {"project": "/x.aep", "comp": "a"}

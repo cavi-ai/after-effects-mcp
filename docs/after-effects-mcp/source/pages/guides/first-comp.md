@@ -5,14 +5,16 @@ an accent line grows, and two lines of text rise in. Every path is absolute; rep
 you own. The shot is `examples/first-result/media/aisle.mp4` in the repository, and the calls are the ones
 `examples/first-result/run.py` makes.
 
-## 1. Create the comp
+## 1. Create the project and the comp
 
 ```json
+{"tool": "ae_project", "arguments": {"action": "new", "path": "/path/to/title.aep", "overwrite": true}}
 {"tool": "ae_comp_new", "arguments": {"project": "/path/to/title.aep", "name": "Title", "width": 1280,
  "height": 720, "duration": 3.5, "fps": 24, "background": [0.02, 0.02, 0.06], "replace": true}}
 ```
 
-The project is created and saved on the first call. `background` is RGB from 0 to 1.
+`ae_project` `new` saves an empty project at the path; every later call saves to it. `background` is RGB from 0
+to 1.
 
 ## 2. Add the shot and push in
 

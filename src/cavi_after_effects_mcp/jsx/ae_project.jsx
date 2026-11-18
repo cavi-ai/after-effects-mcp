@@ -20,6 +20,14 @@ function counts() {
         }
         app.open(target);
         CAVI_PROJECT = a.path;
+    } else if (a.action === "new") {
+        if (app.project.dirty && !a.discard) {
+            caviFail("The open project " + (open || "(untitled)") + " has unsaved changes; save it or set discard");
+        }
+        // app.newProject exits headless After Effects; closing the project leaves an untitled, empty one.
+        app.project.close(CloseOptions.DO_NOT_SAVE_CHANGES);
+        if (app.project.file || app.project.numItems > 0) { caviFail("The closed project is still open"); }
+        CAVI_PROJECT = a.path;
     } else if (a.action === "reduce" || a.action === "remove_unused" || a.action === "consolidate") {
         // These rewrite the open project; a path saves the result elsewhere and leaves the file alone.
         if (a.action === "reduce") {

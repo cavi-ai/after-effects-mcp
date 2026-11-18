@@ -308,7 +308,7 @@ class Transitions(Result):
 
 
 class ProjectState(Script):
-    action: Literal["open", "save", "save_as", "info", "reduce", "remove_unused", "consolidate"]
+    action: Literal["new", "open", "save", "save_as", "info", "reduce", "remove_unused", "consolidate"]
     removed: int | None
     path: str | None
     previous: str | None

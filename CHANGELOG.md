@@ -4,6 +4,18 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 ## Unreleased
 
+### Added
+
+- `ae_project` `new` saves an empty project at a path.
+
+### Fixed
+
+- A call on a project path with no file starts it only from an untitled, empty project; otherwise it is refused, so
+  a new project no longer inherits the items of the project open before it.
+- `ae_template_render` saves the opened template to `project` before filling it, so an existing `project` file is
+  replaced by the filled template instead of being edited, and its queue entries no longer fail on missing render
+  settings.
+
 ## 0.1.1 - 2026-11-16
 
 ### Changed
