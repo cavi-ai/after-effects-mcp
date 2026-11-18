@@ -22,8 +22,8 @@
  "renders": [{"comp": "Lower third", "file": "/path/to/out/ada.mov"}]}}
 ```
 
-The first render's `output_module` and `render_settings` apply to the whole call. Call the tool once per
-distinct setting.
+Each render is its own queue entry with its own `output_module` and `render_settings`, and is checked and, when
+short, rendered again from that entry.
 
 The text and footage tools it uses are available on their own: `ae_text_set` and `ae_footage_replace`.
 

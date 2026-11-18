@@ -4,6 +4,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 ## Unreleased
 
+## 0.2.0 - 2026-11-18
+
 ### Added
 
 - `ae_project` `new` saves an empty project at a path.
@@ -30,6 +32,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
   protocol negotiation.
 - The footage lookup, property setter, path shape, frame backdrop, renderer check and light types live once in
   `lib.jsx` instead of in two or three scripts each.
+- The README, overview, template guide and checked-application list describe batches, background renders,
+  temporary reports and per-entry render templates.
 
 ### Fixed
 
