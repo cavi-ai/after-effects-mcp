@@ -1,5 +1,6 @@
 """Comps and layers: create, change, text, shapes, masks, cameras, materials and markers."""
 
+import asyncio
 from typing import Annotated, Any, Literal
 
 from cavi_mcp_core.server import DESTRUCTIVE, WRITES
@@ -312,16 +313,23 @@ async def ae_markers(
                                                                "chapter.")] = [],
         grid: Annotated[BeatGrid | None, Field(description="One marker per beat from bpm and beats per "
                                                            "bar.")] = None,
+        onsets: Annotated[models.Onsets | None, Field(description="One marker where the level of an audio "
+                                                                  "file jumps, found with FFmpeg.")] = None,
         clear: Annotated[bool, Field(description="Remove the existing markers first.")] = False
 ) -> models.MarkerList:
-    """Set comp or layer markers and/or a beat grid. A call sets at most 5000 markers."""
-    if not markers and grid is None:
-        raise ValueError("Give markers or a beat grid")
+    """Set comp or layer markers, a beat grid and/or markers at an audio file's onsets. A call sets at most 5000
+    markers."""
+    if not markers and grid is None and onsets is None:
+        raise ValueError("Give markers, a beat grid or onsets")
     if grid is not None and grid.end <= grid.start:
         raise ValueError("The beat grid end must be after start")
     listed = [m.model_dump() for m in markers]
     if grid is not None:
         listed += edit.beat_grid(grid.bpm, grid.beats_per_bar, grid.start, grid.end)
+    if onsets is not None:
+        found = await asyncio.to_thread(host.onsets, onsets.file, onsets.rise, onsets.floor, onsets.gap)
+        listed += [{"time": t + onsets.offset, "comment": onsets.comment, "duration": 0, "chapter": None}
+                   for t in found if t + onsets.offset >= 0]
     if len(listed) > host.MAX_MARKERS:
         raise ValueError(f"{len(listed)} markers in one call; the limit is {host.MAX_MARKERS}")
     return await scene("ae_markers", project, {"comp": comp, "layer": layer, "markers": listed, "clear": clear})

@@ -62,6 +62,22 @@ class RenderedAudioTest(unittest.TestCase):
         self.assertEqual(host.written(movie, 0, 30), 60)
 
 
+@unittest.skipUnless(shutil.which("ffmpeg"), "ffmpeg is required")
+class OnsetTest(unittest.TestCase):
+    def test_onsets_fall_within_one_hop_of_each_hit(self):
+        root = Path(tempfile.mkdtemp(prefix="ae-onsets-"))
+        self.addCleanup(shutil.rmtree, root)
+        hits = root / "hits.wav"
+        bursts = "+".join(f"between(t,{t},{t + 0.1})" for t in (0.5, 1.0, 1.75, 2.5))
+        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+                        f"aevalsrc='0.5*sin(2*PI*440*t)*({bursts})':s=48000:d=3", str(hits)], check=True)
+        found = host.onsets(hits)
+        self.assertEqual(len(found), 4, found)
+        for onset, hit in zip(found, (0.5, 1.0, 1.75, 2.5)):
+            self.assertLess(abs(onset - hit), host.ONSET_HOP / host.ONSET_RATE, found)
+        self.assertEqual(host.onsets(hits, gap=0.6), found[:1] + found[2:])
+
+
 class RenderedSequenceTest(unittest.TestCase):
     def setUp(self):
         self.root = Path(tempfile.mkdtemp(prefix="ae-sequence-"))

@@ -49,7 +49,7 @@ A tool that fails raises an error with the reason; a script's `errors` field fai
 | `ae_mask` | write | `project`*, `comp`*, `layer`*, `shape`, `mask`, `name`, `mode`, `feather`, `expansion`, `opacity`, `invert`, `path_keys` | `project`, `report`, `comp`, `layer`, `mask`, `mask_count`, `path_keys` | Adds or changes a mask, including a keyframed path. `path_keys` repeating a time are refused. |
 | `ae_camera` | write | `project`*, `comp`*, `camera`, `rig`, `light` | `project`, `report`, `comp` | Adds or changes a camera, an orbit rig and a light. |
 | `ae_material` | write | `project`*, `comp`*, `layer`*, `material`* | `project`, `report`, `comp`, `layer`, `renderer`, `material` | Sets a 3D layer's material options. |
-| `ae_markers` | write | `project`*, `comp`*, `layer`, `markers`, `grid`, `clear` | `project`, `report`, `comp`, `count`, `markers` | Sets markers and a beat grid; at most 5000 markers per call. |
+| `ae_markers` | write | `project`*, `comp`*, `layer`, `markers`, `grid`, `onsets`, `clear` | `project`, `report`, `comp`, `count`, `markers` | Sets markers, a beat grid and markers at an audio file's onsets; at most 5000 markers per call. `onsets` is `{file, offset, rise, floor, gap, comment}`: FFmpeg measures the level every 11.6 ms, and an onset is a level at least `floor` dB (-50) and `rise` dB (6) above the quietest of the previous 70 ms, at least `gap` seconds (0.1) after the last; `offset` places the file's start in comp seconds. |
 
 ## Animation
 

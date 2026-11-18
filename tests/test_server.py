@@ -129,7 +129,7 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
              "project is given once"),
             ("ae_comp_set", {"project": "/x.aep", "comp": "a"}, "at least one"),
             ("ae_import", {"project": "/x.aep", "files": ["relative.png"]}, "absolute path"),
-            ("ae_markers", {"project": "/x.aep", "comp": "a"}, "markers or a beat grid"),
+            ("ae_markers", {"project": "/x.aep", "comp": "a"}, "markers, a beat grid or onsets"),
             ("ae_markers", {"project": "/x.aep", "comp": "a", "grid": {"bpm": 120, "end": 4, "start": 4}}, "after start"),
             ("ae_frame", {"project": "/x.aep", "comp": "a", "times": [0], "directory": "relative"}, "absolute path"),
         ]

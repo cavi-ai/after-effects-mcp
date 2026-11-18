@@ -374,6 +374,42 @@ def audio_frames(path, fps):
     return round(float(durations[0]) * fps) if durations else None
 
 
+ONSET_RATE, ONSET_HOP, ONSET_LOOKBACK = 22050, 256, 6
+
+
+def onsets(path, rise=6.0, floor=-50.0, gap=0.1):
+    """Seconds into ``path`` where its level jumps.
+
+    FFmpeg measures the RMS level of every 256 samples at 22.05 kHz (11.6 ms). A frame is an onset when its level
+    is at least ``floor`` dB and ``rise`` dB above the quietest of the six frames before it (70 ms), and at least
+    ``gap`` seconds after the previous onset.
+    """
+    path = absolute(path)
+    if not path.is_file():
+        raise FileNotFoundError(f"No audio file at {path}")
+    result = run_sync([tool("ffmpeg", "to find onsets"), "-hide_banner", "-nostats", "-i", str(path), "-vn", "-af",
+                       f"aresample={ONSET_RATE},asetnsamples=n={ONSET_HOP}:p=0,astats=metadata=1:reset=1,"
+                       "ametadata=mode=print:key=lavfi.astats.Overall.RMS_level:file=-", "-f", "null", "-"],
+                      600, stdout_limit=256 * 1024 * 1024)
+    if result.returncode != 0 or result.truncated:
+        raise RuntimeError(f"FFmpeg could not measure {path.name}: {diagnostics(result)}")
+    times, levels = [], []
+    for line in result.stdout.splitlines():
+        if line.startswith("frame:"):
+            times.append(float(line.split("pts_time:")[1]))
+        elif line.startswith("lavfi.astats.Overall.RMS_level="):
+            level = float(line.split("=", 1)[1])
+            levels.append(level if math.isfinite(level) else -math.inf)
+    if not levels:
+        raise ValueError(f"{path.name} has no audio stream")
+    found = []
+    for n, level in enumerate(levels):
+        before = min(levels[max(0, n - ONSET_LOOKBACK):n], default=-math.inf)
+        if level >= floor and level - before >= rise and (not found or times[n] - found[-1] >= gap):
+            found.append(times[n])
+    return found
+
+
 SEQUENCE = re.compile(r"\[(#+)\]")
 
 

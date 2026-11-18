@@ -16,6 +16,7 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
   by path.
 - `ae_batch` runs typed write tools in order in one After Effects call with one save, and rolls every step back
   when one fails: six steps take 1.7 s instead of 10.2 s as six calls.
+- `ae_markers` `onsets` adds a marker where the level of an audio or video file jumps, found with FFmpeg.
 
 ### Changed
 
