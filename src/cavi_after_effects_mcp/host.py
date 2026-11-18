@@ -1,5 +1,6 @@
 """Headless After Effects: launch, scripts over Apple Events, aerender and frame checks."""
 
+import fcntl
 import glob
 import json
 import math
@@ -29,8 +30,41 @@ TOOL_PATH = ":/opt/homebrew/bin:/usr/local/bin"
 AFTER_EFFECTS = ("Adobe After Effects", "com.adobe.AfterEffects.application",
                  "Adobe After Effects 20*/Adobe After Effects 20*.app", "CAVI_AFTER_EFFECTS_APP")
 
-# One After Effects instance runs one script at a time; a second call waits for the first.
-ACCESS = threading.RLock()
+class Access:
+    """Re-entrant lock held by one thread of one server process at a time: every server process of the user
+    drives the same headless instance, so the lock is a file lock under the temporary folder."""
+
+    def __init__(self, path):
+        self.path = path
+        self.thread = threading.RLock()
+        self.depth = 0
+        self.file = None
+
+    def __enter__(self):
+        self.thread.acquire()
+        if self.depth == 0:
+            try:
+                self.file = open(self.path, "a")
+                fcntl.flock(self.file, fcntl.LOCK_EX)
+            except BaseException:
+                if self.file:
+                    self.file.close()
+                    self.file = None
+                self.thread.release()
+                raise
+        self.depth += 1
+        return self
+
+    def __exit__(self, *exc):
+        self.depth -= 1
+        if self.depth == 0:
+            self.file.close()  # closing the file releases the lock
+            self.file = None
+        self.thread.release()
+
+
+# One After Effects instance runs one script at a time; a second call, from any server process, waits for the first.
+ACCESS = Access(Path(tempfile.gettempdir()) / "cavi-after-effects.lock")
 
 
 class Session:

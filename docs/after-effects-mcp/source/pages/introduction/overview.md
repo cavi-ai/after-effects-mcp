@@ -26,7 +26,8 @@ sign in or accept terms.
    saves the project. The script's report is stored inside the saved project, and the server reads it back.
 3. A report with `errors` fails the call. A script that throws leaves the project as it was on disk.
 
-One instance runs one script at a time, so two simultaneous calls take turns.
+One instance runs one script at a time, so two simultaneous calls take turns, also when they come from two server
+processes.
 
 ## What it refuses
 
