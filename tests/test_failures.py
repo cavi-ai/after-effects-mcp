@@ -5,6 +5,7 @@ import json
 import os
 import plistlib
 import re
+import subprocess
 import sys
 import tempfile
 import threading
@@ -175,6 +176,18 @@ class SerializedAccessTest(unittest.TestCase):
                     worker.join()
         self.assertEqual(most[0], 1)
         self.assertEqual(reports, [{"errors": [], "value": "1"}] * 2)
+
+
+class ProcessAccessTest(unittest.TestCase):
+    def test_two_server_processes_never_hold_the_application_at_once(self):
+        code = ("import time\nfrom cavi_after_effects_mcp import host\n"
+                "with host.ACCESS:\n    start = time.time()\n    time.sleep(0.5)\n    print(start, time.time())\n")
+        with tempfile.TemporaryDirectory() as folder:
+            env = {**os.environ, "TMPDIR": folder}
+            children = [subprocess.Popen([sys.executable, "-c", code], env=env, stdout=subprocess.PIPE, text=True)
+                        for _ in range(2)]
+            spans = sorted(tuple(map(float, child.communicate(timeout=60)[0].split())) for child in children)
+        self.assertLessEqual(spans[0][1], spans[1][0])
 
 
 class ErrorContractTest(unittest.TestCase):
