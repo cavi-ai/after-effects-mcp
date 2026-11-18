@@ -10,6 +10,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - `ae_properties` `keyframes` lists each animated property's keys: time, value, in and out interpolation, temporal
   ease, and spatial tangents, continuity and roving.
 - `ae_layer_set` sets collapse transformations, guide, auto-orient, quality, sampling and adjustment switches.
+- `ae_comp_new` `footage` builds a comp from a video or still: its size, pixel aspect, duration and frame rate,
+  with the file as layer 1.
 
 ### Changed
 

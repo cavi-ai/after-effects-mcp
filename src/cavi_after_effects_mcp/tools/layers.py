@@ -29,18 +29,27 @@ from ..models import (
 @mcp.tool(annotations=DESTRUCTIVE)
 async def ae_comp_new(
         project: Project, name: Annotated[str, Field(description="Name of the new comp.")],
-        width: Annotated[int, Field(ge=4, le=30000, description="Width in pixels.")],
-        height: Annotated[int, Field(ge=4, le=30000, description="Height in pixels.")],
-        duration: Annotated[float, Field(gt=0, le=10800, description="Duration in seconds.")],
-        fps: Annotated[float, Field(gt=0, le=240, description="Frame rate.")] = 30,
+        width: Annotated[Annotated[int, Field(ge=4, le=30000)] | None,
+                         Field(description="Width in pixels; defaults to the footage's.")] = None,
+        height: Annotated[Annotated[int, Field(ge=4, le=30000)] | None,
+                          Field(description="Height in pixels; defaults to the footage's.")] = None,
+        duration: Annotated[Annotated[float, Field(gt=0, le=10800)] | None,
+                            Field(description="Duration in seconds; defaults to the footage's.")] = None,
+        fps: Annotated[Annotated[float, Field(gt=0, le=240)] | None,
+                       Field(description="Frame rate; defaults to the footage's, else 30.")] = None,
         background: Annotated[Color, Field(description="Background color, RGB 0 to 1.")] = [0, 0, 0],
         renderer: Annotated[str | None, Field(description="ADBE Advanced 3d, ADBE Calder or ADBE Ernst.")] = None,
-        replace: Annotated[bool, Field(description="Remove an existing comp of that name first.")] = False
+        replace: Annotated[bool, Field(description="Remove an existing comp of that name first.")] = False,
+        footage: Annotated[str | None, Field(
+            description="Absolute path of a video or still, imported once; the comp takes its size, pixel aspect, "
+                        "duration and frame rate where not given, and holds it as layer 1.")] = None
 ) -> models.CompNew:
-    """Create a comp with its size, duration, frame rate, background and 3D renderer."""
-    return await scene("ae_comp_new", project, {"name": name, "width": width, "height": height,
-                                                "duration": duration, "fps": fps, "background": background,
-                                                "renderer": renderer, "replace": replace})
+    """Create a comp with its size, duration, frame rate, background and 3D renderer, or from a footage file."""
+    if footage is None and None in (width, height, duration):
+        raise ValueError("A comp without footage needs width, height and duration")
+    return await scene("ae_comp_new", project, {
+        "name": name, "width": width, "height": height, "duration": duration, "fps": fps, "background": background,
+        "renderer": renderer, "replace": replace, "footage": None if footage is None else str(host.absolute(footage))})
 
 
 @mcp.tool(annotations=WRITES)
