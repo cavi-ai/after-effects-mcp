@@ -291,3 +291,59 @@ function caviRestyle(prop, a) {
         for (k = 2; k < last; k++) { prop.setRovingAtKey(k, true); }
     }
 }
+
+var CAVI_LIGHTS = {POINT: LightType.POINT, SPOT: LightType.SPOT, PARALLEL: LightType.PARALLEL,
+    AMBIENT: LightType.AMBIENT, ENVIRONMENT: LightType.ENVIRONMENT};
+
+// The project's footage item for the file at path, imported when there is none.
+function caviFootage(path) {
+    var i, item, file = new File(path);
+    if (!file.exists) { caviFail("No footage file at " + path); }
+    for (i = 1; i <= app.project.numItems; i++) {
+        item = app.project.item(i);
+        if (item instanceof FootageItem && item.mainSource.file && item.mainSource.file.fsName === file.fsName) {
+            return item;
+        }
+    }
+    return app.project.importFile(new ImportOptions(file));
+}
+
+// Sets the property ``match`` of ``group`` unless ``value`` is null.
+function caviPut(group, match, value) {
+    if (value !== null && value !== undefined) { group.property(match).setValue(value); }
+}
+
+// A Shape from {vertices, in_tangents, out_tangents, closed}.
+function caviShape(spec) {
+    var shape = new Shape();
+    shape.vertices = spec.vertices;
+    shape.inTangents = spec.in_tangents;
+    shape.outTangents = spec.out_tangents;
+    shape.closed = spec.closed;
+    return shape;
+}
+
+// A solid of the comp's background color under its layers, so frames saved from the comp are not transparent.
+function caviBackdrop(comp) {
+    var backdrop = comp.layers.addSolid(comp.bgColor, "cavi-frame-bg", comp.width, comp.height, comp.pixelAspect,
+        comp.duration);
+    backdrop.moveToEnd();
+    return backdrop;
+}
+
+// Removes a backdrop layer, and its solid when no other layer uses it.
+function caviDropBackdrop(layer) {
+    var source = layer.source;
+    layer.remove();
+    if (source.usedIn.length === 0) { source.remove(); }
+}
+
+// Sets the comp's renderer to one of those the comp offers.
+function caviRenderer(comp, renderer) {
+    var i, renderers = [];
+    for (i = 0; i < comp.renderers.length; i++) { renderers.push(comp.renderers[i]); }
+    if (("," + renderers.join(",") + ",").indexOf("," + renderer + ",") < 0) {
+        caviFail("Renderer " + renderer + " is not one of " + renderers.join(", "));
+    }
+    comp.renderer = renderer;
+}

@@ -14,24 +14,20 @@ function animatorAt(layer, index) {
     return layer.property("ADBE Text Properties").property("ADBE Text Animators").property(index);
 }
 
-function put(group, match, value) {
-    if (value !== null && value !== undefined) { group.property(match).setValue(value); }
-}
-
 function addSelector(layer, animator, s) {
     var sels = animatorAt(layer, animator).property("ADBE Text Selectors"), kind = {range: "ADBE Text Selector",
         wiggly: "ADBE Text Wiggly Selector", expression: "ADBE Text Expressible Selector"}[s.kind], sel, adv, a;
     sel = sels.addProperty(kind);
     if (s.kind === "range") {
         adv = sel.property("ADBE Text Range Advanced");
-        put(adv, "ADBE Text Range Type2", caviEnum(UNITS, s.unit, "unit"));
-        put(sel, "ADBE Text Percent Start", s.start);
-        put(sel, "ADBE Text Percent End", s.end);
-        put(sel, "ADBE Text Percent Offset", s.offset);
-        if (s.shape !== null) { put(adv, "ADBE Text Range Shape", caviEnum(SHAPES, s.shape, "shape")); }
-        put(adv, "ADBE Text Levels Max Ease", s.ease_high);
-        put(adv, "ADBE Text Levels Min Ease", s.ease_low);
-        put(adv, "ADBE Text Selector Smoothness", s.smoothness);
+        caviPut(adv, "ADBE Text Range Type2", caviEnum(UNITS, s.unit, "unit"));
+        caviPut(sel, "ADBE Text Percent Start", s.start);
+        caviPut(sel, "ADBE Text Percent End", s.end);
+        caviPut(sel, "ADBE Text Percent Offset", s.offset);
+        if (s.shape !== null) { caviPut(adv, "ADBE Text Range Shape", caviEnum(SHAPES, s.shape, "shape")); }
+        caviPut(adv, "ADBE Text Levels Max Ease", s.ease_high);
+        caviPut(adv, "ADBE Text Levels Min Ease", s.ease_low);
+        caviPut(adv, "ADBE Text Selector Smoothness", s.smoothness);
         if (s.animate !== null) {
             a = s.animate;
             caviKeys(sel.property("ADBE Text Percent Start"),
@@ -39,14 +35,14 @@ function addSelector(layer, animator, s) {
                  {time: a.start + a.duration, value: 100, ease_in: null, ease_out: null, interpolation: null}], a.ease);
         }
     } else if (s.kind === "wiggly") {
-        put(sel, "ADBE Text Range Type2", caviEnum(UNITS, s.unit, "unit"));
-        put(sel, "ADBE Text Wiggly Max Amount", s.max_amount);
-        put(sel, "ADBE Text Wiggly Min Amount", s.min_amount);
-        put(sel, "ADBE Text Temporal Freq", s.per_second);
-        put(sel, "ADBE Text Character Correlation", s.correlation);
-        put(sel, "ADBE Text Wiggly Random Seed", s.seed);
+        caviPut(sel, "ADBE Text Range Type2", caviEnum(UNITS, s.unit, "unit"));
+        caviPut(sel, "ADBE Text Wiggly Max Amount", s.max_amount);
+        caviPut(sel, "ADBE Text Wiggly Min Amount", s.min_amount);
+        caviPut(sel, "ADBE Text Temporal Freq", s.per_second);
+        caviPut(sel, "ADBE Text Character Correlation", s.correlation);
+        caviPut(sel, "ADBE Text Wiggly Random Seed", s.seed);
     } else {
-        put(sel, "ADBE Text Range Type2", caviEnum(UNITS, s.unit, "unit"));
+        caviPut(sel, "ADBE Text Range Type2", caviEnum(UNITS, s.unit, "unit"));
         if (s.amount !== null) {
             sel.property("ADBE Text Expressible Amount").expression = s.amount;
             if (sel.property("ADBE Text Expressible Amount").expressionError) {
@@ -88,12 +84,12 @@ function maskIndex(layer, ref) {
     }
     if (a.path !== null) {
         opts = layer.property("ADBE Text Properties").property("ADBE Text Path Options");
-        put(opts, "ADBE Text Path", maskIndex(layer, a.path.mask));
-        put(opts, "ADBE Text First Margin", a.path.first_margin);
-        put(opts, "ADBE Text Last Margin", a.path.last_margin);
-        put(opts, "ADBE Text Reverse Path", a.path.reverse ? 1 : 0);
-        put(opts, "ADBE Text Perpendicular To Path", a.path.perpendicular ? 1 : 0);
-        put(opts, "ADBE Text Force Align Path", a.path.force_align ? 1 : 0);
+        caviPut(opts, "ADBE Text Path", maskIndex(layer, a.path.mask));
+        caviPut(opts, "ADBE Text First Margin", a.path.first_margin);
+        caviPut(opts, "ADBE Text Last Margin", a.path.last_margin);
+        caviPut(opts, "ADBE Text Reverse Path", a.path.reverse ? 1 : 0);
+        caviPut(opts, "ADBE Text Perpendicular To Path", a.path.perpendicular ? 1 : 0);
+        caviPut(opts, "ADBE Text Force Align Path", a.path.force_align ? 1 : 0);
     }
     caviReport({comp: comp.name, layer: layer.name, animators: report, path: a.path !== null ? opts.property("ADBE Text Path").value : null,
         animator_count: layer.property("ADBE Text Properties").property("ADBE Text Animators").numProperties, errors: []});

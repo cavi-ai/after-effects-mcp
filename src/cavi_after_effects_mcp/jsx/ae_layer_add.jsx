@@ -1,20 +1,5 @@
 $.evalFile(new File(CAVI_LIB));
 
-function footageItem(path) {
-    var i, item, file = new File(path), options;
-    if (!file.exists) {
-        caviFail("No footage file at " + path);
-    }
-    for (i = 1; i <= app.project.numItems; i++) {
-        item = app.project.item(i);
-        if (item instanceof FootageItem && item.mainSource.file && item.mainSource.file.fsName === file.fsName) {
-            return item;
-        }
-    }
-    options = new ImportOptions(file);
-    return app.project.importFile(options);
-}
-
 function shapeRect(comp, a) {
     var layer = comp.layers.addShape(), contents, w = a.width || comp.width, h = a.height || comp.height, line;
     layer.name = a.name;
@@ -45,7 +30,7 @@ function textLayer(comp, a) {
 }
 
 (function () {
-    var a = CAVI_ARGS, comp = caviComp(a.comp), layer, kind = a.kind, item, lights, w, h, rect, fitted = null;
+    var a = CAVI_ARGS, comp = caviComp(a.comp), layer, kind = a.kind, item, w, h, rect, fitted = null;
     if (kind === "solid" || kind === "adjustment") {
         w = a.width || comp.width; h = a.height || comp.height;
         layer = comp.layers.addSolid(a.color, a.name, w, h, 1, comp.duration);
@@ -53,7 +38,7 @@ function textLayer(comp, a) {
     } else if (kind === "text") {
         layer = textLayer(comp, a);
     } else if (kind === "footage") {
-        item = footageItem(a.file);
+        item = caviFootage(a.file);
         layer = comp.layers.add(item);
     } else if (kind === "comp") {
         if (a.source === comp.name) { caviFail("A comp cannot contain itself"); }
@@ -62,7 +47,7 @@ function textLayer(comp, a) {
         if (comp.renderer !== "ADBE Calder") {
             caviFail("3D model layers need the Advanced 3D renderer; comp " + comp.name + " uses " + comp.renderer);
         }
-        layer = comp.layers.add(footageItem(a.file));
+        layer = comp.layers.add(caviFootage(a.file));
         layer.outPoint = comp.duration;
         if (a.fit) {
             rect = layer.sourceRectAtTime(0, false);
@@ -77,10 +62,8 @@ function textLayer(comp, a) {
     } else if (kind === "camera") {
         layer = comp.layers.addCamera(a.name, a.position ? [a.position[0], a.position[1]] : [comp.width / 2, comp.height / 2]);
     } else if (kind === "light") {
-        lights = {POINT: LightType.POINT, SPOT: LightType.SPOT, PARALLEL: LightType.PARALLEL, AMBIENT: LightType.AMBIENT,
-            ENVIRONMENT: LightType.ENVIRONMENT};
         layer = comp.layers.addLight(a.name, [comp.width / 2, comp.height / 2]);
-        layer.lightType = caviEnum(lights, a.light_type, "light type");
+        layer.lightType = caviEnum(CAVI_LIGHTS, a.light_type, "light type");
     } else {
         caviFail("Unknown layer kind " + kind);
     }

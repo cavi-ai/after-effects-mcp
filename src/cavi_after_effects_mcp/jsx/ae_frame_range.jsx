@@ -8,7 +8,7 @@ function pad(n) {
 
 // Writes frame_00001.png ... with Comp.saveFrameToPng from `start`, every `step` frames, for `duration` seconds.
 (function () {
-    var a = CAVI_ARGS, comp = caviComp(a.comp), rate = comp.frameDuration, total, count, i, backdrop = null, source, files = [];
+    var a = CAVI_ARGS, comp = caviComp(a.comp), rate = comp.frameDuration, total, count, i, backdrop = null, files = [];
     var span = a.duration === null ? comp.duration - a.start : a.duration;
     if (a.start >= comp.duration) { caviFail("Start " + a.start + " s is past the comp duration " + comp.duration); }
     if (a.start + span > comp.duration + rate / 2) { caviFail("The range ends past the comp duration " + comp.duration); }
@@ -20,18 +20,11 @@ function pad(n) {
         count = a.frames;
     }
     if (count > a.max_frames) { caviFail("The range holds " + count + " frames; the limit is " + a.max_frames); }
-    if (a.background) {
-        backdrop = comp.layers.addSolid(comp.bgColor, "cavi-frame-bg", comp.width, comp.height, comp.pixelAspect, comp.duration);
-        backdrop.moveToEnd();
-    }
+    if (a.background) { backdrop = caviBackdrop(comp); }
     for (i = 0; i < count; i++) {
         files.push(a.directory + "/frame_" + pad(i + 1) + ".png");
         comp.saveFrameToPng(a.start + i * a.step * rate, new File(files[i]));
     }
-    if (backdrop) {
-        source = backdrop.source;
-        backdrop.remove();
-        if (source.usedIn.length === 0) { source.remove(); }
-    }
+    if (backdrop) { caviDropBackdrop(backdrop); }
     caviReport({comp: comp.name, fps: comp.frameRate, step: a.step, count: count, errors: []});
 })();

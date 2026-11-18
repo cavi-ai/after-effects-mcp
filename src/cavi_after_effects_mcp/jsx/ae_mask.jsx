@@ -1,14 +1,5 @@
 $.evalFile(new File(CAVI_LIB));
 
-function maskShape(spec) {
-    var shape = new Shape();
-    shape.vertices = spec.vertices;
-    shape.inTangents = spec.in_tangents;
-    shape.outTangents = spec.out_tangents;
-    shape.closed = spec.closed;
-    return shape;
-}
-
 function maskByRef(parade, ref) {
     var i;
     if (typeof ref === "number") {
@@ -33,9 +24,9 @@ function maskByRef(parade, ref) {
     }
     if (a.name !== null) { mask.name = a.name; }
     path = mask.property("ADBE Mask Shape");
-    if (a.shape !== null) { path.setValue(maskShape(a.shape)); }
+    if (a.shape !== null) { path.setValue(caviShape(a.shape)); }
     for (i = 0; i < a.path_keys.length; i++) {
-        path.setValueAtTime(a.path_keys[i].time, maskShape(a.path_keys[i].shape));
+        path.setValueAtTime(a.path_keys[i].time, caviShape(a.path_keys[i].shape));
     }
     if (a.mode !== null) { mask.maskMode = caviEnum(modes, a.mode, "mask mode"); }
     if (a.feather !== null) { mask.property("ADBE Mask Feather").setValue(a.feather); }
