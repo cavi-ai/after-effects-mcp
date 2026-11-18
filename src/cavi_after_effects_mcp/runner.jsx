@@ -64,21 +64,23 @@ function caviReport(report) {
 }
 
 // A failed script leaves no partial edits: the open project is reloaded from disk when it is the target and changed.
-// Returns false when the reload failed, so that an empty project is never saved over the target.
+// Returns "restored" when the open project is the target as saved before the script, "failed" when the reload
+// failed, so that an empty project is never saved over the target, and "kept" otherwise.
 function caviRollback() {
     var target = new File(CAVI_PROJECT), open = app.project.file;
-    if (!target.exists || !open || open.fsName !== target.fsName || !app.project.dirty) { return true; }
+    if (CAVI_REPORTED || !target.exists || !open || open.fsName !== target.fsName) { return "kept"; }
+    if (!app.project.dirty) { return "restored"; }
     try {
         app.project.close(CloseOptions.DO_NOT_SAVE_CHANGES);
         app.open(target);
     } catch (reload) {
-        return false;
+        return "failed";
     }
-    return true;
+    return "restored";
 }
 
 (function () {
-    var file = new File(CAVI_SCRIPT), source, value, quiet = false;
+    var file = new File(CAVI_SCRIPT), source, value, quiet = false, rollback;
     function where(error, offset) {
         return String(error) + (error.line ? " (line " + (error.line - offset) + ")" : "");
     }
@@ -107,7 +109,8 @@ function caviRollback() {
         value = $.evalFile(file);
     } catch (failure) {
         if (quiet) { app.endSuppressDialogs(false); }
-        if (caviRollback()) { caviReport({errors: [where(failure, 0)]}); }
+        rollback = caviRollback();
+        if (rollback !== "failed") { caviReport({errors: [where(failure, 0)], restored: rollback === "restored"}); }
         return;
     }
     if (quiet) { app.endSuppressDialogs(false); }

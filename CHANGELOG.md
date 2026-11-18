@@ -17,6 +17,11 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
   settings.
 - Reports escape every control character, so a text, marker comment or other value holding one is returned as it is
   in the project instead of without it.
+- A typed tool whose script failed and was rolled back is `rejected` with `AE_SCRIPT_REFUSED` instead of `unknown`;
+  unknown outcomes name `ae_inspect` as the next action.
+- An open project with unsaved changes is refused as `AE_PROJECT_UNSAVED` with its message instead of
+  `After Effects script failed: 1`, and an instance running with its UI as `AE_UI_RUNNING`.
+- A missing project or script file is reported as `INPUT_NOT_FOUND`.
 
 ## 0.1.1 - 2026-11-16
 

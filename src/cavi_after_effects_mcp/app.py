@@ -3,12 +3,20 @@
 import asyncio
 from typing import Annotated, Any
 
+from cavi_mcp_core.contracts import failure
 from cavi_mcp_core.server import Server
 from pydantic import Field
 
 from . import host
 
-mcp = Server("cavi-after-effects", package="cavi-after-effects-mcp",
+
+class AfterEffectsServer(Server):
+    def failure(self, name, error):
+        """An unknown outcome points at ae_inspect, which lists the project and its render queue."""
+        return failure(name, error, unknown_next_action="ae_inspect")
+
+
+mcp = AfterEffectsServer("cavi-after-effects", package="cavi-after-effects-mcp",
              instructions="Headless After Effects: ae_launch, then ae_script or the typed ae_* scene tools; "
                          "ae_render_queue renders. Paths are absolute.")
 Project = Annotated[str, Field(description="Absolute path of the .aep the call works in and saves.")]

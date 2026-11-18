@@ -11,6 +11,7 @@ import time
 from pathlib import Path
 
 from cavi_mcp_core import apps
+from cavi_mcp_core.contracts import OperationRejected
 from cavi_mcp_core.proc import diagnostics, run_sync
 
 RUNNER = Path(__file__).with_name("runner.jsx")
@@ -141,7 +142,8 @@ def launch():
     with ACCESS:
         headless, ui = processes()
         if ui:
-            raise RuntimeError(f"After Effects is running with its UI (pid {ui[0]}); quit it first")
+            raise OperationRejected(f"After Effects is running with its UI (pid {ui[0]}); quit it first",
+                                    code="AE_UI_RUNNING")
         if not headless:
             result = run_sync(["open", "-n", "-g", str(application()), "--args", "-noui"], 60)
             if result.returncode:
@@ -168,7 +170,7 @@ def refuse_crashing_calls(script):
     """Refuse a script file that contains a call known to abort headless After Effects."""
     script = absolute(script, ".jsx")
     if not script.is_file():
-        raise ValueError(f"No script at {script}")
+        raise FileNotFoundError(f"No script at {script}")
     text = script.read_text(encoding="utf-8", errors="replace")
     for call, reason in CRASHING_CALLS.items():
         if re.search(rf"\b{call}\s*\(", text):
@@ -189,17 +191,17 @@ def ensure_open(project):
                 raise FileNotFoundError(f"No project at {project}; create it with ae_project action new") from error
             raise
         return
-    code = (f"var t = new File({json.dumps(str(project))}), c = app.project.file;\n"
-            "if (!c || c.fsName !== t.fsName) {\n"
-            "    if (app.project.dirty) { throw new Error('unsaved changes'); }\n"
-            "    app.open(t);\n}")
+    other = (f"var t = new File({json.dumps(str(project))}), c = app.project.file;\n"
+             "var other = !c || c.fsName !== t.fsName;\n")
     try:
-        do_script(code, 300)
+        do_script(other + "if (other && app.project.dirty) { throw new Error('unsaved changes'); }", 300)
     except RuntimeError as error:
-        if "unsaved changes" in str(error):
-            raise RuntimeError(f"The open project has unsaved changes; save it, or run the tool on its own path, "
-                               f"before opening {project}") from error
+        # DoScript answers 1 when the script throws, and this check throws only on unsaved changes.
+        if str(error) == "After Effects script failed: 1":
+            raise OperationRejected(f"The open project has unsaved changes; save it, or run the tool on its own "
+                                    f"path, before opening {project}", code="AE_PROJECT_UNSAVED") from error
         raise
+    do_script(other + "if (other) { app.open(t); }", 300)
 
 
 def script_call(script, project, args):
@@ -245,11 +247,14 @@ def fingerprint(path):
     return stat.st_mtime_ns, stat.st_size, stat.st_ino
 
 
-def run_script(script, project, args, timeout):
-    """Run a .jsx file and return the report it saved in ``project``."""
+def run_script(script, project, args, timeout, contained=False):
+    """Run a .jsx file and return the report it saved in ``project``.
+
+    ``contained`` scripts change nothing but the project, so an error the runner rolled back is a refusal.
+    """
     script, project = absolute(script, ".jsx"), absolute(project, ".aep")
     if not script.is_file():
-        raise ValueError(f"No script at {script}")
+        raise FileNotFoundError(f"No script at {script}")
     require_finite(args)
     project.parent.mkdir(parents=True, exist_ok=True)
     with ACCESS:
@@ -260,14 +265,21 @@ def run_script(script, project, args, timeout):
             raise RuntimeError(f"The script saved no report to {project}")
         report = project_report(project)
     if report.get("errors"):
-        raise RuntimeError("After Effects script: " + "; ".join(map(str, report["errors"])))
+        message = "After Effects script: " + "; ".join(map(str, report["errors"]))
+        if contained and report.get("restored"):
+            raise OperationRejected(message + "; the project was left as it was", code="AE_SCRIPT_REFUSED")
+        raise RuntimeError(message)
     session.project = project
     return report
 
 
+# Templates that write files beside the project or switch projects, so a rolled-back error may still have effects.
+UNCONTAINED = {"ae_frame_png", "ae_frame_range", "ae_project"}
+
+
 def run_template(name, project, args, timeout=300):
     """Run the packaged template ``jsx/<name>.jsx`` and return its report."""
-    return run_script(JSX / f"{name}.jsx", project, args, timeout)
+    return run_script(JSX / f"{name}.jsx", project, args, timeout, contained=name not in UNCONTAINED)
 
 
 TRANSITIONS = {
@@ -345,7 +357,7 @@ def render_queue(project, outputs, settings, module):
     """Render a saved project's queue, then render once more each movie left incomplete."""
     project = absolute(project, ".aep")
     if not project.is_file():
-        raise ValueError(f"No project at {project}")
+        raise FileNotFoundError(f"No project at {project}")
     files = [absolute(item["file"]) for item in outputs]
     since = time.time() - 1
     failure = None
