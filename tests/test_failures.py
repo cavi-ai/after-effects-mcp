@@ -97,6 +97,8 @@ class SerializedAccessTest(unittest.TestCase):
         active, most, guard = [0], [0], threading.Lock()
 
         def application(code, timeout):
+            if "CAVI_PROJECT" not in code:
+                return  # the check that a new project starts from an empty one
             with guard:
                 active[0] += 1
                 most[0] = max(most[0], active[0])

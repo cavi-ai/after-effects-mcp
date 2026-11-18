@@ -24,22 +24,26 @@ async def ae_inspect(
 
 @mcp.tool(annotations=DESTRUCTIVE)
 async def ae_project(
-        action: Annotated[Literal["open", "save", "save_as", "info", "reduce", "remove_unused", "consolidate"],
+        action: Annotated[Literal["new", "open", "save", "save_as", "info", "reduce", "remove_unused", "consolidate"],
                           Field(description="What to do with the project.")],
-        path: Annotated[str | None, Field(description="Absolute .aep path; required for open and save_as.")] = None,
-        discard: Annotated[bool, Field(description="Let open drop unsaved changes.")] = False,
-        overwrite: Annotated[bool, Field(description="Let save_as replace an existing file.")] = False,
+        path: Annotated[str | None, Field(description="Absolute .aep path; required for new, open and "
+                                                      "save_as.")] = None,
+        discard: Annotated[bool, Field(description="Let new and open drop unsaved changes.")] = False,
+        overwrite: Annotated[bool, Field(description="Let new and save_as replace an existing file.")] = False,
         comps: Annotated[list[str], Field(description="Comps reduce keeps.")] = []) -> models.ProjectState:
-    """Open, save or save as a .aep in the headless instance, or report the open project's path. reduce keeps
-    only comps and what they use, remove_unused drops unused footage, consolidate merges duplicate footage;
-    each rewrites the open project, or saves to path when given. removed reports the count."""
-    if action in ("open", "save_as") and not path:
+    """Create an empty .aep (new), open, save or save as a .aep in the headless instance, or report the open
+    project's path. reduce keeps only comps and what they use, remove_unused drops unused footage, consolidate
+    merges duplicate footage; each rewrites the open project, or saves to path when given. removed reports the
+    count."""
+    if action in ("new", "open", "save_as") and not path:
         raise ValueError(f"{action} needs a path")
     if action == "reduce" and not comps:
         raise ValueError("reduce needs comps")
     target = host.absolute(path, ".aep") if path else host.session.project
     if action == "open" and not target.is_file():
         raise ValueError(f"No project at {target}")
+    if action == "new" and target.exists() and not overwrite:
+        raise ValueError(f"{target} exists; set overwrite to replace it")
     if action in ("save", "info", "reduce", "remove_unused", "consolidate") and target is None:
         raise ValueError(f"{action} needs a path until a project has been used in this session")
     args = {"action": action, "path": str(target) if target else None, "discard": discard, "overwrite": overwrite,

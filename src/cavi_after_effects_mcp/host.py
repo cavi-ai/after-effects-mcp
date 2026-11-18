@@ -176,8 +176,18 @@ def refuse_crashing_calls(script):
 
 
 def ensure_open(project):
-    """Make ``project`` the open project when it exists on disk, so a restarted instance never saves its empty project over it."""
+    """Make ``project`` the open project when it exists on disk, so a restarted instance never saves its empty project over it.
+
+    A path with no file yet is saved from the open project, so only an untitled, empty project may start it.
+    """
     if not Path(project).is_file():
+        try:
+            do_script("if (app.project.file || app.project.numItems > 0) { throw new Error('open project in use'); }", 300)
+        except RuntimeError as error:
+            # DoScript answers 1 when the script throws; the thrown message does not reach the caller.
+            if str(error) == "After Effects script failed: 1":
+                raise FileNotFoundError(f"No project at {project}; create it with ae_project action new") from error
+            raise
         return
     code = (f"var t = new File({json.dumps(str(project))}), c = app.project.file;\n"
             "if (!c || c.fsName !== t.fsName) {\n"

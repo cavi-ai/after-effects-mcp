@@ -122,3 +122,7 @@ messages refer to these notes by number.
     differs by under one level (PSNR 78.6 dB). The queue fallback encodes the comp from frame 0 for the declared
     frame count, so it matches an aerender movie only for a render of the comp's start; a work area elsewhere is
     not honored.
+40. A call saves its report to the `project` it names, so a path with no file would receive a copy of the open
+    project. Such a call runs only when the open project is untitled and holds no items, and is refused otherwise;
+    `ae_project` `new` closes the open project (a dirty one only with `discard`) and saves the untitled, empty
+    project After Effects leaves to the path; `app.newProject` exits the headless instance (measured twice, 26.5).

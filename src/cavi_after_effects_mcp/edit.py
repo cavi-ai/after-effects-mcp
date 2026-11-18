@@ -251,6 +251,7 @@ def template_render(template, project, texts, footage, renders, discard):
     """Open ``template``, apply the text and footage edits, save to ``project`` and aerender the named comps."""
     project_op({"action": "open", "path": str(template), "discard": discard, "overwrite": False, "comps": []},
                template)
+    project_op({"action": "save_as", "path": str(project), "discard": False, "overwrite": True, "comps": []}, project)
     for text in texts:
         host.run_template("ae_text_set", project, text)
     for item, file in footage.items():
@@ -259,7 +260,7 @@ def template_render(template, project, texts, footage, renders, discard):
     queue = host.run_template("ae_inspect", project, {"scope": "queue", "comp": None})["queue"]
     off = [{"index": q["index"], "render": False, "label": None, "locked": False}
            for q in queue if q["comp"] not in names and q["render"]]
-    add = [{**r, "locked": False, "time_span": None, "output": None} for r in renders]
+    add = [{**r, "locked": False, "time_span": None, "output": None, "settings": None} for r in renders]
     host.run_template("ae_render_queue_set", project, {"add": add, "update": off, "clear": True})
     comps = {c["name"]: c for c in host.run_template("ae_inspect", project, {"scope": "project", "comp": None})["comps"]}
     outputs = [{"comp": r["comp"], "file": r["file"], "frames": round(comps[r["comp"]]["duration"] * comps[r["comp"]]["fps"])}
