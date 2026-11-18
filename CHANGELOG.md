@@ -11,6 +11,7 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 ### Changed
 
 - Tool results are built on the `cavi-mcp-core` `Result` model instead of a local copy.
+- The tests parse every packaged script with Node.js.
 
 ### Fixed
 
