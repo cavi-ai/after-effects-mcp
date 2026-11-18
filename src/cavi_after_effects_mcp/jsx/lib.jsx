@@ -249,16 +249,21 @@ function caviSetStatic(prop, value) {
     prop.setValue(value);
 }
 
-// The project folder named name, created at the root when absent.
-function caviFolder(name) {
-    var i, item;
-    for (i = 1; i <= app.project.numItems; i++) {
-        item = app.project.item(i);
-        if (item instanceof FolderItem && item.name === name) {
-            return item;
+// The project folder at path "A/B" from the root, each missing level created.
+function caviFolder(path) {
+    var parts = path.split("/"), parent = app.project.rootFolder, i, j, child;
+    for (i = 0; i < parts.length; i++) {
+        child = null;
+        for (j = 1; j <= parent.numItems; j++) {
+            if (parent.item(j) instanceof FolderItem && parent.item(j).name === parts[i]) { child = parent.item(j); }
         }
+        if (!child) {
+            child = app.project.items.addFolder(parts[i]);
+            child.parentFolder = parent;
+        }
+        parent = child;
     }
-    return app.project.items.addFolder(name);
+    return parent;
 }
 
 // Restyles existing keys: hold, temporal ease, spatial interpolation (bezier or linear) and roving.

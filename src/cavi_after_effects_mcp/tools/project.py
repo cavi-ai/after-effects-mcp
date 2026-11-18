@@ -10,6 +10,12 @@ from .. import edit, host, models
 from ..app import Project, given, mcp, scene
 
 
+def folder_path(path):
+    """Refuse a project folder path that is not non-empty names separated by single slashes."""
+    if not path.strip("/") or "//" in path:
+        raise ValueError(f"A folder path has non-empty names separated by single slashes: {path}")
+
+
 @mcp.tool(annotations=READ_ONLY)
 async def ae_inspect(
         project: Project,
@@ -83,7 +89,9 @@ async def ae_project_settings(
 async def ae_import(
         project: Project,
         files: Annotated[list[str], Field(min_length=1, description="Absolute paths of the files to import.")],
-        folder: Annotated[str | None, Field(description="Project folder to import into.")] = None,
+        folder: Annotated[str | None, Field(description="Project folder path to import into, such as "
+                                                        "Footage/Audio, created level by level from the root "
+                                                        "when missing.")] = None,
         sequence: Annotated[bool, Field(description="Import an image sequence from its first frame.")] = False,
         import_as: Annotated[Literal["footage", "comp", "comp_cropped"],
                              Field(description="Import a layered PSD or AI as footage or as a comp.")] = "footage",
@@ -95,6 +103,8 @@ async def ae_import(
 ) -> models.Imported:
     """Import files into the project, then set their alpha mode, conform frame rate and loop count."""
     paths = [str(host.absolute(f)) for f in files]
+    if folder is not None:
+        folder_path(folder)
     args = {"files": paths, "folder": folder, "sequence": sequence, "as": import_as, "alpha": alpha,
             "conform_fps": conform_fps, "loop": loop}
     return await scene("ae_import", project, args)
@@ -128,8 +138,8 @@ async def ae_organize(
     by two items is refused; pass the item's id from ae_inspect instead."""
     if not (folders or renames or moves):
         raise ValueError("Give at least one of: folders, renames, moves")
-    if any(not f.strip("/") or "//" in f for f in folders):
-        raise ValueError("A folder path has non-empty names separated by single slashes")
+    for path in folders + [m.folder for m in moves]:
+        folder_path(path)
     return await scene("ae_organize", project, {"folders": folders, "renames": [r.model_dump() for r in renames],
                                                 "moves": [m.model_dump() for m in moves]})
 

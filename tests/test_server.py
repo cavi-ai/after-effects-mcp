@@ -229,6 +229,8 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_fonts", {"project": "/x.aep", "limit": 0}, "limit"),
             ("ae_organize", {"project": "/x.aep"}, "at least one of"),
             ("ae_organize", {"project": "/x.aep", "folders": ["A//B"]}, "single slashes"),
+            ("ae_organize", {"project": "/x.aep", "moves": [{"item": "a", "folder": "A//B"}]}, "single slashes"),
+            ("ae_import", {"project": "/x.aep", "files": ["/a.png"], "folder": "Footage//Stills"}, "single slashes"),
             # An item id from ae_inspect passes validation and reaches the folder check.
             ("ae_organize", {"project": "/x.aep", "folders": ["A//B"], "renames": [{"item": 13, "name": "A2"}]},
              "single slashes"),
