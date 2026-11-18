@@ -79,6 +79,11 @@ async def ae_sequence_layers(
         known(transition.kind)
         if transition.seconds is None and overlap == 0:
             raise ValueError("A transition needs seconds when there is no overlap")
+        length = transition.seconds or overlap
+        needed = length / 2 if transition.kind == "dip" else length
+        if overlap < needed:
+            raise ValueError(f"A {length:g} s {transition.kind} needs an overlap of at least {needed:g} s, so the "
+                             "outgoing layer still shows")
     result = await scene("ae_sequence_layers", project, {"comp": comp, "start": start, "overlap": overlap,
                                                          "items": [i.model_dump() for i in items]})
     if transition is not None:

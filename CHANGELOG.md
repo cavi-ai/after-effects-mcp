@@ -22,6 +22,10 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - An open project with unsaved changes is refused as `AE_PROJECT_UNSAVED` with its message instead of
   `After Effects script failed: 1`, and an instance running with its UI as `AE_UI_RUNNING`.
 - A missing project or script file is reported as `INPUT_NOT_FOUND`.
+- A crossfade between two layers fades only the upper one, so the background no longer shows through at the
+  midpoint, and a dip between two layers trims both to its midpoint, so its second half shows the incoming layer.
+  A transition whose outgoing layer ends before it is refused, and `ae_sequence_layers` refuses a transition longer
+  than the overlap (twice the overlap for a dip).
 - `after_effects_render` runs the `aerender` next to the application `CAVI_AFTER_EFFECTS_APP` names, or the newest
   install, instead of refusing when `/Applications` holds two installs and ignoring the override.
 - `ae_frame` names each PNG `<comp>_<position>_<time>s.png` with `/` and `:` in the comp name replaced, so close
