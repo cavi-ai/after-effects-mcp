@@ -15,8 +15,23 @@ function caviStringify(value) {
         return String(value);
     }
     if (typeof value === "string") {
-        return '"' + value.replace(/\\/g, "\\\\").replace(/"/g, '\\"').replace(/\n/g, "\\n")
-            .replace(/\r/g, "\\r").replace(/\t/g, "\\t") + '"';
+        // Every control character is escaped: the folder comment that holds the report drops them raw.
+        return '"' + value.replace(/[\\"\x00-\x1f]/g, function (c) {
+            var code = c.charCodeAt(0);
+            if (c === "\\" || c === '"') {
+                return "\\" + c;
+            }
+            if (code === 10) {
+                return "\\n";
+            }
+            if (code === 13) {
+                return "\\r";
+            }
+            if (code === 9) {
+                return "\\t";
+            }
+            return "\\u" + ("000" + code.toString(16)).slice(-4);
+        }) + '"';
     }
     if (value instanceof Array) {
         for (i = 0; i < value.length; i++) {
