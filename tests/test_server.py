@@ -236,6 +236,17 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
                                   "alpha": True}, "no alpha"),
             ("ae_render_queue_set", {"project": "/x.aep", "update": [{"index": 1, "duplicate": True, "remove": True}]},
              "cannot be combined"),
+            ("ae_keyframes", base | {"layer": 1, "property": "opacity",
+                                     "keyframes": [{"time": 1, "value": 20}, {"time": 1, "value": 80}]},
+             "keyframes lists time 1 twice"),
+            ("ae_audio", base | {"layer": 1, "level_keys": [{"time": 0.5, "value": 0}, {"time": 0.5, "value": -6}]},
+             "level_keys lists time 0.5 twice"),
+            ("ae_time", base | {"layer": 1, "remap_keys": [{"time": 2, "source_time": 0},
+                                                           {"time": 2, "source_time": 1}]},
+             "remap_keys lists time 2 twice"),
+            ("ae_mask", base | {"layer": 1, "path_keys": [{"time": 0, "shape": {"kind": "rect", "box": [0, 0, 4, 4]}},
+                                                          {"time": 0, "shape": {"kind": "rect", "box": [0, 0, 8, 8]}}]},
+             "path_keys lists time 0 twice"),
         ]
         async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
             await client.initialize()
