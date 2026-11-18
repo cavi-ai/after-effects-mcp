@@ -22,6 +22,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - An open project with unsaved changes is refused as `AE_PROJECT_UNSAVED` with its message instead of
   `After Effects script failed: 1`, and an instance running with its UI as `AE_UI_RUNNING`.
 - A missing project or script file is reported as `INPUT_NOT_FOUND`.
+- `ae_text_set` on a layer with Source Text keyframes styles each key and keeps its text, instead of writing the
+  current text to every key.
 - A crossfade between two layers fades only the upper one, so the background no longer shows through at the
   midpoint, and a dip between two layers trims both to its midpoint, so its second half shows the incoming layer.
   A transition whose outgoing layer ends before it is refused, and `ae_sequence_layers` refuses a transition longer
