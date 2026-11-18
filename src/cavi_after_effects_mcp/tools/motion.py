@@ -142,9 +142,11 @@ async def ae_audio(
                          Field(description="Static level in dB, one value or [left, right].")] = None,
         level_keys: Annotated[list[Keyframe], Field(description="Keyed levels in dB.")] = [],
         fade_in: Annotated[Annotated[float, Field(gt=0)] | None,
-                           Field(description="Fade in from -100 dB, in seconds.")] = None,
+                           Field(description="Fade in from -100 dB, in seconds; the gain rises linearly in "
+                                             "amplitude, -6 dB at the midpoint.")] = None,
         fade_out: Annotated[Annotated[float, Field(gt=0)] | None,
-                            Field(description="Fade out to -100 dB, in seconds.")] = None,
+                            Field(description="Fade out to -100 dB, in seconds, mirroring fade_in. fade_in and "
+                                              "fade_out together may not exceed the layer's duration.")] = None,
         convert_to_keyframes: Annotated[bool, Field(description="Refused: exits headless After "
                                                                 "Effects.")] = False
 ) -> models.AudioSet:

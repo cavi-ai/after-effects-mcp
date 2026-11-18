@@ -68,9 +68,10 @@ messages refer to these notes by number.
     takes an array of comps and returns the number of removed items.
 25. `app.findMenuCommandId("Convert Audio to Keyframes")` returns 4218, and `app.executeCommand(4218)` on a
     selected audio layer exits the headless instance (measured twice), so `ae_audio` refuses it.
-26. Audio Levels fades and levels are measured with `volumedetect` on a rendered movie with audio on: a 440 Hz tone
-    at -21.1 dB gave -27.1 dB in the middle at a -6 dB level, -82.5 dB in the first and last quarter second of a
-    0.5 s fade in and out, and -91 dB with the layer's audio off.
+26. Audio Levels fades and levels are measured with `volumedetect` on rendered audio: a 440 Hz tone at -21.1 dB
+    gave -27.1 dB in the middle at a -6 dB level, -27.1 dB from 0.4 to 0.6 s and -38.7 dB in the first quarter
+    second of a 1 s fade in, and -91 dB with the layer's audio off. Audio Levels interpolate linearly in dB between
+    keys, so a fade sets 9 keys along a gain that is linear in amplitude.
 27. Removing every key of Time Remap hides the property (`setValueAtTime` then fails), so new keys are set first
     and the old ones dropped. `layer.frameBlending` is read-only; `frameBlendingType` sets the mode (4012 none,
     4013 mix, 4014 pixel motion). A reversed layer shows between its out and in points.
