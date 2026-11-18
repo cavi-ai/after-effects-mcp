@@ -137,6 +137,32 @@ class ReportJsonTest(unittest.TestCase):
         self.assertEqual(json.loads(out), value)
 
 
+@unittest.skipUnless(shutil.which("node"), "node is required")
+class ScriptSyntaxTest(unittest.TestCase):
+    PARSE = ("const vm = require('vm'), fs = require('fs'); let bad = 0;\n"
+             "for (const file of process.argv.slice(1)) {\n"
+             "  try { new vm.Script(fs.readFileSync(file, 'utf8'), {filename: file}); }\n"
+             "  catch (error) { bad += 1; console.log(file + ': ' + error.message); }\n"
+             "}\nprocess.exit(bad ? 1 : 0);")
+
+    def parse(self, files):
+        return subprocess.run(["node", "-e", self.PARSE, *map(str, files)], capture_output=True, text=True)
+
+    def test_every_script_parses(self):
+        files = sorted(host.JSX.glob("*.jsx")) + [host.RUNNER]
+        self.assertGreater(len(files), 30)
+        result = self.parse(files)
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+    def test_a_script_that_does_not_parse_is_named(self):
+        with tempfile.TemporaryDirectory() as folder:
+            broken = Path(folder) / "broken.jsx"
+            broken.write_text("(function () { var a = ; })();\n")
+            result = self.parse([host.RUNNER, broken])
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("broken.jsx: Unexpected token", result.stdout)
+
+
 class WatchedCallTest(unittest.TestCase):
     def test_call_returns_its_output_while_after_effects_lives(self):
         app = subprocess.Popen(["sleep", "30"])

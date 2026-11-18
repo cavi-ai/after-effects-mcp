@@ -19,7 +19,8 @@ The tests drive the real server over stdio and the real host and edit functions.
   override and simultaneous calls, each stopped before After Effects is called;
 - documentation: the build is reproducible, the navigation lists every page once and every relative link
   resolves;
-- FFmpeg movie checks, which skip when FFmpeg is not installed.
+- FFmpeg movie checks, which skip when FFmpeg is not installed;
+- scripts: every packaged `.jsx` and `runner.jsx` parses with Node.js, which skips when `node` is not installed.
 
 ## Evaluations
 
