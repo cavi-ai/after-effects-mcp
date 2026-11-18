@@ -9,6 +9,7 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - `ae_project` `new` saves an empty project at a path.
 - `ae_properties` `keyframes` lists each animated property's keys: time, value, in and out interpolation, temporal
   ease, and spatial tangents, continuity and roving.
+- `ae_layer_set` sets collapse transformations, guide, auto-orient, quality, sampling and adjustment switches.
 
 ### Changed
 

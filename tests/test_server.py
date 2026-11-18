@@ -107,6 +107,7 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_project", {"action": "save_as", "path": "relative.aep"}, "absolute path"),
             ("ae_layer_set", base, "at least one"),
             ("ae_layer_set", {**base, "parent": 2, "no_parent": True}, "parent or no_parent"),
+            ("ae_layer_set", {**base, "quality": "high"}, "'best', 'draft' or 'wireframe'"),
             ("ae_text_set", base, "at least one"),
             ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "split"}, "needs a time"),
             ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "reorder"}, "needs move_to"),
