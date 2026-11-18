@@ -36,8 +36,7 @@ function camera(comp, c, rig) {
 }
 
 function light(comp, l) {
-    var layer, types = {POINT: LightType.POINT, SPOT: LightType.SPOT, PARALLEL: LightType.PARALLEL, AMBIENT: LightType.AMBIENT,
-        ENVIRONMENT: LightType.ENVIRONMENT};
+    var layer;
     if (l.layer !== null) {
         layer = caviLayer(comp, l.layer);
         if (!(layer instanceof LightLayer)) { caviFail("Layer " + layer.name + " is not a light"); }
@@ -45,7 +44,7 @@ function light(comp, l) {
         layer = comp.layers.addLight(l.name, [comp.width / 2, comp.height / 2]);
         layer.name = l.name;
     }
-    if (l.type !== null) { layer.lightType = caviEnum(types, l.type, "light type"); }
+    if (l.type !== null) { layer.lightType = caviEnum(CAVI_LIGHTS, l.type, "light type"); }
     option(layer, "Light Options", "Intensity", l.intensity);
     option(layer, "Light Options", "Color", l.color);
     option(layer, "Light Options", "Cone Angle", l.cone_angle);

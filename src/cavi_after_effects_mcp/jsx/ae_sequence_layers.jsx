@@ -1,23 +1,11 @@
 $.evalFile(new File(CAVI_LIB));
 
-function footageItem(path) {
-    var i, item, file = new File(path);
-    if (!file.exists) { caviFail("No footage file at " + path); }
-    for (i = 1; i <= app.project.numItems; i++) {
-        item = app.project.item(i);
-        if (item instanceof FootageItem && item.mainSource.file && item.mainSource.file.fsName === file.fsName) {
-            return item;
-        }
-    }
-    return app.project.importFile(new ImportOptions(file));
-}
-
 // Moves each layer so it starts where the previous one ends minus the overlap; earlier layers end up above later ones.
 (function () {
     var a = CAVI_ARGS, comp = caviComp(a.comp), t = a.start, layers = [], joins = [], i, item, layer, length, prev;
     for (i = 0; i < a.items.length; i++) {
         item = a.items[i];
-        layer = item.layer !== null ? caviLayer(comp, item.layer) : comp.layers.add(footageItem(item.file));
+        layer = item.layer !== null ? caviLayer(comp, item.layer) : comp.layers.add(caviFootage(item.file));
         if (item.layer === null) { layer.name = layer.name + " " + (i + 1); }
         length = item.duration !== null ? item.duration : layer.outPoint - layer.inPoint;
         if (length <= a.overlap && i < a.items.length - 1) {
