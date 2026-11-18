@@ -107,15 +107,27 @@ async def ae_layer_set(
         motion_blur: Annotated[bool | None, Field(description="Motion blur switch.")] = None,
         track_matte: Annotated[TrackMatte | Literal["none"] | None,
                                Field(description="Track matte layer and type; none removes it.")] = None,
+        collapse_transformation: Annotated[bool | None, Field(
+            description="Collapse transformations on a comp layer, continuous rasterization on a shape, text or "
+                        "vector layer.")] = None,
+        guide: Annotated[bool | None, Field(description="Guide layer switch; a guide layer does not render.")] = None,
+        auto_orient: Annotated[Literal["off", "along_path", "camera_or_poi", "toward_camera"] | None, Field(
+            description="Auto-orient: along_path, camera_or_poi (a 3D layer faces the camera) or toward_camera "
+                        "(text characters face the camera).")] = None,
+        quality: Annotated[Literal["best", "draft", "wireframe"] | None, Field(description="Quality switch.")] = None,
+        sampling: Annotated[Literal["bilinear", "bicubic"] | None,
+                            Field(description="Sampling for scaled and rotated pixels.")] = None,
+        adjustment: Annotated[bool | None, Field(description="Adjustment layer switch.")] = None,
         properties: Annotated[dict[str, Any] | None,
                               Field(description="Static values by property path, such as Transform/Opacity or "
                                                 "Effects/Glow/Glow Threshold.")] = None) -> models.LayerChanged:
     """Change an existing layer: switches, label, timing, stretch, blend mode, parent, 3D, motion blur, track
-    matte and static property values."""
+    matte, collapse, guide, auto-orient, quality, sampling, adjustment and static property values."""
     given(name=name, enabled=enabled, solo=solo, shy=shy, locked=locked, label=label, in_point=in_point,
           out_point=out_point, start_time=start_time, stretch=stretch, blend_mode=blend_mode, parent=parent,
-          three_d=three_d, motion_blur=motion_blur, track_matte=track_matte, properties=properties,
-          no_parent=True if no_parent else None)
+          three_d=three_d, motion_blur=motion_blur, track_matte=track_matte,
+          collapse_transformation=collapse_transformation, guide=guide, auto_orient=auto_orient, quality=quality,
+          sampling=sampling, adjustment=adjustment, properties=properties, no_parent=True if no_parent else None)
     if stretch == 0:
         raise ValueError("stretch cannot be 0")
     if no_parent and parent is not None:
@@ -125,7 +137,8 @@ async def ae_layer_set(
             "start_time": start_time, "stretch": stretch, "blend_mode": blend_mode, "parent": parent,
             "no_parent": no_parent, "three_d": three_d, "motion_blur": motion_blur,
             "track_matte": track_matte.model_dump() if isinstance(track_matte, TrackMatte) else track_matte,
-            "properties": properties or {}}
+            "collapse_transformation": collapse_transformation, "guide": guide, "auto_orient": auto_orient,
+            "quality": quality, "sampling": sampling, "adjustment": adjustment, "properties": properties or {}}
     return await scene("ae_layer_set", project, args)
 
 
