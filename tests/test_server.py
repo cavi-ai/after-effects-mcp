@@ -108,6 +108,8 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_layer_set", base, "at least one"),
             ("ae_layer_set", {**base, "parent": 2, "no_parent": True}, "parent or no_parent"),
             ("ae_layer_set", {**base, "quality": "high"}, "'best', 'draft' or 'wireframe'"),
+            ("ae_comp_new", {"project": "/x.aep", "name": "a", "width": 64}, "needs width, height and duration"),
+            ("ae_comp_new", {"project": "/x.aep", "name": "a", "footage": "clip.mp4"}, "absolute path"),
             ("ae_text_set", base, "at least one"),
             ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "split"}, "needs a time"),
             ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "reorder"}, "needs move_to"),
