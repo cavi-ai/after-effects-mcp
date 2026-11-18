@@ -17,8 +17,8 @@ folders. They are not confined to a workspace. Relative paths are refused. `afte
 exception: its recipe and output directory must stay inside `CAVI_ADOBE_WORKSPACE`, it writes only to a new
 directory, and it checks that no input changed while the render ran.
 
-Scripts cannot write files while After Effects runs headless, so each call's report travels inside the saved
-project (a folder item named `cavi-report`). Call reports are not sent anywhere.
+Each call's report is a JSON file in a new private temporary directory, read by the server and deleted with
+the directory when the call ends. Call reports are not sent anywhere.
 
 ## Applications
 

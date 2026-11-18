@@ -72,13 +72,35 @@ class ScriptFileTest(unittest.TestCase):
             call("ae_script", {"script": f"{folder}/none.jsx", "project": f"{folder}/x.aep"})
 
 
+def report_file(code):
+    """The file the runner writes its report to, as named in the DoScript code."""
+    return Path(json.loads(code.split("var CAVI_REPORT_FILE = ")[1].split(";\n")[0]))
+
+
 class ReportTest(unittest.TestCase):
-    def test_a_report_without_its_end_marker_is_named_unreadable(self):
-        with tempfile.TemporaryDirectory() as folder:
-            project = Path(folder) / "cut.aep"
-            project.write_bytes(b'junk CAVI_REPORT{"errors":[]')
-            with self.assertRaisesRegex(RuntimeError, "unreadable"):
-                host.project_report(project)
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        self.project = Path(folder.name) / "a.aep"
+        self.project.write_bytes(b"RIFX saved before the call")
+
+    def inspect(self, report):
+        def application(code, timeout):
+            if "CAVI_PROJECT" in code:
+                report_file(code).write_text(report, encoding="utf-8")
+
+        with mock.patch.object(host, "do_script", application):
+            return call("ae_inspect", {"project": str(self.project)})
+
+    def test_a_read_returns_the_report_and_leaves_the_project_file(self):
+        report = {"scope": "project", "comps": [], "footage": [], "folders": [], "errors": []}
+        result = self.inspect(json.dumps(report))
+        self.assertEqual(result.structured_content["report"], report)
+        self.assertEqual(self.project.read_bytes(), b"RIFX saved before the call")
+
+    def test_a_cut_report_is_named_unreadable(self):
+        with self.assertRaisesRegex(ToolError, "unreadable report"):
+            self.inspect('{"errors": [')
 
 
 class ApplicationLookupTest(unittest.TestCase):
@@ -103,22 +125,26 @@ class SerializedAccessTest(unittest.TestCase):
                 active[0] += 1
                 most[0] = max(most[0], active[0])
             time.sleep(0.2)
-            target = json.loads(code.split("var CAVI_PROJECT = ")[1].split(";\n")[0])
-            Path(target).write_bytes(b'CAVI_REPORT{"errors":[],"value":"1"}CAVI_END')
+            report_file(code).write_text('{"errors": [], "value": "1"}', encoding="utf-8")
             with guard:
                 active[0] -= 1
+
+        reports = []
+
+        def run(project):
+            reports.append(host.run_script(script, project, {}, 10))
 
         with tempfile.TemporaryDirectory() as folder:
             script = Path(folder) / "one.jsx"
             script.write_text("1;\n")
             with mock.patch.object(host, "do_script", application):
-                workers = [threading.Thread(target=host.run_script,
-                                            args=(script, Path(folder) / f"{n}.aep", {}, 10)) for n in "ab"]
+                workers = [threading.Thread(target=run, args=(Path(folder) / f"{n}.aep",)) for n in "ab"]
                 for worker in workers:
                     worker.start()
                 for worker in workers:
                     worker.join()
         self.assertEqual(most[0], 1)
+        self.assertEqual(reports, [{"errors": [], "value": "1"}] * 2)
 
 
 class ErrorContractTest(unittest.TestCase):
@@ -141,7 +167,7 @@ class ErrorContractTest(unittest.TestCase):
     def reporting(self, report):
         def application(code, timeout):
             if "CAVI_PROJECT" in code:
-                self.project.write_bytes(b"RIFX" + f"CAVI_REPORT{json.dumps(report)}CAVI_END".encode())
+                report_file(code).write_text(json.dumps(report), encoding="utf-8")
         return application
 
     def test_a_script_error_after_a_rollback_is_rejected(self):

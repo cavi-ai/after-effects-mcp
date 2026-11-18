@@ -39,28 +39,10 @@ class RenderedMovieTest(unittest.TestCase):
         self.assertFalse(host.rendered(self.movie, 90, since))
 
 
-class ProjectReportTest(unittest.TestCase):
+class ScriptPathTest(unittest.TestCase):
     def setUp(self):
         self.root = Path(tempfile.mkdtemp(prefix="ae-report-"))
         self.addCleanup(shutil.rmtree, self.root)
-
-    def project(self, encoding):
-        path = self.root / f"{encoding}.aep"
-        text = 'CAVI_REPORT{"comps": ["end"], "errors": []}CAVI_END'
-        path.write_bytes(b"RIFX\x00\x01" + text.encode(encoding) + b"\x00\xff")
-        return path
-
-    def test_report_is_read_from_a_utf8_project(self):
-        self.assertEqual(host.project_report(self.project("utf-8")), {"comps": ["end"], "errors": []})
-
-    def test_report_is_read_from_a_utf16_project(self):
-        self.assertEqual(host.project_report(self.project("utf-16-be")), {"comps": ["end"], "errors": []})
-
-    def test_project_without_a_report_is_refused(self):
-        path = self.root / "empty.aep"
-        path.write_bytes(b"RIFX\x00\x01")
-        with self.assertRaisesRegex(RuntimeError, "holds no report"):
-            host.project_report(path)
 
     def test_relative_script_path_is_refused(self):
         with self.assertRaisesRegex(ValueError, "absolute path"):

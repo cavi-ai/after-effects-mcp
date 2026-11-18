@@ -1,7 +1,6 @@
 """Editing helpers: project open/save, beat grids and single-frame renders through aerender."""
 
 import math
-import os
 import shutil
 import tempfile
 import time
@@ -73,23 +72,14 @@ def to_png(source, destination):
         raise RuntimeError("Could not convert the frame to PNG: " + diagnostics(result))
 
 
-def project_op(args, target):
-    """Run ae_project.jsx; its report is saved in the project it names, or in a temporary one when refused."""
-    host.require_finite(args)
-    fallback = Path(tempfile.gettempdir()) / f"cavi-ae-project-{os.getpid()}.aep"
-    candidates = [p for p in (target, host.session.project, fallback) if p]
+def project_op(args):
+    """Run ae_project.jsx on the open project; it saves the project only to the path its action names."""
     with host.ACCESS:
-        before = {p: host.fingerprint(p) for p in candidates}
-        host.do_script(host.script_call(host.JSX / "ae_project.jsx", fallback,
-                                        {**args, "fallback": str(fallback)}), 300)
-        for path in candidates:
-            if host.fingerprint(path) not in (None, before[path]):
-                report = host.project_report(path)
-                if report.get("errors"):
-                    raise RuntimeError("After Effects script: " + "; ".join(map(str, report["errors"])))
-                host.session.project = Path(report["path"]) if report.get("path") else None
-                return report
-    raise RuntimeError(f"The project call saved no report; the open project is not {target}")
+        report = host.scripted(host.JSX / "ae_project.jsx", None, args, 300)
+    if report.get("errors"):
+        raise RuntimeError("After Effects script: " + "; ".join(map(str, report["errors"])))
+    host.session.project = Path(report["path"]) if report.get("path") else None
+    return report
 
 
 def encode_command(directory, movie, fps, codec, alpha):
@@ -249,9 +239,8 @@ def collect(project, folder):
 
 def template_render(template, project, texts, footage, renders, discard):
     """Open ``template``, apply the text and footage edits, save to ``project`` and aerender the named comps."""
-    project_op({"action": "open", "path": str(template), "discard": discard, "overwrite": False, "comps": []},
-               template)
-    project_op({"action": "save_as", "path": str(project), "discard": False, "overwrite": True, "comps": []}, project)
+    project_op({"action": "open", "path": str(template), "discard": discard, "overwrite": False, "comps": []})
+    project_op({"action": "save_as", "path": str(project), "discard": False, "overwrite": True, "comps": []})
     for text in texts:
         host.run_template("ae_text_set", project, text)
     for item, file in footage.items():

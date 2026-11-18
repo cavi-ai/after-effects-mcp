@@ -6,6 +6,7 @@ import os
 import re
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
 from pathlib import Path
@@ -204,30 +205,29 @@ def ensure_open(project):
     do_script(other + "if (other) { app.open(t); }", 300)
 
 
-def script_call(script, project, args):
-    """DoScript code that runs ``script`` through runner.jsx with CAVI_ARGS."""
+def script_call(script, project, args, report):
+    """DoScript code that runs ``script`` through runner.jsx with CAVI_ARGS and writes its report to ``report``."""
     require_finite(args)
     return (f"var CAVI_ARGS = {json.dumps(args, allow_nan=False)};\nvar CAVI_LIB = {json.dumps(str(JSX / 'lib.jsx'))};\n"
             f"var CAVI_SCRIPT = {json.dumps(str(script))};\n"
-            f"var CAVI_PROJECT = {json.dumps(str(project))};\n"
+            f"var CAVI_PROJECT = {json.dumps(str(project) if project else None)};\n"
+            f"var CAVI_REPORT_FILE = {json.dumps(str(report))};\n"
             f"$.evalFile(new File({json.dumps(str(RUNNER))}));")
 
 
-def project_report(path):
-    """The JSON report stored between CAVI_REPORT and CAVI_END in a saved project."""
-    raw = Path(path).read_bytes()
-    for encoding in ("utf-8", "utf-16-be"):
-        start, end = "CAVI_REPORT".encode(encoding), "CAVI_END".encode(encoding)
-        if start in raw:
-            begin = raw.index(start) + len(start)
-            stop = raw.find(end, begin)
-            if stop < 0:
-                raise RuntimeError(f"{path} holds an unreadable report: its end marker is missing")
-            try:
-                return json.loads(raw[begin:stop].decode(encoding))
-            except ValueError as error:
-                raise RuntimeError(f"{path} holds an unreadable report: {error}") from error
-    raise RuntimeError(f"{path} holds no report")
+def scripted(script, project, args, timeout):
+    """Run ``script`` through runner.jsx on the open project and return the report it wrote."""
+    with tempfile.TemporaryDirectory(prefix="cavi-ae-") as folder:
+        path = Path(folder) / "report.json"
+        do_script(script_call(script, project, args, path), timeout)
+        try:
+            text = path.read_text(encoding="utf-8")
+        except FileNotFoundError:
+            raise RuntimeError(f"{Path(script).name} wrote no report") from None
+    try:
+        return json.loads(text)
+    except ValueError as error:
+        raise RuntimeError(f"{Path(script).name} wrote an unreadable report: {error}") from error
 
 
 def absolute(path, suffix=None):
@@ -239,16 +239,8 @@ def absolute(path, suffix=None):
     return path
 
 
-def fingerprint(path):
-    try:
-        stat = path.stat()
-    except FileNotFoundError:
-        return None
-    return stat.st_mtime_ns, stat.st_size, stat.st_ino
-
-
 def run_script(script, project, args, timeout, contained=False):
-    """Run a .jsx file and return the report it saved in ``project``.
+    """Run a .jsx file on ``project`` and return its report; the project is saved only when the script changed it.
 
     ``contained`` scripts change nothing but the project, so an error the runner rolled back is a refusal.
     """
@@ -258,12 +250,8 @@ def run_script(script, project, args, timeout, contained=False):
     require_finite(args)
     project.parent.mkdir(parents=True, exist_ok=True)
     with ACCESS:
-        before = fingerprint(project)
         ensure_open(project)
-        do_script(script_call(script, project, args), timeout)
-        if fingerprint(project) in (None, before):
-            raise RuntimeError(f"The script saved no report to {project}")
-        report = project_report(project)
+        report = scripted(script, project, args, timeout)
     if report.get("errors"):
         message = "After Effects script: " + "; ".join(map(str, report["errors"]))
         if contained and report.get("restored"):

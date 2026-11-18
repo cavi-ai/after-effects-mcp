@@ -48,7 +48,7 @@ async def ae_project(
         raise ValueError(f"{action} needs a path until a project has been used in this session")
     args = {"action": action, "path": str(target) if target else None, "discard": discard, "overwrite": overwrite,
             "comps": comps}
-    report = await asyncio.to_thread(edit.project_op, args, target)
+    report = await asyncio.to_thread(edit.project_op, args)
     return {"project": report["path"] or "", "report": report, **{k: v for k, v in report.items() if k != "errors"}}
 
 

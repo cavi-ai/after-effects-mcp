@@ -22,6 +22,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - An open project with unsaved changes is refused as `AE_PROJECT_UNSAVED` with its message instead of
   `After Effects script failed: 1`, and an instance running with its UI as `AE_UI_RUNNING`.
 - A missing project or script file is reported as `INPUT_NOT_FOUND`.
+- Read-only tools leave the `.aep` untouched: reports are written to a temporary JSON file, and a project is saved
+  only when the call changed it or names another file. No `cavi-report` folder is added to projects.
 
 ## 0.1.1 - 2026-11-16
 
