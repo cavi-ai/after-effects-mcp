@@ -125,7 +125,7 @@ async def ae_organize(
         moves: Annotated[list[models.ItemMove], Field(description="Items to move into folders, by their new "
                                                                   "names.")] = []) -> models.Organized:
     """Tidy the project panel: create folders, rename items, then move items into folders. An item name shared
-    by two items is refused."""
+    by two items is refused; pass the item's id from ae_inspect instead."""
     if not (folders or renames or moves):
         raise ValueError("Give at least one of: folders, renames, moves")
     if any(not f.strip("/") or "//" in f for f in folders):
