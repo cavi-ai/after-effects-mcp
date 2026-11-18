@@ -28,6 +28,11 @@ function footageItem(path) {
         }
         layer.startTime = layer.startTime + (t - layer.inPoint);
         layer.outPoint = layer.inPoint + length;
+        // After Effects ends a layer at the end of its source; a longer duration would leave a gap.
+        if (layer.outPoint < layer.inPoint + length - comp.frameDuration / 2) {
+            caviFail("Item " + (i + 1) + " has " + (layer.outPoint - layer.inPoint) + " s of source from its in point; "
+                + "duration " + length + " s is longer");
+        }
         layers.push(layer);
         if (prev) { joins.push({from_layer: prev.name, to_layer: layer.name, at: layer.inPoint}); }
         prev = layer;

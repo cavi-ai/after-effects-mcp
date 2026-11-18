@@ -41,6 +41,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
   below -40 dB for the first 60% of the fade; `fade_in` and `fade_out` longer together than the layer are refused.
 - `ae_render_queue` counts an audio-only output's duration in frames at its entry's frame rate, instead of
   deleting it as unreadable, rendering it again and failing.
+- `ae_sequence_layers` refuses an item `duration` longer than its source, instead of ending the layer at the end of
+  its source and leaving a gap before the next item.
 - Read-only tools leave the `.aep` untouched: reports are written to a temporary JSON file, and a project is saved
   only when the call changed it or names another file. No `cavi-report` folder is added to projects.
 

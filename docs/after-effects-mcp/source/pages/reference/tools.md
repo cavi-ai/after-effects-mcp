@@ -69,7 +69,7 @@ A tool that fails raises an error with the reason; a script's `errors` field fai
 |---|---|---|---|---|
 | `ae_transitions` | read-only | `project`* | `kinds` | Lists the transition kinds this install has. |
 | `ae_transition` | write | `project`*, `comp`*, `kind`*, `layer`, `edge`, `from_layer`, `to_layer`, `seconds`, `frames`, `color`, `ease` | `project`, `report` | Adds a transition on one layer's in or out point, or between two layers. Between two layers it runs on the upper one (`edge` in the report): the outgoing layer goes out, or the incoming one comes in, over the other; the outgoing layer must last to the end of the transition. A dip trims the outgoing layer's out point and the incoming layer's in point to its midpoint (`trimmed`). |
-| `ae_sequence_layers` | write | `project`*, `comp`*, `items`*, `start`, `overlap`, `transition` | `project`, `report`, `layers`, `joins` | Places layers or footage files end to end, with a transition at each join; a transition needs an `overlap` of its length (half of it for a dip). |
+| `ae_sequence_layers` | write | `project`*, `comp`*, `items`*, `start`, `overlap`, `transition` | `project`, `report`, `layers`, `joins` | Places layers or footage files end to end, with a transition at each join; a transition needs an `overlap` of its length (half of it for a dip). A `duration` longer than the source left from the layer's in point is refused. |
 
 ## Delivery
 
