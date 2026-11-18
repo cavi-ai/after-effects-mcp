@@ -415,6 +415,15 @@ class BeatGrid(Model):
     end: float = Field(gt=0, description="Seconds; the last beat falls before it")
 
 
+class Onsets(Model):
+    file: str = Field(min_length=1, description="Absolute path of an audio or video file")
+    offset: float = Field(0, description="Comp seconds where the file starts; onsets before comp time 0 are dropped")
+    rise: float = Field(6, gt=0, le=60, description="dB a frame's level must rise over the previous 70 ms")
+    floor: float = Field(-50, ge=-120, le=0, description="dB a frame's level must reach")
+    gap: float = Field(0.1, ge=0.01, le=10, description="Seconds between onsets at least")
+    comment: str = "onset"
+
+
 class MarkerSpec(Model):
     time: float = Field(ge=0)
     comment: str = ""
