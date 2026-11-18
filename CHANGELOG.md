@@ -7,6 +7,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 ### Added
 
 - `ae_project` `new` saves an empty project at a path.
+- `ae_properties` `keyframes` lists each animated property's keys: time, value, in and out interpolation, temporal
+  ease, and spatial tangents, continuity and roving.
 
 ### Changed
 

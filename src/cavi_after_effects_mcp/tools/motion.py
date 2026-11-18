@@ -202,9 +202,14 @@ async def ae_properties(
         max_nodes: Annotated[int, Field(ge=1, le=5000, description="Most properties to return.")] = 1000,
         time: Annotated[Annotated[float, Field(ge=0)] | None,
                         Field(description="Comp seconds to read animated values at, expressions "
-                                          "evaluated.")] = None
+                                          "evaluated.")] = None,
+        keyframes: Annotated[bool, Field(description="List each animated property's keys (up to 1000): time, "
+                                                     "value, in and out interpolation, ease_in and ease_out of the "
+                                                     "first dimension, and spatial tangents, continuity and roving "
+                                                     "on spatial properties.")] = False
 ) -> models.Properties:
     """Read a layer's properties as {path, match name, value, key count, expression}; values are the stored
-    ones unless time is given."""
+    ones unless time is given. With keyframes, each animated property also lists its keys in the form
+    ae_keyframes takes."""
     return await scene("ae_properties", project, {"comp": comp, "layer": layer, "path": path, "depth": depth,
-                                                  "max_nodes": max_nodes, "time": time}, 120)
+                                                  "max_nodes": max_nodes, "time": time, "keyframes": keyframes}, 120)
