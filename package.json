@@ -1,0 +1,11 @@
+{
+  "name": "cavi-after-effects-mcp-evals",
+  "private": true,
+  "license": "MIT",
+  "scripts": {
+    "eval:probe": "uv run --locked python evals/probe.py"
+  },
+  "devDependencies": {
+    "@cavi-ai/mcp-eval": "github:cavi-ai/mcp-eval#main"
+  }
+}
