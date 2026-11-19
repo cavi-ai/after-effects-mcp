@@ -52,6 +52,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
   instead of dropping the groups above the one read.
 - A rendered MXF or Matroska movie counts its frames from its packets, since it keeps no frame count, instead of
   being reported short of its frames.
+- The scratch folder of an aerender frame render or a fallback movie is removed even when it holds read-only
+  folders, through `cavi-mcp-core` `workspace.remove_scratch`; what cannot be removed is reported as a warning.
 
 ## 0.2.0 - 2026-11-18
 
