@@ -16,7 +16,7 @@ codes are in [Results and errors](results-and-errors.md).
 | Tool | Access | Parameters | Result | What it does |
 |---|---|---|---|---|
 | `ae_status` | read-only |  | `app`, `version`, `aerender`, `headless_pids`, `ui_pids`, `error` | The installed application, its version and running pids. A missing application is reported in `error`. |
-| `ae_launch` | write |  | `app`, `version`, `aerender`, `headless_pids`, `ui_pids`, `error` | Starts headless After Effects and waits until it answers scripts. |
+| `ae_launch` | write |  | `app`, `version`, `aerender`, `headless_pids`, `ui_pids`, `error` | Starts headless After Effects, or uses the one running with its window, and waits until it answers scripts. |
 | `ae_script` | destructive | `script`*, `project`*, `args`, `timeout` | `project`, `report` | Runs a `.jsx` with the global `CAVI_ARGS`; it calls `caviReport(obj)`. `timeout` is 10 to 3600 seconds, default 900. |
 
 ## Project

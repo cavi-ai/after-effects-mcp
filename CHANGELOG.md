@@ -36,6 +36,9 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - The rendering guide covers `.c4d` layers and their Cineware settings.
 - A Building and animating guide covers effects, layer switches and parts, masks, controls and expressions,
   time, edits and markers, 3D, and comp and project settings; the README and overview list every tool area.
+- With After Effects running with its window, tools run in it instead of being refused as `AE_UI_RUNNING`; a call
+  made while a dialog is open in it is refused as `AE_DIALOG_OPEN`. Every script runs inside a `catch`, so an
+  error never opens a dialog in the window.
 
 ### Fixed
 

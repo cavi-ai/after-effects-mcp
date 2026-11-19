@@ -1,8 +1,8 @@
 # Overview
 
-`cavi-after-effects-mcp` is an MCP server that drives Adobe After Effects without its window. It starts one
-headless instance (`-noui`), sends it ExtendScript over Apple Events, and reads back a JSON report for every
-call. Renders go through `aerender`, with a frame-by-frame fallback when `aerender` leaves no movie.
+`cavi-after-effects-mcp` is an MCP server that drives Adobe After Effects. It starts one headless instance
+(`-noui`), or uses After Effects already running with its window, sends it ExtendScript over Apple Events, and
+reads back a JSON report for every call. Renders go through `aerender`, with a frame-by-frame fallback when `aerender` leaves no movie.
 
 It runs on macOS with After Effects installed and licensed by you. The server does not supply a license,
 sign in or accept terms.
@@ -29,7 +29,7 @@ sign in or accept terms.
 
 1. A tool call carries the project path (`.aep`, absolute) and the arguments. `ae_project` `new` creates an
    empty project at a path.
-2. The server makes sure the project is the one open in the headless instance and runs the packaged script.
+2. The server makes sure the project is the one open in After Effects and runs the packaged script.
    The script writes its report to a temporary JSON file, and the server reads it back. The project is saved
    only when the call changed it or names another file, so read-only tools leave the `.aep` untouched.
 3. A report with `errors` fails the call. A script that throws leaves the project as it was on disk.

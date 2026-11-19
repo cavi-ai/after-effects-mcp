@@ -22,8 +22,10 @@ the directory when the call ends. Call reports are not sent anywhere.
 
 ## Applications
 
-The server starts one headless After Effects (`-noui`) and never attaches to a window you have open. It
-does not start any other Adobe application. `aerender`, which After Effects' own render path launches, may start
+The server starts one headless After Effects (`-noui`) when no After Effects runs. When After Effects is
+running with its window, the server runs its scripts there, in the project open in that window: a call that
+targets another project opens it, and is refused while the open project has unsaved changes. It does not start
+any other Adobe application. `aerender`, which After Effects' own render path launches, may start
 its helper services.
 
 ## No background activity

@@ -7,6 +7,7 @@ import json
 import os
 import plistlib
 import re
+import shutil
 import stat
 import subprocess
 import sys
@@ -243,11 +244,76 @@ class ErrorContractTest(unittest.TestCase):
         self.assertIn("unsaved changes", message)
         self.assertEqual((error["outcome"], error["code"]), ("rejected", "AE_PROJECT_UNSAVED"))
 
-    def test_launching_beside_an_instance_with_its_ui_is_rejected(self):
-        with mock.patch.object(host, "processes", lambda: ([], [4242])):
-            message, error = self.error("ae_launch", {}, reached)
-        self.assertIn("pid 4242", message)
-        self.assertEqual((error["outcome"], error["code"]), ("rejected", "AE_UI_RUNNING"))
+class WindowInstanceTest(unittest.TestCase):
+    """After Effects running with its window as pid 4242, and no headless instance."""
+
+    def setUp(self):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        root = Path(folder.name).resolve()
+        app = root / "Adobe After Effects 2099.app"
+        (app / "Contents" / "MacOS").mkdir(parents=True)
+        (app / "Contents" / "MacOS" / "After Effects").write_bytes(b"")
+        (root / "aerender").write_bytes(b"")
+        with (app / "Contents" / "Info.plist").open("wb") as stream:
+            plistlib.dump({"CFBundleIdentifier": "com.adobe.AfterEffects.application",
+                           "CFBundleExecutable": "After Effects", "CFBundleShortVersionString": "99.0"}, stream)
+        self.project = root / "a.aep"
+        self.project.write_bytes(b"RIFX")
+        self.scripts, self.uncaught = [], []
+        # run_sync is how a second After Effects would be launched.
+        for patch in (mock.patch.dict(os.environ, {"CAVI_AFTER_EFFECTS_APP": str(app)}),
+                      mock.patch.object(host, "processes", lambda: ([], [4242])),
+                      mock.patch.object(host, "run_sync", reached)):
+            patch.start()
+            self.addCleanup(patch.stop)
+
+    def answering(self, command, timeout, pid):
+        self.scripts.append(command[-1])
+        return 0, "0", ""
+
+    def refusing(self, command, timeout, pid):
+        """DoScript's answer while a dialog is open in After Effects with its window: 1 at once, nothing run."""
+        self.scripts.append(command[-1])
+        return 0, "1", ""
+
+    def unsaved(self, command, timeout, pid):
+        """Runs the DoScript code on an open project with unsaved changes. An uncaught error opens a dialog in
+        After Effects with its window, and the Apple Event times out."""
+        script = ("(function () { const fs = require('fs');\n"
+                  "function File(path) { this.fsName = path; }\n"
+                  "File.prototype.open = function () { return true; };\n"
+                  "File.prototype.write = function (text) { fs.writeFileSync(this.fsName, text); return true; };\n"
+                  "File.prototype.close = function () { return true; };\n"
+                  "const app = {project: {file: null, dirty: true, numItems: 1},\n"
+                  "             beginSuppressDialogs() {}, endSuppressDialogs() {}};\n" + command[-1] + "\n})();")
+        out = subprocess.run(["node", "-e", script], capture_output=True, text=True)
+        if out.returncode:
+            self.uncaught.append(out.stderr)
+            return 1, "", "execution error: AppleEvent timed out. (-1712)"
+        return 0, "0", ""
+
+    def test_an_instance_with_its_window_runs_the_scripts_and_no_second_one_starts(self):
+        with mock.patch.object(host, "run_watched", self.answering):
+            status = call("ae_launch", {}).structured_content
+        self.assertEqual((status["headless_pids"], status["ui_pids"], status["error"]), ([], [4242], None))
+        self.assertEqual(len(self.scripts), 1)
+
+    def test_a_dialog_open_in_the_window_is_named_and_stops_the_call(self):
+        with mock.patch.object(host, "run_watched", self.refusing), self.assertRaises(ToolError) as raised:
+            call("ae_inspect", {"project": str(self.project)})
+        error = mcp.failure("ae_inspect", raised.exception).structured_content["error"]
+        self.assertIn("(pid 4242) ran no script; close the dialog", str(raised.exception))
+        self.assertEqual((error["outcome"], error["code"]), ("rejected", "AE_DIALOG_OPEN"))
+        self.assertEqual(len(self.scripts), 1)
+
+    @unittest.skipUnless(shutil.which("node"), "node is required")
+    def test_a_failed_check_is_refused_without_an_error_reaching_the_window(self):
+        with mock.patch.object(host, "run_watched", self.unsaved), self.assertRaises(ToolError) as raised:
+            call("ae_inspect", {"project": str(self.project)})
+        error = mcp.failure("ae_inspect", raised.exception).structured_content["error"]
+        self.assertEqual(self.uncaught, [])
+        self.assertEqual((error["outcome"], error["code"]), ("rejected", "AE_PROJECT_UNSAVED"))
 
 
 class ForeignArgumentsTest(unittest.TestCase):

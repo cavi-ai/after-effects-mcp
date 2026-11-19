@@ -6,7 +6,7 @@
 
 Turn a direction into motion with an animation partner in After Effects. Build compositions with text, shapes and layers, animate them with keyframes, review frames and render the result. Your work is saved in an editable After Effects project.
 
-The server runs After Effects without its UI on macOS. Bring your own licensed application.
+The server runs After Effects without its UI on macOS, or works in the After Effects window you have open. Bring your own licensed application.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE) [![PyPI weekly downloads](https://img.shields.io/pypi/dw/cavi-after-effects-mcp?label=PyPI%20downloads%2Fweek)](https://pypi.org/project/cavi-after-effects-mcp/)
 
