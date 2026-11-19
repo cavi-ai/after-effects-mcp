@@ -21,7 +21,7 @@ from cavi_mcp_core import resident
 from mcp.server.mcpserver.exceptions import ToolError
 from PIL import Image
 
-from cavi_after_effects_mcp import host, render
+from cavi_after_effects_mcp import host, models, render
 from cavi_after_effects_mcp.server import mcp
 
 
@@ -289,6 +289,13 @@ class RenderJobRecordTest(unittest.TestCase):
                 record = root / "jobs" / f"{job}.json"
                 self.assertEqual(stat.S_IMODE(record.stat().st_mode), 0o600)
                 self.assertEqual((host.render_job(job)["comp"], host.render_job(job)["frames"]), ("C", 3))
+
+
+class TemplateTextTest(unittest.TestCase):
+    def test_a_template_text_edit_carries_every_argument_the_text_script_reads(self):
+        read = set(re.findall(r"\ba\.(\w+)", (host.JSX / "ae_text_set.jsx").read_text()))
+        sent = set(models.TextEdit(comp="C", layer="Title", text="New").model_dump())
+        self.assertEqual(read - sent, set())
 
 
 class FramePreviewTest(unittest.TestCase):

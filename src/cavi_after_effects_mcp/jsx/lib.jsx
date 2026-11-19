@@ -230,6 +230,52 @@ function caviTextStyle(doc, s) {
     if (has("leading")) { doc.autoLeading = false; doc.leading = s.leading; }
     if (has("justification")) { doc.justification = caviEnum(CAVI_JUSTIFY, s.justification, "justification"); }
     if (has("box")) { doc.boxTextSize = s.box; }
+    if (has("box_fit") || has("box_align") || has("box_inset")) {
+        if (typeof BoxAutoFitPolicy === "undefined") {
+            caviFail("box_fit, box_align and box_inset need After Effects 24.6 or later");
+        }
+        if (!doc.boxText) {
+            caviFail("box_fit, box_align and box_inset apply to paragraph text; this layer is point text");
+        }
+    }
+    // Alignment first: After Effects switches the fit off unless the text sits at the top of its box.
+    if (has("box_align")) { doc.boxVerticalAlignment = caviEnum(caviBoxAligns(), s.box_align, "box alignment"); }
+    if (has("box_fit")) {
+        if (s.box_fit !== "none" && doc.boxVerticalAlignment !== BoxVerticalAlignment.TOP) {
+            caviFail("box_fit grows a box only with box_align top; the text is aligned " + caviNameOf(caviBoxAligns(), doc.boxVerticalAlignment));
+        }
+        doc.boxAutoFitPolicy = caviEnum(caviBoxFits(), s.box_fit, "box fit");
+    }
+    if (has("box_inset")) { doc.boxInsetSpacing = s.box_inset; }
+}
+
+// Built on use: the enums exist only in After Effects 24.6 and later.
+function caviBoxFits() {
+    return {NONE: BoxAutoFitPolicy.NONE, CURSOR: BoxAutoFitPolicy.HEIGHT_CURSOR,
+        BOUNDS: BoxAutoFitPolicy.HEIGHT_PRECISE_BOUNDS, BASELINE: BoxAutoFitPolicy.HEIGHT_BASELINE};
+}
+
+function caviBoxAligns() {
+    return {TOP: BoxVerticalAlignment.TOP, CENTER: BoxVerticalAlignment.CENTER, BOTTOM: BoxVerticalAlignment.BOTTOM,
+        JUSTIFY: BoxVerticalAlignment.JUSTIFY};
+}
+
+// The lowercase key of ``value`` in ``table``, or null.
+function caviNameOf(table, value) {
+    var key;
+    for (key in table) {
+        if (table[key] === value) { return key.toLowerCase(); }
+    }
+    return null;
+}
+
+// A paragraph box's fit, alignment, inset and overflow as they read back; null for point text or before 24.6.
+function caviBoxState(doc) {
+    if (!doc.boxText || typeof BoxAutoFitPolicy === "undefined") {
+        return {box_fit: null, box_align: null, box_inset: null, overflow: null};
+    }
+    return {box_fit: caviNameOf(caviBoxFits(), doc.boxAutoFitPolicy), box_align: caviNameOf(caviBoxAligns(), doc.boxVerticalAlignment),
+        box_inset: doc.boxInsetSpacing, overflow: doc.boxOverflow};
 }
 
 // Sets a static value; text documents belong to ae_text_set and keyed properties to ae_keyframes.

@@ -29,7 +29,7 @@ uv run --locked python evals/run.py
 ```
 
 The run starts the server over stdio with the application path pointing at a folder that does not exist, so no
-call can start After Effects. It checks that the server lists 50 tools, each with a description and its access
+call can start After Effects. It checks that the server lists 51 tools, each with a description and its access
 annotation, that every tool rejects an unknown argument, and the cases in `evals/cases.json`: a missing script,
 an out-of-range timeout and comp size, a non-finite frame rate, an oversized beat grid, the refused tools and a
 recipe outside the workspace. It prints each failure and exits non-zero when there is one.

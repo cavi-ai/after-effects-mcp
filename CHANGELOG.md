@@ -9,6 +9,10 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - `ae_layer_add` `kind` `mesh` adds a parametric cube, sphere, plane, cylinder, cone or torus (`mesh_type`), sized
   by scale, in After Effects 26.3 or later; `ae_inspect` lists such layers as `mesh`.
 - `ae_camera` `light` `source` sets the 2D layer whose image an environment light uses, and the result reports it.
+- `ae_text_set` and `ae_template_render` `texts` set a paragraph box's `box_fit`, `box_align` and `box_inset`, and
+  report `overflow` when the text does not fit its box; `ae_template_render` lists those layers.
+- `ae_fonts` `used` lists the fonts the project's text uses, with `missing` and the layers that use each, and
+  `ae_font_replace` replaces a font everywhere with an installed one.
 - `ae_layer_set` and the tool reference name `Geometry Options/Extrusion Depth` and `Bevel Depth` for extruded 3D
   text and shapes.
 - `ae_frame` returns its first `previews` frames (default 4) as PNG images at most 768 px on the long side,
@@ -28,6 +32,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 - A background render's job record is created once and readable only by its user, through `cavi-mcp-core`
   `journal.create_json`, and read back through `files.load_json`.
+- `ae_template_render` with `texts` sets them instead of failing with `TypeError: undefined is not an object`, and
+  each entry takes `ranges` as `ae_text_set` does.
 
 ## 0.2.0 - 2026-11-18
 

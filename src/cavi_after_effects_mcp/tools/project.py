@@ -194,10 +194,27 @@ async def ae_batch(
 async def ae_fonts(
         project: Project,
         filter: Annotated[str, Field(description="Text the PostScript name, family or style contains.")] = "",
-        limit: Annotated[int, Field(ge=1, le=2000, description="Most fonts to return.")] = 200) -> models.Fonts:
+        limit: Annotated[int, Field(ge=1, le=2000, description="Most fonts to return.")] = 200,
+        used: Annotated[bool, Field(description="List the fonts the project's text uses instead, each with missing "
+                                                "and the layers that use it.")] = False) -> models.Fonts:
     """List installed fonts as {postscript, family, style}. Text tools take the PostScript name and refuse names
-    that are not installed."""
-    return await scene("ae_fonts", project, {"filter": filter, "limit": limit}, 120)
+    that are not installed. With used, missing is true for a font that was not installed when the project opened;
+    ae_font_replace swaps it."""
+    return await scene("ae_fonts", project, {"filter": filter, "limit": limit, "used": used}, 120)
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_font_replace(
+        project: Project,
+        font: Annotated[str, Field(min_length=1, description="PostScript name of a font the project's text uses, "
+                                                             "as ae_fonts with used lists it.")],
+        to: Annotated[str, Field(min_length=1, description="PostScript name of the installed font to use "
+                                                           "instead.")],
+        fallback: Annotated[bool, Field(description="Use a fallback font for characters the new font has no "
+                                                    "glyphs for.")] = True) -> models.FontReplaced:
+    """Replace every use of a font in the project's text, mixed styles included, with an installed font; the
+    layers that used it are listed. Also relinks a missing font once it is installed under the same name."""
+    return await scene("ae_font_replace", project, {"font": font, "to": to, "fallback": fallback})
 
 
 @mcp.tool(annotations=READ_ONLY)

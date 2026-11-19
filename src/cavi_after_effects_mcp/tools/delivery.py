@@ -182,14 +182,16 @@ async def ae_template_render(
         discard: Annotated[bool, Field(description="Drop unsaved changes in the open project.")] = False
 ) -> models.TemplateRendered:
     """Fill a template .aep (text layers and footage by name), save it, and aerender the named comps with frame
-    checks."""
+    checks. overflow lists the filled text layers whose paragraph text does not fit its box."""
     template, target = host.absolute(template, ".aep"), host.absolute(project, ".aep")
     files = {name: str(host.absolute(path)) for name, path in footage.items()}
     for render in renders:
         host.absolute(render.file)
-    outputs = await asyncio.to_thread(edit.template_render, template, target, [t.model_dump() for t in texts],
-                                      files, [r.model_dump() for r in renders], discard)
-    return {"project": str(target), "texts": len(texts), "footage": len(files), "outputs": outputs}
+    outputs, overflow = await asyncio.to_thread(edit.template_render, template, target,
+                                                [t.model_dump() for t in texts], files,
+                                                [r.model_dump() for r in renders], discard)
+    return {"project": str(target), "texts": len(texts), "overflow": overflow, "footage": len(files),
+            "outputs": outputs}
 
 
 @mcp.tool(annotations=WRITES)

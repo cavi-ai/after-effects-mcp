@@ -12,6 +12,17 @@ class Model(BaseModel):
 
 Color = Annotated[list[float], Field(min_length=3, max_length=3, description="RGB, 0 to 1")]
 Layer = Annotated[int | str, Field(description="Layer index (1-based) or name")]
+BoxFit = Literal["none", "cursor", "bounds", "baseline"]
+BOX_FIT = ("Grow a paragraph box down to fit its text, measured to the cursor height, the glyph bounds or the last "
+           "baseline (After Effects 24.6+).")
+BoxAlign = Literal["top", "center", "bottom", "justify"]
+BOX_ALIGN = "Vertical alignment of the text in its paragraph box (After Effects 24.6+)."
+
+
+def box_fit_check(fit, align):
+    """Refuse a box fit that After Effects would switch off: it grows a box only when the text sits at its top."""
+    if fit not in (None, "none") and align not in (None, "top"):
+        raise ValueError(f"box_fit grows a box only with box_align top, not {align}")
 Vector = Annotated[list[float], Field(min_length=2, max_length=3)]
 
 
@@ -246,8 +257,15 @@ class Properties(Script):
 
 
 class Fonts(Script):
-    fonts: list[dict[str, str]]
+    fonts: list[dict[str, Any]]
     count: int
+
+
+class FontReplaced(Script):
+    font: str
+    to: str
+    replaced: bool
+    layers: list[dict[str, Any]]
 
 
 class Expressions(Script):
@@ -370,6 +388,7 @@ class TextChanged(Script):
     layer: str
     text: str
     animators: int
+    overflow: bool | None = None
 
 
 class LayersEdited(Script):
@@ -673,6 +692,7 @@ class EssentialGraphics(Script):
 class TemplateRendered(Result):
     project: str
     texts: int
+    overflow: list[dict[str, Any]]
     footage: int
     outputs: list[dict[str, Any]]
 
@@ -713,6 +733,15 @@ class TextEdit(Model):
     leading: float | None = None
     justification: Literal["left", "center", "right", "full"] | None = None
     box: Annotated[list[float], Field(min_length=2, max_length=2)] | None = None
+    box_fit: BoxFit | None = Field(None, description=BOX_FIT)
+    box_align: BoxAlign | None = Field(None, description=BOX_ALIGN)
+    box_inset: float | None = Field(None, ge=0, description="Pixels between the box and its text on every side")
+    ranges: list[TextRange] = Field([], max_length=1000, description="Character ranges styled after the whole text")
+
+    @model_validator(mode="after")
+    def fit_at_top(self):
+        box_fit_check(self.box_fit, self.box_align)
+        return self
 
 
 class RenderTarget(Model):
