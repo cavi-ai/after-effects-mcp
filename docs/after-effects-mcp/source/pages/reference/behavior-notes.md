@@ -145,3 +145,7 @@ messages refer to these notes by number.
     `TOP`. A text document given a font that is not installed keeps the name, and
     `Project.usedFonts` lists it with `isSubstitute` true, as for a project opened without its font;
     `Project.replaceFont` swaps it for an installed font (26.5).
+44. `Property.propertyParameters` lists a menu's items for built-in effect menus and Dropdown Menu Controls alike,
+    and each `"(-"` separator takes an index: Fractal Noise's `Fractal Type` value 3 is `Turbulent Smooth`, its
+    `valueText`. On a property without a menu, reading either throws `This property does not have dropdown menu
+    options.`; `isDropdownEffect` is true only for a Dropdown Menu Control (26.5).

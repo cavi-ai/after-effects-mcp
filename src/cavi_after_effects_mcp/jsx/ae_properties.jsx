@@ -52,9 +52,14 @@ function keyframes(prop) {
 }
 
 function node(prop, path) {
-    var out = {path: path, name: prop.name, match_name: prop.matchName};
+    var out = {path: path, name: prop.name, match_name: prop.matchName}, items;
     if (prop.propertyType === PropertyType.PROPERTY) {
         out.value = plain(prop);
+        items = caviMenuItems(prop);
+        if (items !== null) {
+            out.items = items;
+            out.text = AT === null ? prop.valueText : items[prop.valueAtTime(AT, false) - 1];
+        }
         out.keys = prop.numKeys;
         out.expression = prop.canSetExpression && prop.expression !== "" ? prop.expression : null;
         if (KEYS && prop.numKeys > 0) {

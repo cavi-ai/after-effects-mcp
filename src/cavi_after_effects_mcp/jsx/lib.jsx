@@ -113,7 +113,7 @@ function caviKeys(prop, keys, fallback) {
     var i, k, key, inEase, outEase, kind, kinds = {LINEAR: KeyframeInterpolationType.LINEAR,
         BEZIER: KeyframeInterpolationType.BEZIER, HOLD: KeyframeInterpolationType.HOLD};
     for (i = 0; i < keys.length; i++) {
-        prop.setValueAtTime(keys[i].time, keys[i].value);
+        prop.setValueAtTime(keys[i].time, caviMenuValue(prop, keys[i].value));
     }
     for (i = 0; i < keys.length; i++) {
         key = keys[i];
@@ -293,7 +293,31 @@ function caviSetStatic(prop, value) {
         prop.propertyValueType === PropertyValueType.ThreeD) && value instanceof Array && value.length === 2) {
         value.push(prop.matchName === "ADBE Scale" ? 100 : 0);
     }
-    prop.setValue(value);
+    prop.setValue(caviMenuValue(prop, value));
+}
+
+// A menu property's items, with the "(-" separators that each take an index; null for any other property and
+// before After Effects 26.0, where propertyParameters is undefined.
+function caviMenuItems(prop) {
+    var items;
+    try { items = prop.propertyParameters; } catch (notMenu) { return null; }
+    return items === undefined ? null : items;
+}
+
+// ``value`` with a menu item's text replaced by its 1-based index; other values are returned as they are.
+function caviMenuValue(prop, value) {
+    var items, i, names = [];
+    if (typeof value !== "string") { return value; }
+    items = caviMenuItems(prop);
+    if (items === null) {
+        if (parseFloat(app.version) < 26) { caviFail("Menu items by name need After Effects 26.0 or later; give " + prop.name + " the item's 1-based index"); }
+        caviFail(prop.name + " is not a menu; it takes no text " + value);
+    }
+    for (i = 0; i < items.length; i++) {
+        if (items[i] === value && value !== "(-") { return i + 1; }
+        if (items[i] !== "(-") { names.push(items[i]); }
+    }
+    caviFail(prop.name + " has no item " + value + "; its items are " + names.join(", "));
 }
 
 // The project folder at path "A/B" from the root, each missing level created.

@@ -10,7 +10,7 @@ $.evalFile(new File(CAVI_LIB));
     if (a.name) { effect.name = a.name; }
     for (name in a.params) {
         if (a.params.hasOwnProperty(name)) {
-            effect.property(name).setValue(a.params[name]);
+            effect.property(name).setValue(caviMenuValue(effect.property(name), a.params[name]));
             applied.push(name);
         }
     }

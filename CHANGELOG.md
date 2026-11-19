@@ -17,6 +17,9 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
   text and shapes.
 - `ae_frame` returns its first `previews` frames (default 4) as PNG images at most 768 px on the long side,
   beside their paths.
+- A menu property, such as an effect's popup or a Dropdown Menu Control, takes its item text in `ae_layer_set`
+  `properties`, `ae_effect_add` `params`, `ae_controls` and `ae_keyframes`, and `ae_properties` lists its `items`
+  and selected `text`.
 
 ### Changed
 

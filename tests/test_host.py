@@ -156,6 +156,45 @@ class ReportJsonTest(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("node"), "node is required")
+class MenuValueTest(unittest.TestCase):
+    FRACTAL = ["Basic", "(-", "Turbulent Smooth", "Turbulent Basic", "Turbulent Sharp", "(-", "Dynamic"]
+
+    def menu_value(self, items, value, version="26.5"):
+        """caviMenuValue from lib.jsx on a property whose menu is ``items`` (None: not a menu)."""
+        source = (host.JSX / "lib.jsx").read_text()
+        functions = ""
+        for name in ("caviMenuItems", "caviMenuValue"):
+            start = source.index(f"function {name}(")
+            functions += source[start:source.index("\n}\n", start) + 3]
+        script = (f"const app = {{version: {json.dumps(version)}}};\n"
+                  "function caviFail(message) { throw new Error(message); }\n" + functions +
+                  "const [items, value] = JSON.parse(process.argv[1]);\n"
+                  "const prop = {name: 'Fractal Type', get propertyParameters() {\n"
+                  "  if (items === null) { throw new Error('This property does not have dropdown menu options.'); }\n"
+                  "  return items; }};\n"
+                  "try { process.stdout.write(JSON.stringify(caviMenuValue(prop, value))); }\n"
+                  "catch (error) { process.stdout.write(JSON.stringify({error: error.message})); }")
+        out = subprocess.run(["node", "-e", script, json.dumps([items, value])], capture_output=True, text=True,
+                             check=True)
+        return json.loads(out.stdout)
+
+    def test_an_item_is_set_by_its_text_and_separators_keep_their_index(self):
+        self.assertEqual(self.menu_value(self.FRACTAL, "Dynamic"), 7)
+        self.assertEqual(self.menu_value(self.FRACTAL, "Turbulent Smooth"), 3)
+        self.assertEqual(self.menu_value(self.FRACTAL, 4), 4)
+
+    def test_an_unknown_item_names_the_items(self):
+        self.assertEqual(self.menu_value(self.FRACTAL, "(-"), {
+            "error": "Fractal Type has no item (-; its items are Basic, Turbulent Smooth, Turbulent Basic, "
+                     "Turbulent Sharp, Dynamic"})
+
+    def test_text_for_a_property_without_a_menu_is_refused(self):
+        self.assertEqual(self.menu_value(None, "Dynamic"), {"error": "Fractal Type is not a menu; it takes no text "
+                                                                     "Dynamic"})
+        self.assertIn("need After Effects 26.0", self.menu_value(None, "Dynamic", "25.4")["error"])
+
+
+@unittest.skipUnless(shutil.which("node"), "node is required")
 class ScriptSyntaxTest(unittest.TestCase):
     PARSE = ("const vm = require('vm'), fs = require('fs'); let bad = 0;\n"
              "for (const file of process.argv.slice(1)) {\n"
