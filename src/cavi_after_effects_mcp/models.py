@@ -762,6 +762,14 @@ class RenderTarget(Model):
     render_settings: str = "Best Settings"
 
 
+class TemplateVariant(Model):
+    name: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9 _.-]{0,63}$",
+                      description="Replaces {name} in project and every renders file")
+    texts: list[TextEdit] = Field([], description="Text layers set after the shared texts")
+    footage: dict[str, str] = Field({}, description="Footage items replaced after the shared footage: name to "
+                                                    "absolute path")
+
+
 class RemapKey(Model):
     time: float = Field(ge=0, description="Comp time")
     source_time: float = Field(ge=0, description="Time in the layer's source")

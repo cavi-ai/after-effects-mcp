@@ -29,6 +29,27 @@ short, rendered again from that entry.
 
 The text and footage tools it uses are available on their own: `ae_text_set` and `ae_footage_replace`.
 
+### Many versions in one call
+
+`variants` fills and renders the template once per entry, one after another. Each variant has a `name` (letters,
+digits, spaces, `_`, `.` and `-`, up to 64 characters), its own `texts` and its own `footage`. The `name`
+replaces `{name}` in `project` and in every `renders` file, so both need `{name}`. The call's own `texts` and
+`footage` apply to every variant first, then the variant's own. Each entry of `outputs` and `overflow` carries
+its `variant`, and the call reports progress after each one.
+
+```json
+{"tool": "ae_template_render", "arguments": {"template": "/path/to/lower-third.aep",
+ "project": "/path/to/out/{name}.aep",
+ "footage": {"Logo": "/path/to/logo.png"},
+ "renders": [{"comp": "Lower third", "file": "/path/to/out/{name}.mov"}],
+ "variants": [{"name": "ada", "texts": [{"comp": "Lower third", "layer": "Name", "text": "Ada Lovelace"}]},
+              {"name": "alan", "texts": [{"comp": "Lower third", "layer": "Name", "text": "Alan Turing"}]}]}}
+```
+
+When the first variant fails, the error names it and keeps its code. When a later one fails, the call stops
+with `OUTCOME_UNKNOWN`, names the variant, and lists the variants rendered before it; their projects and movies
+stay on disk.
+
 A template opened on a machine without one of its fonts shows a substitute. `ae_fonts` with `used: true` lists
 the fonts its text uses with `missing: true` for those, and `ae_font_replace` swaps a font for an installed one
 in every layer, mixed styles included.
