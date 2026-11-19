@@ -5,8 +5,7 @@ on:
   repository_dispatch:
     types: [core-released]
 
-permissions:
-  contents: read
+permissions: {}
 
 concurrency:
   group: pin-core
@@ -16,15 +15,12 @@ jobs:
   pin:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: write # push the pin branch
+      pull-requests: write # open the pin pull request
+      actions: write # start CI on the pin branch
     steps:
-      # Fine-grained token: contents and pull requests write here, so the pin pull request runs CI.
-      - name: Require CONSUMER_DISPATCH_TOKEN
-        env:
-          TOKEN: ${{ secrets.CONSUMER_DISPATCH_TOKEN }}
-        run: test -n "$TOKEN" || { echo "::error::Add the CONSUMER_DISPATCH_TOKEN repository secret"; exit 1; }
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          token: ${{ secrets.CONSUMER_DISPATCH_TOKEN }}
       - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
         with:
           python-version: "3.15"
@@ -43,7 +39,7 @@ jobs:
           fi
       - if: steps.sync.outputs.branch
         env:
-          GH_TOKEN: ${{ secrets.CONSUMER_DISPATCH_TOKEN }}
+          GH_TOKEN: ${{ github.token }}
           BRANCH: ${{ steps.sync.outputs.branch }}
           TITLE: ${{ steps.sync.outputs.title }}
           BODY: ${{ steps.sync.outputs.body }}
@@ -61,3 +57,5 @@ jobs:
             gh pr close "$old" --delete-branch --comment "Superseded by a newer cavi-mcp-core pin."
           done
           gh pr create --head "$BRANCH" --title "$TITLE" --body "$BODY"
+          # A pull request opened with the workflow token starts no workflow, so CI is started on its branch.
+          gh workflow run ci.yml --ref "$BRANCH"
