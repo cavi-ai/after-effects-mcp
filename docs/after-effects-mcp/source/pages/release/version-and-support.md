@@ -15,7 +15,8 @@ project. Also checked in 26.5.0: `ae_project` `new`, `ae_template_render`, `ae_r
 entries (movies, image sequences and a re-render), `ae_render_start`, `ae_render_status` and `ae_render_cancel`,
 `ae_batch`, crossfade and dip transitions, `ae_text_set` on keyed Source Text and character ranges, `ae_audio`
 fades, `ae_sequence_layers`, `ae_import` and `ae_organize` folder paths, `ae_controls` links, `ae_expressions`,
-`ae_properties` keyframes, `ae_layer_set` switches, `ae_comp_new` from footage, `ae_layer_parts`, `ae_markers`
+`ae_properties` keyframes, `ae_layer_set` switches and extrusion, parametric mesh layers, environment light
+sources, `ae_comp_new` from footage, `ae_layer_parts`, `ae_markers`
 onsets, and a call that ends when After Effects exits during it. The other tools are covered by their input
 checks; a tool that fails in your install is a bug to report.
 

@@ -45,7 +45,8 @@ class TrackMatte(Model):
 
 class LayerSpec(Model):
     comp: str = Field(min_length=1)
-    kind: Literal["solid", "text", "footage", "shape_rect", "null", "camera", "light", "adjustment", "model", "comp"]
+    kind: Literal["solid", "text", "footage", "shape_rect", "null", "camera", "light", "adjustment", "model", "comp",
+                  "mesh"]
     name: str = Field(min_length=1)
     color: Color = [0, 0, 0]
     width: float | None = Field(None, gt=0, description="Solid or rectangle width; default comp width")
@@ -64,6 +65,8 @@ class LayerSpec(Model):
     source: str | None = Field(None, description="Comp name for kind comp, a nested instance of that comp")
     fit: bool = Field(True, description="Model layers: scale so its largest extent times the square root of 3 (a rotation-safe bound) is 60% of the comp height, centered; false keeps the raw import")
     light_type: Literal["point", "spot", "parallel", "ambient", "environment"] = "point"
+    mesh_type: Literal["cube", "sphere", "plane", "cylinder", "cone", "torus"] = Field(
+        "cube", description="Parametric 3D mesh for kind mesh (After Effects 26.3+); size it with transform scale")
     transform: Transform = Transform()
     three_d: bool = False
     in_point: float | None = None
@@ -625,6 +628,14 @@ class LightSpec(Model):
     shadow_diffusion: float | None = Field(None, ge=0)
     position: Vector | None = None
     point_of_interest: Vector | None = None
+    source: Layer | None = Field(None, description="Environment light: a 2D footage, still or comp layer of the comp "
+                                                   "whose image lights the scene")
+
+    @model_validator(mode="after")
+    def environment_source(self):
+        if self.source is not None and self.type not in (None, "environment"):
+            raise ValueError("source lights only an environment light; set type environment")
+        return self
 
 
 class ShapeAdded(Script):

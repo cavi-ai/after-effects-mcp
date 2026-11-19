@@ -85,7 +85,7 @@ async def ae_comp_set(
 async def ae_layer_add(project: Project,
                        layer: Annotated[LayerSpec, Field(description="The layer to add and its settings.")]
                        ) -> models.LayerAdded:
-    """Add a solid, text, footage, 3D model (.glb, .gltf, .obj; Advanced 3D comps only), nested comp (`source`), rectangle, null, camera, light (point, spot, parallel, ambient, environment) or adjustment layer with transform, 3D, timing, parent, blend mode and matte."""
+    """Add a solid, text, footage, 3D model (.glb, .gltf, .obj; Advanced 3D comps only), parametric mesh (`mesh_type`), nested comp (`source`), rectangle, null, camera, light (point, spot, parallel, ambient, environment) or adjustment layer with transform, 3D, timing, parent, blend mode and matte."""
     if layer.kind == "comp" and not layer.source:
         raise ValueError("A comp layer needs source, the name of the comp to nest")
     if layer.kind in ("footage", "model"):
@@ -129,8 +129,10 @@ async def ae_layer_set(
                             Field(description="Sampling for scaled and rotated pixels.")] = None,
         adjustment: Annotated[bool | None, Field(description="Adjustment layer switch.")] = None,
         properties: Annotated[dict[str, Any] | None,
-                              Field(description="Static values by property path, such as Transform/Opacity or "
-                                                "Effects/Glow/Glow Threshold.")] = None) -> models.LayerChanged:
+                              Field(description="Static values by property path, such as Transform/Opacity, "
+                                                "Effects/Glow/Glow Threshold or Geometry Options/Extrusion Depth "
+                                                "(3D text and shapes in Advanced 3D or Cinema 4D comps).")] = None
+) -> models.LayerChanged:
     """Change an existing layer: switches, label, timing, stretch, blend mode, parent, 3D, motion blur, track
     matte, collapse, guide, auto-orient, quality, sampling, adjustment and static property values."""
     given(name=name, enabled=enabled, solo=solo, shy=shy, locked=locked, label=label, in_point=in_point,
