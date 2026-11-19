@@ -20,6 +20,9 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - A menu property, such as an effect's popup or a Dropdown Menu Control, takes its item text in `ae_layer_set`
   `properties`, `ae_effect_add` `params`, `ae_controls` and `ae_keyframes`, and `ae_properties` lists its `items`
   and selected `text`.
+- `ae_layer_edit` `copy` copies layers with their keyframes, effects and masks into `to_comp`.
+- `ae_essential_graphics` makes a footage or comp layer a media replacement control when `property` is omitted,
+  and `ae_essential_override` sets it from an absolute footage path or a comp name.
 
 ### Changed
 
@@ -34,6 +37,7 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
   `journal.create_json`, and read back through `files.load_json`.
 - `ae_template_render` with `texts` sets them instead of failing with `TypeError: undefined is not an object`, and
   each entry takes `ranges` as `ae_text_set` does.
+- `ae_import` lists an imported `.aep` as `type` `project` with its `comps` instead of as footage with no size.
 
 ## 0.2.0 - 2026-11-18
 

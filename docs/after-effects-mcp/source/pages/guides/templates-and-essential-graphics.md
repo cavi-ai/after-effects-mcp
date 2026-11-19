@@ -37,17 +37,24 @@ in every layer, mixed styles included.
 
 `ae_essential_graphics` exposes layer properties as controls of a comp. Each entry of `add` names a layer, a
 property path (`Text/Source Text`, `Transform/Position`, an effect parameter) and the control name. Properties
-that cannot be added are refused by name. `template_name` names the template. The result lists every control the
-comp has.
+that cannot be added are refused by name. An entry without `property` makes a footage or comp layer a media
+replacement control; a text layer, or a layer that is already one, is refused. `template_name`
+names the template. The result lists every control the comp has.
 
-`ae_essential_override` sets those controls on one nested-comp layer by name: a string sets source text; a
-number, array or color list sets that value. Each instance of the same comp keeps its own values, so one
-template comp can carry many titles:
+`ae_essential_override` sets those controls on one nested-comp layer by name: a media replacement control takes
+an absolute footage path, imported once, or a comp name; a string sets source text; a number, array or color list
+sets that value. Each instance of the same comp keeps its own values, so one template comp can carry many titles:
 
 ```json
 {"tool": "ae_essential_override", "arguments": {"project": "/path/to/titles.aep", "comp": "Main",
- "layer": "Title A", "values": {"Headline": "Spring sale"}}}
+ "layer": "Title A", "values": {"Headline": "Spring sale", "Photo": "/path/to/spring.png"}}}
 ```
+
+## Building from template packs
+
+`ae_import` brings in another `.aep` as one folder and lists its comps. `ae_layer_edit` `copy` copies layers
+with their keyframes, effects and masks into `to_comp`, on top and in order. A comp name the pack shares with the
+project is refused by name until `ae_organize` renames one of the two.
 
 ## Exporting a `.mogrt`
 

@@ -108,7 +108,7 @@ async def ae_import(
                                Field(description="Frame rate to conform the footage to.")] = None,
         loop: Annotated[Annotated[int, Field(ge=1)] | None, Field(description="Times the footage loops.")] = None
 ) -> models.Imported:
-    """Import files into the project, then set their alpha mode, conform frame rate and loop count."""
+    """Import files into the project, then set their alpha mode, conform frame rate and loop count. An .aep arrives as one folder, reported with type project and the names of its comps."""
     paths = [str(host.absolute(f)) for f in files]
     if folder is not None:
         folder_path(folder)

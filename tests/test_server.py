@@ -128,6 +128,8 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
              "move_to is required for action=reorder"),
             ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "precompose"},
              "name is required for action=precompose"),
+            ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "copy"},
+             "to_comp is required for action=copy"),
             ("ae_layer_parts", {**base, "edits": [{"path": "Effects/Glow", "action": "move"}]}, "only with move"),
             ("ae_layer_parts", {**base, "edits": [{"path": "Effects/Glow", "action": "remove", "to": 1}]},
              "only with move"),

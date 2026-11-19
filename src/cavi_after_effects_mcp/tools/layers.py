@@ -158,8 +158,8 @@ async def ae_layer_set(
 
 # The optional arguments each ae_layer_edit action reads, and the one it cannot do without.
 LAYER_EDIT_USES = {"duplicate": {"name"}, "delete": set(), "reorder": {"move_to"}, "split": {"time"},
-                   "precompose": {"name"}}
-LAYER_EDIT_NEEDS = {"reorder": "move_to", "split": "time", "precompose": "name"}
+                   "precompose": {"name"}, "copy": {"to_comp"}}
+LAYER_EDIT_NEEDS = {"reorder": "move_to", "split": "time", "precompose": "name", "copy": "to_comp"}
 
 
 @mcp.tool(annotations=DESTRUCTIVE)
@@ -167,20 +167,24 @@ async def ae_layer_edit(
         project: Project, comp: Comp,
         layers: Annotated[list[models.Layer], Field(min_length=1, description="Layers to edit, by index or "
                                                                               "name.")],
-        action: Annotated[Literal["duplicate", "delete", "reorder", "split", "precompose"],
+        action: Annotated[Literal["duplicate", "delete", "reorder", "split", "precompose", "copy"],
                           Field(description="What to do with the layers.")],
         time: Annotated[Annotated[float, Field(ge=0)] | None, Field(description="Split time, comp "
                                                                                "seconds.")] = None,
         move_to: Annotated[Literal["top", "bottom"] | Annotated[int, Field(ge=1)] | None,
                            Field(description="Reorder target: top, bottom or a 1-based index.")] = None,
         name: Annotated[str | None, Field(description="Precompose comp name, or the name of a single "
-                                                      "duplicate.")] = None) -> models.LayersEdited:
-    """Duplicate, delete, reorder, split or precompose layers; precompose moves all attributes."""
-    given = {"time": time, "move_to": move_to, "name": name or None}
+                                                      "duplicate.")] = None,
+        to_comp: Annotated[str | None, Field(description="Comp that copy puts the layers into, on top in their "
+                                                         "order.")] = None) -> models.LayersEdited:
+    """Duplicate, delete, reorder, split or precompose layers, or copy them into another comp with their keyframes,
+    effects and masks; precompose moves all attributes."""
+    given = {"time": time, "move_to": move_to, "name": name or None, "to_comp": to_comp or None}
     reject_foreign(action, given, LAYER_EDIT_USES[action])
     if action in LAYER_EDIT_NEEDS:
         need(given[LAYER_EDIT_NEEDS[action]], LAYER_EDIT_NEEDS[action], action)
-    args ={"comp": comp, "layers": layers, "action": action, "time": time, "move_to": move_to, "name": name}
+    args = {"comp": comp, "layers": layers, "action": action, "time": time, "move_to": move_to, "name": name,
+            "to_comp": to_comp}
     return await scene("ae_layer_edit", project, args)
 
 
