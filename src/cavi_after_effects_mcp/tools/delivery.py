@@ -1,18 +1,25 @@
 """Delivery: render queue, renders, frames, templates, Essential Graphics."""
 
 import asyncio
+import base64
+import io
+import json
 import time
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
 from cavi_mcp_core.server import DESTRUCTIVE, READ_ONLY, WRITES
 from mcp.server.mcpserver import Context
+from mcp.types import CallToolResult, ImageContent, TextContent
+from PIL import Image
 from pydantic import Field
 
 from .. import edit, host, models
 from .. import render as recipe_render
 from ..app import Comp, Project, mcp, scene
 from ..models import Output, QueueAdd, QueueUpdate
+
+PREVIEW_EDGE = 768
 
 
 @mcp.tool(annotations=DESTRUCTIVE)
@@ -109,11 +116,27 @@ async def ae_frame(
         alpha: Annotated[bool, Field(description="Keep transparency instead of the comp background.")] = False,
         method: Annotated[Literal["auto", "aerender"],
                           Field(description="auto uses saveFrameToPng and falls back to aerender; aerender uses "
-                                            "only aerender.")] = "auto") -> models.FramesRendered:
-    """Render one PNG per time of a comp and return the file paths."""
+                                            "only aerender.")] = "auto",
+        previews: Annotated[int, Field(ge=0, le=16, description="Frames, from the first, also returned as images "
+                                                                "at most 768 px on the long side; 0 returns only "
+                                                                "the paths.")] = 4
+) -> Annotated[CallToolResult, models.FramesRendered]:
+    """Render one PNG per time of a comp and return the file paths; the first frames also come back as images."""
     host.absolute(directory)
     frames = await asyncio.to_thread(edit.render_frames, project, comp, times, directory, alpha, method == "auto")
-    return {"project": project, "comp": comp, "frames": frames}
+    result = {"project": project, "comp": comp, "frames": frames}
+    images = await asyncio.to_thread(lambda: [preview(f["file"]) for f in frames[:previews]])
+    return CallToolResult(content=[TextContent(type="text", text=json.dumps(result, indent=2)), *images],
+                          structured_content=result)
+
+
+def preview(path):
+    """The PNG at ``path`` scaled to at most PREVIEW_EDGE pixels on its long side, as image content."""
+    with Image.open(path) as image:
+        image.thumbnail((PREVIEW_EDGE, PREVIEW_EDGE))
+        data = io.BytesIO()
+        image.save(data, "PNG")
+    return ImageContent(type="image", data=base64.b64encode(data.getvalue()).decode(), mime_type="image/png")
 
 
 @mcp.tool(annotations=DESTRUCTIVE)

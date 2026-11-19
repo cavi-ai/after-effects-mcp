@@ -11,6 +11,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - `ae_camera` `light` `source` sets the 2D layer whose image an environment light uses, and the result reports it.
 - `ae_layer_set` and the tool reference name `Geometry Options/Extrusion Depth` and `Bevel Depth` for extruded 3D
   text and shapes.
+- `ae_frame` returns its first `previews` frames (default 4) as PNG images at most 768 px on the long side,
+  beside their paths.
 
 ### Changed
 
