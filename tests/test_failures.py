@@ -1,6 +1,8 @@
 """Failures that reached After Effects, hid their cause or crashed the server, each driven through the real tools."""
 
 import asyncio
+import base64
+import io
 import json
 import os
 import plistlib
@@ -17,6 +19,7 @@ from unittest import mock
 
 from cavi_mcp_core import resident
 from mcp.server.mcpserver.exceptions import ToolError
+from PIL import Image
 
 from cavi_after_effects_mcp import host, models, render
 from cavi_after_effects_mcp.server import mcp
@@ -293,6 +296,42 @@ class TemplateTextTest(unittest.TestCase):
         read = set(re.findall(r"\ba\.(\w+)", (host.JSX / "ae_text_set.jsx").read_text()))
         sent = set(models.TextEdit(comp="C", layer="Title", text="New").model_dump())
         self.assertEqual(read - sent, set())
+
+
+class FramePreviewTest(unittest.TestCase):
+    def frames(self, **options):
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        root = Path(folder.name).resolve()
+        project = root / "a.aep"
+        project.write_bytes(b"RIFX")
+
+        def application(code, timeout):
+            if "ae_frame_png" in code:
+                args = json.loads(code.split("var CAVI_ARGS = ")[1].split(";\n")[0])
+                for i, frame in enumerate(args["frames"]):
+                    Image.new("RGB", (1920, 1080), (40 * i, 30, 30)).save(frame["file"])
+                report_file(code).write_text(json.dumps({"comp": "C", "frames": len(args["frames"]), "errors": []}))
+
+        with mock.patch.object(host, "do_script", application):
+            return call("ae_frame", {"project": str(project), "comp": "C", "times": [0, 0.5, 1, 1.5, 2],
+                                     "directory": str(root / "frames"), **options})
+
+    def test_the_first_frames_come_back_as_images(self):
+        result = self.frames()
+        images = [block for block in result.content if block.type == "image"]
+        self.assertEqual(len(images), 4)
+        self.assertEqual(len(result.structured_content["frames"]), 5)
+        for i, (block, frame) in enumerate(zip(images, result.structured_content["frames"])):
+            preview = Image.open(io.BytesIO(base64.b64decode(block.data)))
+            self.assertEqual((block.mime_type, preview.size), ("image/png", (768, 432)))
+            self.assertEqual(preview.convert("RGB").getpixel((0, 0)), (40 * i, 30, 30))
+            self.assertEqual(Image.open(frame["file"]).size, (1920, 1080))
+
+    def test_no_previews_returns_only_the_paths(self):
+        result = self.frames(previews=0)
+        self.assertEqual([block.type for block in result.content], ["text"])
+        self.assertEqual(len(result.structured_content["frames"]), 5)
 
 
 if __name__ == "__main__":
