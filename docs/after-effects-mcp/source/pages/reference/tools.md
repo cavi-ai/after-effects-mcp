@@ -8,7 +8,8 @@ script's report as `report` with its fields repeated at the top of the result. A
 untitled, empty open project; `ae_project` `new` creates one otherwise. Paths
 are absolute. Layers are a 1-based index or a name. Colors are RGB from 0 to 1.
 
-A tool that fails raises an error with the reason; a script's `errors` field fails the call.
+A tool that fails raises an error with the reason; a script's `errors` field fails the call. The error shape and
+codes are in [Results and errors](results-and-errors.md).
 
 ## Session
 

@@ -3,7 +3,7 @@
 import asyncio
 from typing import Annotated, Any, Literal
 
-from cavi_mcp_core.server import DESTRUCTIVE, WRITES
+from cavi_mcp_core.server import DESTRUCTIVE, WRITES, need, reject_foreign
 from pydantic import Field
 
 from .. import edit, host, models
@@ -152,6 +152,12 @@ async def ae_layer_set(
     return await scene("ae_layer_set", project, args)
 
 
+# The optional arguments each ae_layer_edit action reads, and the one it cannot do without.
+LAYER_EDIT_USES = {"duplicate": {"name"}, "delete": set(), "reorder": {"move_to"}, "split": {"time"},
+                   "precompose": {"name"}}
+LAYER_EDIT_NEEDS = {"reorder": "move_to", "split": "time", "precompose": "name"}
+
+
 @mcp.tool(annotations=DESTRUCTIVE)
 async def ae_layer_edit(
         project: Project, comp: Comp,
@@ -166,13 +172,11 @@ async def ae_layer_edit(
         name: Annotated[str | None, Field(description="Precompose comp name, or the name of a single "
                                                       "duplicate.")] = None) -> models.LayersEdited:
     """Duplicate, delete, reorder, split or precompose layers; precompose moves all attributes."""
-    if action == "split" and time is None:
-        raise ValueError("split needs a time")
-    if action == "reorder" and move_to is None:
-        raise ValueError("reorder needs move_to")
-    if action == "precompose" and not name:
-        raise ValueError("precompose needs a name")
-    args = {"comp": comp, "layers": layers, "action": action, "time": time, "move_to": move_to, "name": name}
+    given = {"time": time, "move_to": move_to, "name": name or None}
+    reject_foreign(action, given, LAYER_EDIT_USES[action])
+    if action in LAYER_EDIT_NEEDS:
+        need(given[LAYER_EDIT_NEEDS[action]], LAYER_EDIT_NEEDS[action], action)
+    args ={"comp": comp, "layers": layers, "action": action, "time": time, "move_to": move_to, "name": name}
     return await scene("ae_layer_edit", project, args)
 
 

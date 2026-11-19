@@ -4,6 +4,18 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 ## Unreleased
 
+### Changed
+
+- `ae_layer_edit` and `ae_project` refuse an argument the action does not read, such as `time` for `delete` or
+  `overwrite` for `open`, and name a missing one as `<name> is required for action=<action>`, through
+  `cavi-mcp-core` `need` and `reject_foreign`.
+- The documentation lists the server's error codes and links the `cavi-mcp-core` results and errors contract.
+
+### Fixed
+
+- A background render's job record is created once and readable only by its user, through `cavi-mcp-core`
+  `journal.create_json`, and read back through `files.load_json`.
+
 ## 0.2.0 - 2026-11-18
 
 ### Added

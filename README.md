@@ -65,6 +65,7 @@ The documentation source is in `docs/after-effects-mcp/source`:
   [rendering and the fallback](docs/after-effects-mcp/source/pages/guides/rendering.md) and
   [troubleshooting](docs/after-effects-mcp/source/pages/guides/troubleshooting.md)
 - Reference: [tools](docs/after-effects-mcp/source/pages/reference/tools.md),
+  [results and errors](docs/after-effects-mcp/source/pages/reference/results-and-errors.md),
   [configuration](docs/after-effects-mcp/source/pages/reference/configuration.md),
   [measured behavior](docs/after-effects-mcp/source/pages/reference/behavior-notes.md) and
   [testing and evaluation](docs/after-effects-mcp/source/pages/reference/testing.md)

@@ -104,7 +104,7 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
         base = {"project": "/x.aep", "comp": "a", "layer": 1}
         calls = [
             ("ae_project", {"action": "open", "path": "/nope/missing.aep"}, "No project at"),
-            ("ae_project", {"action": "save_as"}, "needs a path"),
+            ("ae_project", {"action": "save_as"}, "path is required for action=save_as"),
             ("ae_project", {"action": "save_as", "path": "relative.aep"}, "absolute path"),
             ("ae_layer_set", base, "at least one"),
             ("ae_layer_set", {**base, "parent": 2, "no_parent": True}, "parent or no_parent"),
@@ -114,9 +114,12 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_text_set", base, "at least one"),
             ("ae_text_set", {**base, "ranges": [{"start": 6, "end": 5, "size": 10}]}, "ends at or before its start"),
             ("ae_text_set", {**base, "ranges": [{"start": 0, "end": 5}]}, "Range 0-5 sets no style"),
-            ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "split"}, "needs a time"),
-            ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "reorder"}, "needs move_to"),
-            ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "precompose"}, "needs a name"),
+            ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "split"},
+             "time is required for action=split"),
+            ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "reorder"},
+             "move_to is required for action=reorder"),
+            ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "precompose"},
+             "name is required for action=precompose"),
             ("ae_layer_parts", {**base, "edits": [{"path": "Effects/Glow", "action": "move"}]}, "only with move"),
             ("ae_layer_parts", {**base, "edits": [{"path": "Effects/Glow", "action": "remove", "to": 1}]},
              "only with move"),
@@ -148,7 +151,7 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             taken = Path(folder) / "taken.aep"
             taken.write_bytes(b"RIFX")
             calls = [
-                ({"action": "new"}, "new needs a path"),
+                ({"action": "new"}, "path is required for action=new"),
                 ({"action": "new", "path": str(taken)}, "exists; set overwrite"),
             ]
             async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
@@ -192,7 +195,7 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_mogrt_export", {"project": "/x.aep", "comp": "a", "file": "/x/t.mogrt"}, "writes no file"),
             ("ae_template_render", {"template": "relative.aep", "project": "/x.aep",
                                     "renders": [{"comp": "a", "file": "/x/o.mov"}]}, "absolute path"),
-            ("ae_project", {"action": "reduce", "path": "/x.aep"}, "reduce needs comps"),
+            ("ae_project", {"action": "reduce", "path": "/x.aep"}, "comps is required for action=reduce"),
             ("ae_project", {"action": "remove_unused"}, "needs a path"),
             ("ae_collect", {"project": "/x.aep", "folder": "relative"}, "absolute path"),
             ("ae_render_start", {"project": "/nope/x.aep", "output": {"comp": "a", "file": "/x/o.mov"}},

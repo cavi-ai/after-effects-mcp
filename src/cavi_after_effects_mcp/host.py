@@ -16,7 +16,7 @@ import time
 import uuid
 from pathlib import Path
 
-from cavi_mcp_core import apps, resident
+from cavi_mcp_core import apps, files, journal, resident
 from cavi_mcp_core.contracts import OperationRejected
 from cavi_mcp_core.proc import diagnostics, run, run_sync
 
@@ -547,9 +547,9 @@ def render_start(project, item):
         file = absolute(item["file"])
         file.parent.mkdir(parents=True, exist_ok=True)
         job = uuid.uuid4().hex[:12]
-        (root / f"{job}.json").write_text(json.dumps({
+        journal.create_json(root / f"{job}.json", {
             "project": str(project), "comp": item["comp"], "file": str(file), "frames": entry["frames"],
-            "fps": entry["fps"], "index": entry["index"], "since": time.time() - 1}), encoding="utf-8")
+            "fps": entry["fps"], "index": entry["index"], "since": time.time() - 1})
         env = {k: os.environ[k] for k in ("HOME", "USER", "LOGNAME", "PATH", "TMPDIR", "LANG") if k in os.environ}
         resident.start([str(program), "-project", str(project), "-rqindex", str(entry["index"]),
                         "-v", "ERRORS_AND_PROGRESS", "-close", "DO_NOT_SAVE_CHANGES"],
@@ -581,7 +581,7 @@ def render_job(job):
     path = render_jobs() / f"{job}.json"
     if not JOB_ID.fullmatch(job) or not path.is_file():
         raise ValueError(f"No render job {job}")
-    return json.loads(path.read_text(encoding="utf-8"))
+    return files.load_json(path)
 
 
 def render_status(job):

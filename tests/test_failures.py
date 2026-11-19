@@ -5,6 +5,7 @@ import json
 import os
 import plistlib
 import re
+import stat
 import subprocess
 import sys
 import tempfile
@@ -14,6 +15,7 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
+from cavi_mcp_core import resident
 from mcp.server.mcpserver.exceptions import ToolError
 
 from cavi_after_effects_mcp import host, render
@@ -243,6 +245,47 @@ class ErrorContractTest(unittest.TestCase):
             message, error = self.error("ae_launch", {}, reached)
         self.assertIn("pid 4242", message)
         self.assertEqual((error["outcome"], error["code"]), ("rejected", "AE_UI_RUNNING"))
+
+
+class ForeignArgumentsTest(unittest.TestCase):
+    def test_an_argument_the_action_does_not_use_is_refused_before_after_effects(self):
+        with tempfile.TemporaryDirectory() as folder:
+            project = Path(folder) / "a.aep"
+            project.write_bytes(b"RIFX")
+            edit = {"project": str(project), "comp": "a", "layers": [1]}
+            calls = [
+                ("ae_layer_edit", {**edit, "action": "delete", "time": 2}, "Not valid for action=delete: time"),
+                ("ae_layer_edit", {**edit, "action": "duplicate", "move_to": "top"},
+                 "Not valid for action=duplicate: move_to"),
+                ("ae_project", {"action": "open", "path": str(project), "overwrite": True},
+                 "Not valid for action=open: overwrite"),
+            ]
+            with mock.patch.object(host, "do_script", reached):
+                for name, arguments, message in calls:
+                    with self.subTest(arguments=arguments), self.assertRaisesRegex(ToolError, message):
+                        call(name, arguments)
+
+
+class RenderJobRecordTest(unittest.TestCase):
+    def test_a_background_render_keeps_a_private_job_record(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder).resolve()
+            project = root / "a.aep"
+            project.write_bytes(b"RIFX")
+            install = root / "install"
+            install.mkdir()
+            (install / "aerender").write_text("#!/bin/sh\nexit 0\n")
+            (install / "aerender").chmod(0o755)
+            output = root / "out" / "o.mov"
+            entry = {"index": 1, "comp": "C", "file": str(output), "frames": 3, "fps": 30}
+            with (mock.patch.object(host, "RENDER_JOBS", root / "jobs"),
+                  mock.patch.object(host, "after_effects", lambda: install),
+                  mock.patch.object(host, "queue_entries", lambda _project, _outputs: [entry])):
+                job = host.render_start(project, {"comp": "C", "file": str(output)})["job"]
+                resident.wait(root / "jobs" / job, timeout=30)
+                record = root / "jobs" / f"{job}.json"
+                self.assertEqual(stat.S_IMODE(record.stat().st_mode), 0o600)
+                self.assertEqual((host.render_job(job)["comp"], host.render_job(job)["frames"]), ("C", 3))
 
 
 if __name__ == "__main__":
