@@ -62,7 +62,9 @@ own process group and which ignores SIGTERM. There is no fallback to `saveFrameT
 
 - `ae_frame` writes one PNG per time. `method: "auto"` uses `saveFrameToPng` and falls back to `aerender`
   through a temporary queue entry that is removed again; `method: "aerender"` uses only `aerender`. The comp
-  background is in the frame; `alpha` keeps transparency instead. Up to 50 times per call.
+  background is in the frame; `alpha` keeps transparency instead. Up to 50 times per call. The first
+  `previews` frames (default 4, at most 16, 0 for none) also come back in the result as PNG images at most
+  768 px on the long side, so the client sees them without opening the files.
 - `ae_export_frames` writes `frame_00001.png` and on for a time range without `aerender`, and encodes a movie
   with FFmpeg when `movie` is given. `step` keeps every n-th frame, `max_frames` (default 1800, at most 5000)
   stops a range that is too long, and `alpha` with `codec: "prores"` writes a `.mov` with alpha. H.264 has no
