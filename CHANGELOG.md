@@ -24,6 +24,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - `ae_essential_graphics` makes a footage or comp layer a media replacement control when `property` is omitted,
   and `ae_essential_override` sets it from an absolute footage path or a comp name.
 - `ae_markers` `cuts` adds a marker at each cut of a video file, found with FFmpeg's scene score.
+- `ae_template_render` `variants` fills and renders a template once per variant in one call, each variant's
+  `name` replacing `{name}` in `project` and the `renders` files.
 
 ### Changed
 

@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 from typing import Annotated, Any, Literal
 
+from cavi_mcp_core.contracts import OperationUnknown
 from cavi_mcp_core.server import DESTRUCTIVE, READ_ONLY, WRITES
 from mcp.server.mcpserver import Context
 from mcp.types import CallToolResult, ImageContent, TextContent
@@ -172,6 +173,7 @@ async def ae_export_frames(
 
 @mcp.tool(annotations=DESTRUCTIVE)
 async def ae_template_render(
+        ctx: Context,
         template: Annotated[str, Field(description="Absolute path of the template .aep.")],
         project: Annotated[str, Field(description="Absolute path the filled-in .aep is saved to.")],
         renders: Annotated[list[models.RenderTarget], Field(min_length=1, description="Comps to render and their "
@@ -179,18 +181,53 @@ async def ae_template_render(
         texts: Annotated[list[models.TextEdit], Field(description="Text layers to set, by name.")] = [],
         footage: Annotated[dict[str, str], Field(description="Footage items to replace: name to absolute "
                                                              "path.")] = {},
-        discard: Annotated[bool, Field(description="Drop unsaved changes in the open project.")] = False
+        discard: Annotated[bool, Field(description="Drop unsaved changes in the open project.")] = False,
+        variants: Annotated[list[models.TemplateVariant], Field(max_length=500, description="Versions filled and "
+                                                                "rendered one after another, each with its own "
+                                                                "texts and footage; its name replaces {name} in "
+                                                                "project and every renders file.")] = []
 ) -> models.TemplateRendered:
     """Fill a template .aep (text layers and footage by name), save it, and aerender the named comps with frame
-    checks. overflow lists the filled text layers whose paragraph text does not fit its box."""
+    checks; with variants, once per variant. overflow lists the filled text layers whose paragraph text does not
+    fit its box."""
     template, target = host.absolute(template, ".aep"), host.absolute(project, ".aep")
-    files = {name: str(host.absolute(path)) for name, path in footage.items()}
+    shared = {name: str(host.absolute(path)) for name, path in footage.items()}
     for render in renders:
         host.absolute(render.file)
-    outputs, overflow = await asyncio.to_thread(edit.template_render, template, target,
-                                                [t.model_dump() for t in texts], files,
-                                                [r.model_dump() for r in renders], discard)
-    return {"project": str(target), "texts": len(texts), "overflow": overflow, "footage": len(files),
+    if not variants:
+        outputs, overflow = await asyncio.to_thread(edit.template_render, template, target,
+                                                    [t.model_dump() for t in texts], shared,
+                                                    [r.model_dump() for r in renders], discard)
+        return {"project": str(target), "texts": len(texts), "overflow": overflow, "footage": len(shared),
+                "outputs": outputs}
+    names = [v.name for v in variants]
+    if repeated := sorted({n for n in names if names.count(n) > 1}):
+        raise ValueError(f"Variant names repeat: {', '.join(repeated)}")
+    if "{name}" not in project or any("{name}" not in r.file for r in renders):
+        raise ValueError("project and every renders file need {name} when variants are given")
+    jobs = []
+    for variant in variants:
+        files = {**shared, **{item: str(host.absolute(path)) for item, path in variant.footage.items()}}
+        outs = [{**r.model_dump(), "file": str(host.absolute(r.file.replace("{name}", variant.name)))}
+                for r in renders]
+        jobs.append((variant.name, host.absolute(project.replace("{name}", variant.name), ".aep"),
+                     [t.model_dump() for t in [*texts, *variant.texts]], files, outs))
+    outputs, overflow, done, counts = [], [], [], [0, 0]
+    for name, path, edits, files, outs in jobs:
+        try:
+            made, over = await asyncio.to_thread(edit.template_render, template, path, edits, files, outs,
+                                                 discard and not done)
+        except Exception as error:
+            if not done:
+                error.args = (f"Variant {name}: {error}", *error.args[1:])
+                raise
+            raise OperationUnknown(f"Variant {name}: {error}; {', '.join(done)} rendered before it") from error
+        outputs += [{"variant": name, **o} for o in made]
+        overflow += [{"variant": name, **o} for o in over]
+        counts = [counts[0] + len(edits), counts[1] + len(files)]
+        done.append(name)
+        await ctx.report_progress(len(done), len(jobs), f"{name}: rendered")
+    return {"project": str(target), "texts": counts[0], "overflow": overflow, "footage": counts[1],
             "outputs": outputs}
 
 

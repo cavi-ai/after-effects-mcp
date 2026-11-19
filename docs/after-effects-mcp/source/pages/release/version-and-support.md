@@ -11,7 +11,7 @@ still change. Every change is recorded in the repository
 
 After Effects 26.5.0 on macOS, headless: launch, creating a comp, adding a text layer, a text animator, a beat
 grid of markers, PNG frames, inspecting a comp, writing an H.264 movie from frames and reporting the open
-project. Also checked in 26.5.0: `ae_project` `new`, `ae_template_render`, `ae_render_queue` against its queue
+project. Also checked in 26.5.0: `ae_project` `new`, `ae_template_render` with and without `variants`, `ae_render_queue` against its queue
 entries (movies, image sequences and a re-render), `ae_render_start`, `ae_render_status` and `ae_render_cancel`,
 `ae_batch`, crossfade and dip transitions, `ae_text_set` on keyed Source Text and character ranges, `ae_audio`
 fades, `ae_sequence_layers`, `ae_import` and `ae_organize` folder paths, `ae_controls` links, `ae_expressions`,
