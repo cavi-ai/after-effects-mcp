@@ -42,6 +42,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - `ae_frame` and `ae_export_frames` show a Cineware scene from the first frame instead of a black one.
 - `ae_properties` with `path` reports each property's full path, such as `Layer/Effects/Cineware/Renderer`,
   instead of dropping the groups above the one read.
+- A rendered MXF or Matroska movie counts its frames from its packets, since it keeps no frame count, instead of
+  being reported short of its frames.
 
 ## 0.2.0 - 2026-11-18
 

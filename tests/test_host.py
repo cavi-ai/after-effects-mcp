@@ -41,6 +41,15 @@ class RenderedMovieTest(unittest.TestCase):
         since = self.movie.stat().st_mtime + 60
         self.assertFalse(host.rendered(self.movie, 90, since))
 
+    def test_a_container_without_a_frame_count_counts_its_packets(self):
+        # MXF, which an After Effects output module can write, and Matroska keep no nb_frames.
+        for name, codec in (("end.mxf", ["-c:v", "mpeg2video", "-pix_fmt", "yuv422p"]), ("end.mkv", [])):
+            with self.subTest(name=name):
+                movie = self.root / name
+                subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+                                "testsrc=s=320x180:r=30:d=3", *codec, str(movie)], check=True)
+                self.assertTrue(host.rendered(movie, 90))
+
 
 @unittest.skipUnless(shutil.which("ffmpeg") and shutil.which("ffprobe"), "ffmpeg is required")
 class RenderedAudioTest(unittest.TestCase):

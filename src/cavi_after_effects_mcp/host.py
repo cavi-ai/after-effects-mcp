@@ -356,13 +356,16 @@ def tool(name, purpose):
 
 
 def frame_count(movie):
-    """Video frames of a movie; a movie with a timecode track lists nb_frames twice, so take the first."""
-    result = run_sync([tool("ffprobe", "to verify rendered frames"), "-v", "error", "-select_streams", "v:0",
-                       "-show_entries", "stream=nb_frames", "-of", "csv=p=0", str(movie)], 60)
-    counts = result.stdout.split()
-    if result.returncode or not counts or not counts[0].isdigit():
-        return None
-    return int(counts[0])
+    """Video frames of a movie: its nb_frames, or its counted packets in a container that keeps none, such as MXF
+    or Matroska; a movie with a timecode track lists nb_frames twice, so take the first."""
+    for entries in (["-show_entries", "stream=nb_frames"],
+                    ["-count_packets", "-show_entries", "stream=nb_read_packets"]):
+        result = run_sync([tool("ffprobe", "to verify rendered frames"), "-v", "error", "-select_streams", "v:0",
+                           *entries, "-of", "csv=p=0", str(movie)], 60)
+        counts = result.stdout.replace(",", " ").split()
+        if not result.returncode and counts and counts[0].isdigit():
+            return int(counts[0])
+    return None
 
 
 def audio_frames(path, fps):
