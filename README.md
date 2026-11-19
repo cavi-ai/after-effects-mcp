@@ -48,9 +48,17 @@ This example adds an animated lower third over a shot and saves the composition 
 
 - Create and inspect projects, compositions and layers, including a comp built from a clip and the keyframes
   already on a layer.
-- Add text, shapes and masks, style text by character range, then animate properties with keyframes.
+- Add text, shapes and masks, style text by character range, fit paragraph text to its box, then animate
+  properties with keyframes, expressions, Expression Controls and text animators.
+- Add effects by match name, remap and freeze time, set audio levels and fades, and copy layers between comps.
+- Cut an edit: sequence clips with crossfades, wipes and dips, and set markers on a beat grid, at audio onsets
+  or at a video's cuts.
+- Work in 3D with cameras, orbit rigs, lights, environment lights, materials, extruded text and shapes,
+  parametric meshes and Cinema 4D scenes.
+- Fill templates: set text and swap footage by layer name, import an `.aep`, build Essential Graphics and media
+  replacement controls, list the fonts a project uses and replace a missing one.
 - Run several edits as one batch that saves once and rolls back together.
-- Review frames, render saved compositions, and run long renders in the background with progress.
+- Review frames as images, render saved compositions, and run long renders in the background with progress.
 
 See the [tool reference](docs/after-effects-mcp/source/pages/reference/tools.md) for operations and parameters, [measured behavior](docs/after-effects-mcp/source/pages/reference/behavior-notes.md) for supported behavior, and the [rendering guide](docs/after-effects-mcp/source/pages/guides/rendering.md) for delivery.
 
@@ -61,6 +69,7 @@ The documentation source is in `docs/after-effects-mcp/source`:
 - [Overview](docs/after-effects-mcp/source/pages/introduction/overview.md) and
   [setup](docs/after-effects-mcp/source/pages/guides/setup.md)
 - Guides: [your first comp](docs/after-effects-mcp/source/pages/guides/first-comp.md),
+  [building and animating](docs/after-effects-mcp/source/pages/guides/building-and-animating.md),
   [templates and Essential Graphics](docs/after-effects-mcp/source/pages/guides/templates-and-essential-graphics.md),
   [rendering and the fallback](docs/after-effects-mcp/source/pages/guides/rendering.md) and
   [troubleshooting](docs/after-effects-mcp/source/pages/guides/troubleshooting.md)
