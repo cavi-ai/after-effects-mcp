@@ -1,0 +1,63 @@
+name: pin-core
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [core-released]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pin-core
+  cancel-in-progress: false
+
+jobs:
+  pin:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      # Fine-grained token: contents and pull requests write here, so the pin pull request runs CI.
+      - name: Require CONSUMER_DISPATCH_TOKEN
+        env:
+          TOKEN: ${{ secrets.CONSUMER_DISPATCH_TOKEN }}
+        run: test -n "$TOKEN" || { echo "::error::Add the CONSUMER_DISPATCH_TOKEN repository secret"; exit 1; }
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          token: ${{ secrets.CONSUMER_DISPATCH_TOKEN }}
+      - uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+        with:
+          python-version: "3.15"
+      - id: sync
+        run: |
+          locked() {
+            python3 -c 'import tomllib; print(next(p["version"] for p in tomllib.load(open("uv.lock", "rb"))["package"] if p["name"] == "cavi-mcp-core"))'
+          }
+          from=$(locked)
+          uv lock --upgrade-package cavi-mcp-core
+          to=$(locked)
+          if [ "$from" != "$to" ]; then
+            echo "branch=bot/pin-core-$to" >> "$GITHUB_OUTPUT"
+            echo "title=chore: pin cavi-mcp-core $to" >> "$GITHUB_OUTPUT"
+            echo "body=- cavi-mcp-core $from -> $to" >> "$GITHUB_OUTPUT"
+          fi
+      - if: steps.sync.outputs.branch
+        env:
+          GH_TOKEN: ${{ secrets.CONSUMER_DISPATCH_TOKEN }}
+          BRANCH: ${{ steps.sync.outputs.branch }}
+          TITLE: ${{ steps.sync.outputs.title }}
+          BODY: ${{ steps.sync.outputs.body }}
+        run: |
+          if git ls-remote --exit-code origin "refs/heads/$BRANCH" >/dev/null; then
+            echo "$BRANCH already proposed"; exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git switch -c "$BRANCH"
+          git add uv.lock
+          git commit -q -m "$TITLE"
+          git push -q origin "$BRANCH"
+          for old in $(gh pr list --state open --json number,headRefName -q '.[] | select(.headRefName | startswith("bot/pin-core-")) | .number'); do
+            gh pr close "$old" --delete-branch --comment "Superseded by a newer cavi-mcp-core pin."
+          done
+          gh pr create --head "$BRANCH" --title "$TITLE" --body "$BODY"
