@@ -4,6 +4,14 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 ## Unreleased
 
+### Added
+
+- `ae_layer_add` `kind` `mesh` adds a parametric cube, sphere, plane, cylinder, cone or torus (`mesh_type`), sized
+  by scale, in After Effects 26.3 or later; `ae_inspect` lists such layers as `mesh`.
+- `ae_camera` `light` `source` sets the 2D layer whose image an environment light uses, and the result reports it.
+- `ae_layer_set` and the tool reference name `Geometry Options/Extrusion Depth` and `Bevel Depth` for extruded 3D
+  text and shapes.
+
 ### Changed
 
 - `ae_layer_edit` and `ae_project` refuse an argument the action does not read, such as `time` for `delete` or

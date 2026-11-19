@@ -36,7 +36,7 @@ function camera(comp, c, rig) {
 }
 
 function light(comp, l) {
-    var layer;
+    var layer, source;
     if (l.layer !== null) {
         layer = caviLayer(comp, l.layer);
         if (!(layer instanceof LightLayer)) { caviFail("Layer " + layer.name + " is not a light"); }
@@ -54,6 +54,12 @@ function light(comp, l) {
     option(layer, "Light Options", "Shadow Diffusion", l.shadow_diffusion);
     if (l.position !== null) { caviSetStatic(caviProp(layer, "position"), l.position); }
     if (l.point_of_interest !== null) { caviSetStatic(caviProp(layer, "Transform/Point of Interest"), l.point_of_interest); }
+    if (l.source !== null) {
+        if (layer.lightType !== LightType.ENVIRONMENT) { caviFail("source lights only an environment light; set type environment"); }
+        source = caviLayer(comp, l.source);
+        if (source.threeDLayer) { caviFail("The source of an environment light is a 2D layer; " + source.name + " is 3D"); }
+        layer.lightSource = source;
+    }
     return layer;
 }
 
@@ -78,6 +84,7 @@ function light(comp, l) {
         report.light.light_type = String(lit.lightType);
         report.light.intensity = opts.property("ADBE Light Intensity").value;
         report.light.casts_shadows = opts.property("ADBE Casts Shadows").value;
+        report.light.source = lit.lightType === LightType.ENVIRONMENT && lit.lightSource ? lit.lightSource.name : null;
     }
     caviReport(report);
 })();

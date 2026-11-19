@@ -55,6 +55,9 @@ function textLayer(comp, a) {
             layer.property("ADBE Transform Group").property("ADBE Position").setValue([comp.width / 2, comp.height / 2, 0]);
             layer.property("ADBE Transform Group").property("ADBE Scale").setValue([fitted, fitted, fitted]);
         }
+    } else if (kind === "mesh") {
+        if (typeof ParametricMeshType === "undefined") { caviFail("Parametric mesh layers need After Effects 26.3 or later"); }
+        layer = comp.layers.addParametricMesh(a.name, caviEnum(ParametricMeshType, a.mesh_type, "mesh type"));
     } else if (kind === "shape_rect") {
         layer = shapeRect(comp, a);
     } else if (kind === "null") {

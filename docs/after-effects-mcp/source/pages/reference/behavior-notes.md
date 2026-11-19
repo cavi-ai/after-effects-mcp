@@ -133,3 +133,9 @@ messages refer to these notes by number.
 41. A Dropdown Menu Control whose menu is set with `setPropertyParameters` is rebuilt as an effect with a
     `Pseudo/@@...` match name; its first parameter has `isDropdownEffect` true (26.5). An expression reads a
     control's value as `effect("name")(1)`, which does not depend on the parameter's translated display name.
+42. `layers.addParametricMesh` adds a cube, sphere, plane, cylinder, cone or torus that renders in Advanced 3D,
+    Classic 3D and Cinema 4D comps, and `Geometry Options/Extrusion Depth` and `Bevel Depth` extrude 3D text in
+    Advanced 3D and Cinema 4D comps. Reading or setting `parametricMeshOptions` or `parametricBevelOptions` fails with
+    `AEGP_StreamSuite layer-param-stage: stream is not a PF_Param_LAYER`, which `try` does not catch, and the
+    mesh has no size properties, so its size comes from Scale (26.5). An environment light takes a footage, still,
+    solid or comp layer as `lightSource` (26.5).

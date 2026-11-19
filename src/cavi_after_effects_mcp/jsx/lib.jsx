@@ -173,6 +173,7 @@ function layerType(layer) {
     if (layer instanceof LightLayer) { return "light"; }
     if (layer instanceof ShapeLayer) { return "shape"; }
     if (layer instanceof TextLayer) { return "text"; }
+    if (typeof ParametricMeshLayer !== "undefined" && layer instanceof ParametricMeshLayer) { return "mesh"; }
     if (layer.nullLayer) { return "null"; }
     if (layer.adjustmentLayer) { return "adjustment"; }
     if (layer.source instanceof CompItem) { return "comp"; }
