@@ -2,22 +2,20 @@
 
 import asyncio
 import contextlib
-import fcntl
 import glob
 import json
 import math
 import os
 import re
-import shutil
 import signal
 import tempfile
-import threading
 import time
 import uuid
 from pathlib import Path
 
 from cavi_mcp_core import apps, files, journal, resident
 from cavi_mcp_core.contracts import OperationRejected
+from cavi_mcp_core.lock import FileLock
 from cavi_mcp_core.proc import diagnostics, run, run_sync
 
 RUNNER = Path(__file__).with_name("runner.jsx")
@@ -26,48 +24,14 @@ RENDER_TIMEOUT = 3600
 LAUNCH_WAIT = 60
 # More markers than this in one call would make a script too large for After Effects to run.
 MAX_MARKERS = 5000
-# Where Homebrew and the system keep FFmpeg when the client starts the server with a short PATH.
-TOOL_PATH = ":/opt/homebrew/bin:/usr/local/bin"
 
 # (name, bundle identifier, glob under /Applications, environment override)
 AFTER_EFFECTS = ("Adobe After Effects", "com.adobe.AfterEffects.application",
                  "Adobe After Effects 20*/Adobe After Effects 20*.app", "CAVI_AFTER_EFFECTS_APP")
 
-class Access:
-    """Re-entrant lock held by one thread of one server process at a time: every server process of the user
-    drives the same headless instance, so the lock is a file lock under the temporary folder."""
-
-    def __init__(self, path):
-        self.path = path
-        self.thread = threading.RLock()
-        self.depth = 0
-        self.file = None
-
-    def __enter__(self):
-        self.thread.acquire()
-        if self.depth == 0:
-            try:
-                self.file = open(self.path, "a")
-                fcntl.flock(self.file, fcntl.LOCK_EX)
-            except BaseException:
-                if self.file:
-                    self.file.close()
-                    self.file = None
-                self.thread.release()
-                raise
-        self.depth += 1
-        return self
-
-    def __exit__(self, *exc):
-        self.depth -= 1
-        if self.depth == 0:
-            self.file.close()  # closing the file releases the lock
-            self.file = None
-        self.thread.release()
-
-
-# One After Effects instance runs one script at a time; a second call, from any server process, waits for the first.
-ACCESS = Access(Path(tempfile.gettempdir()) / "cavi-after-effects.lock")
+# One After Effects instance runs one script at a time; a second call, from any server process of the user, waits
+# for the first. The holding thread may take it again.
+ACCESS = FileLock(Path(tempfile.gettempdir()) / "cavi-after-effects.lock")
 
 
 class Session:
@@ -378,10 +342,10 @@ def resolve_preset(preset, root=None):
 
 def tool(name, purpose):
     """The path of an FFmpeg program, found on PATH or where Homebrew installs it."""
-    found = shutil.which(name, path=os.environ.get("PATH", "") + TOOL_PATH)
-    if not found:
+    found = apps.program(name)
+    if found is None:
         raise ValueError(f"Install {name} (FFmpeg) {purpose}")
-    return found
+    return str(found)
 
 
 def frame_count(movie):

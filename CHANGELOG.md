@@ -39,6 +39,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - With After Effects running with its window, tools run in it instead of being refused as `AE_UI_RUNNING`; a call
   made while a dialog is open in it is refused as `AE_DIALOG_OPEN`. Every script runs inside a `catch`, so an
   error never opens a dialog in the window.
+- The lock that runs one script at a time, the FFmpeg lookup and the `ae_frame` previews use `cavi-mcp-core` 0.1.7
+  `lock.FileLock`, `apps.program` and `media.png_content`.
 
 ### Fixed
 
