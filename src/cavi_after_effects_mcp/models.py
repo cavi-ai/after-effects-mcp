@@ -393,9 +393,10 @@ class TextChanged(Script):
 
 class LayersEdited(Script):
     comp: str
-    action: Literal["duplicate", "delete", "reorder", "split", "precompose"]
+    action: Literal["duplicate", "delete", "reorder", "split", "precompose", "copy"]
     layers: list[Any]
     layer_count: int
+    to_comp: str | None = None
 
 
 class PartEdit(Model):
@@ -709,7 +710,9 @@ class Collected(Result):
 
 class EssentialProperty(Model):
     layer: Layer
-    property: str = Field(description="Property path as in ae_keyframes, e.g. Text/Source Text or Transform/Position")
+    property: str | None = Field(None, description="Property path as in ae_keyframes, e.g. Text/Source Text or "
+                                                   "Transform/Position; omitted, the footage or comp layer itself "
+                                                   "becomes a media replacement control")
     name: str = Field(min_length=1)
 
 

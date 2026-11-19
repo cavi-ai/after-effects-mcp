@@ -18,6 +18,11 @@ $.evalFile(new File(CAVI_LIB));
     for (j = 0; j < items.length; j++) {
         item = items[j];
         if (folder) { item.parentFolder = folder; }
+        if (item instanceof FolderItem) {
+            // An imported .aep arrives as one folder holding its items.
+            list.push({name: item.name, type: "project", folder: item.parentFolder.name, comps: caviFolderComps(item, [])});
+            continue;
+        }
         source = item instanceof FootageItem ? item.mainSource : null;
         if (source && a.alpha !== null) { source.alphaMode = caviEnum(alpha, a.alpha, "alpha mode"); }
         if (source && a.conform_fps !== null) { source.conformFrameRate = a.conform_fps; }
@@ -30,3 +35,12 @@ $.evalFile(new File(CAVI_LIB));
     }
     caviReport({items: list, errors: []});
 })();
+
+function caviFolderComps(folder, out) {
+    var i, item;
+    for (i = 1; i <= folder.numItems; i++) {
+        item = folder.item(i);
+        if (item instanceof CompItem) { out.push(item.name); } else if (item instanceof FolderItem) { caviFolderComps(item, out); }
+    }
+    return out;
+}

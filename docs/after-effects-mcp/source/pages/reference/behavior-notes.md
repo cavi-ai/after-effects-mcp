@@ -149,3 +149,7 @@ messages refer to these notes by number.
     and each `"(-"` separator takes an index: Fractal Noise's `Fractal Type` value 3 is `Turbulent Smooth`, its
     `valueText`. On a property without a menu, reading either throws `This property does not have dropdown menu
     options.`; `isDropdownEffect` is true only for a Dropdown Menu Control (26.5).
+45. `Layer.copyToComp` puts the copy on top of the target comp with its effects, and into the same comp as
+    `Title 2`. `AVLayer.addToMotionGraphicsTemplateAs` on a footage layer adds a media replacement control, after
+    which `canAddToMotionGraphicsTemplate` is false; `setAlternateSource` on that control in a nested instance
+    renders the new footage there only. `importFile` of an `.aep` returns a `FolderItem` holding its items (26.5).

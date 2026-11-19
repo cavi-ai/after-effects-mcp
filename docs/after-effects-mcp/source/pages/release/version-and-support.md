@@ -16,7 +16,8 @@ entries (movies, image sequences and a re-render), `ae_render_start`, `ae_render
 `ae_batch`, crossfade and dip transitions, `ae_text_set` on keyed Source Text and character ranges, `ae_audio`
 fades, `ae_sequence_layers`, `ae_import` and `ae_organize` folder paths, `ae_controls` links, `ae_expressions`,
 `ae_properties` keyframes, `ae_layer_set` switches and extrusion, parametric mesh layers, environment light
-sources, text box fit and overflow, `ae_fonts` `used` and `ae_font_replace`, menu items by name, `ae_comp_new`
+sources, text box fit and overflow, `ae_fonts` `used` and `ae_font_replace`, menu items by name, `ae_layer_edit`
+`copy`, media replacement controls, `.aep` import, `ae_comp_new`
 from footage, `ae_layer_parts`, `ae_markers` onsets, and a call that ends when After Effects exits during it. The
 other tools are covered by their input checks; a tool that fails in your install is a bug to report.
 

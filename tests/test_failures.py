@@ -260,6 +260,7 @@ class ForeignArgumentsTest(unittest.TestCase):
                 ("ae_layer_edit", {**edit, "action": "delete", "time": 2}, "Not valid for action=delete: time"),
                 ("ae_layer_edit", {**edit, "action": "duplicate", "move_to": "top"},
                  "Not valid for action=duplicate: move_to"),
+                ("ae_layer_edit", {**edit, "action": "delete", "to_comp": "B"}, "Not valid for action=delete: to_comp"),
                 ("ae_project", {"action": "open", "path": str(project), "overwrite": True},
                  "Not valid for action=open: overwrite"),
             ]

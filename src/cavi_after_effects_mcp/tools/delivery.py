@@ -202,7 +202,7 @@ async def ae_essential_graphics(
         template_name: Annotated[str | None, Field(description="Name of the Essential Graphics "
                                                                "template.")] = None
 ) -> models.EssentialGraphics:
-    """Add layer properties (source text, color, slider or effect parameters, position ...) to a comp's Essential Graphics under a name, optionally name the template, and list the controls the comp has."""
+    """Add layer properties (source text, color, slider or effect parameters, position ...) to a comp's Essential Graphics under a name, or a footage or comp layer itself as a media replacement control when property is omitted; optionally name the template, and list the controls the comp has."""
     return await scene("ae_essential_graphics", project, {"comp": comp, "add": [a.model_dump() for a in add],
                                                           "template_name": template_name})
 
@@ -213,7 +213,7 @@ async def ae_essential_override(
         values: Annotated[dict[str, Any], Field(min_length=1, description="Values by Essential Property "
                                                                           "name.")]
 ) -> models.EssentialOverridden:
-    """Override Essential Properties on one nested-comp layer by their ae_essential_graphics names: a string sets source text, a number, array or color list sets that value. Each instance of the same comp keeps its own values."""
+    """Override Essential Properties on one nested-comp layer by their ae_essential_graphics names: a media replacement control takes an absolute footage path (imported once) or a comp name, a string sets source text, a number, array or color list sets that value. Each instance of the same comp keeps its own values."""
     return await scene("ae_essential_override", project, {"comp": comp, "layer": layer, "values": values})
 
 

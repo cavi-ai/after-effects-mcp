@@ -44,6 +44,11 @@ $.evalFile(new File(CAVI_LIB));
         for (i = 0; i < layers.length; i++) { indices.push(layers[i].index); }
         result = comp.layers.precompose(indices, a.name, true);
         made.push(comp.layer(caviPrecompIndex(comp, result.name)));
+    } else if (a.action === "copy") {
+        target = caviComp(a.to_comp);
+        // copyToComp puts each copy on top, so the last layer goes first and the copies keep their order.
+        for (i = layers.length - 1; i >= 0; i--) { layers[i].copyToComp(target); }
+        for (i = 0; i < layers.length; i++) { made.push(target.layer(i + 1)); }
     } else {
         caviFail("Unknown action " + a.action);
     }
@@ -51,7 +56,8 @@ $.evalFile(new File(CAVI_LIB));
     for (j = 0; j < made.length; j++) {
         moved.push(typeof made[j] === "string" ? made[j] : describeLayer(made[j]));
     }
-    caviReport({comp: comp.name, action: a.action, layers: moved, layer_count: comp.numLayers, errors: []});
+    caviReport({comp: comp.name, action: a.action, layers: moved, layer_count: (a.action === "copy" ? target : comp).numLayers,
+        to_comp: a.action === "copy" ? target.name : null, errors: []});
 })();
 
 function caviPrecompIndex(comp, name) {
