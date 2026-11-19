@@ -139,3 +139,7 @@ messages refer to these notes by number.
     `AEGP_StreamSuite layer-param-stage: stream is not a PF_Param_LAYER`, which `try` does not catch, and the
     mesh has no size properties, so its size comes from Scale (26.5). An environment light takes a footage, still,
     solid or comp layer as `lightSource` (26.5).
+44. `Property.propertyParameters` lists a menu's items for built-in effect menus and Dropdown Menu Controls alike,
+    and each `"(-"` separator takes an index: Fractal Noise's `Fractal Type` value 3 is `Turbulent Smooth`, its
+    `valueText`. On a property without a menu, reading either throws `This property does not have dropdown menu
+    options.`; `isDropdownEffect` is true only for a Dropdown Menu Control (26.5).

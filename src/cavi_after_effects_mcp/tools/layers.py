@@ -131,7 +131,9 @@ async def ae_layer_set(
         properties: Annotated[dict[str, Any] | None,
                               Field(description="Static values by property path, such as Transform/Opacity, "
                                                 "Effects/Glow/Glow Threshold or Geometry Options/Extrusion Depth "
-                                                "(3D text and shapes in Advanced 3D or Cinema 4D comps).")] = None
+                                                "(3D text and shapes in Advanced 3D or Cinema 4D comps). A menu "
+                                                "takes its item text, as ae_properties lists items, or its 1-based "
+                                                "index.")] = None
 ) -> models.LayerChanged:
     """Change an existing layer: switches, label, timing, stretch, blend mode, parent, 3D, motion blur, track
     matte, collapse, guide, auto-orient, quality, sampling, adjustment and static property values."""

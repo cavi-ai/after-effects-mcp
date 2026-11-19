@@ -813,7 +813,7 @@ class TextAnimated(Script):
 class ControlSpec(Model):
     kind: Literal["slider", "angle", "point", "point3d", "color", "checkbox", "layer", "dropdown"]
     name: str = Field(min_length=1)
-    value: Any = Field(None, description="Number, [x, y], [x, y, z], [r, g, b], bool, a layer ref, or a dropdown index (1-based)")
+    value: Any = Field(None, description="Number, [x, y], [x, y, z], [r, g, b], bool, a layer ref, or a dropdown item's text or 1-based index")
     items: list[str] = Field([], description="dropdown menu items")
 
 

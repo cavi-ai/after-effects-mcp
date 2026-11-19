@@ -19,6 +19,7 @@ function addControl(layer, spec) {
     if (value !== null) {
         if (spec.kind === "checkbox") { value = value ? 1 : 0; }
         if (spec.kind === "layer") { value = caviLayer(layer.containingComp, value).index; }
+        if (spec.kind === "dropdown") { value = caviMenuValue(param, value); }
         param.setValue(value);
     }
 }
