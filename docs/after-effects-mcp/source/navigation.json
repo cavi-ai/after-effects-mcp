@@ -22,6 +22,7 @@
       "title": "Reference",
       "pages": [
         { "title": "Tools", "path": "reference/tools.md" },
+        { "title": "Results and errors", "path": "reference/results-and-errors.md" },
         { "title": "Configuration", "path": "reference/configuration.md" },
         { "title": "Measured behavior", "path": "reference/behavior-notes.md" },
         { "title": "Testing and evaluation", "path": "reference/testing.md" }

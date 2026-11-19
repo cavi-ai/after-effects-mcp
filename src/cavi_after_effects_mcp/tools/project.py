@@ -3,7 +3,7 @@
 import asyncio
 from typing import Annotated, Literal
 
-from cavi_mcp_core.server import DESTRUCTIVE, READ_ONLY, WRITES
+from cavi_mcp_core.server import DESTRUCTIVE, READ_ONLY, WRITES, need, reject_foreign
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import Field
 
@@ -29,6 +29,10 @@ async def ae_inspect(
     return await scene("ae_inspect", project, {"scope": scope, "comp": comp})
 
 
+# The flags each ae_project action reads; path is read by every action.
+PROJECT_USES = {"new": {"discard", "overwrite"}, "open": {"discard"}, "save_as": {"overwrite"}, "reduce": {"comps"}}
+
+
 @mcp.tool(annotations=DESTRUCTIVE)
 async def ae_project(
         action: Annotated[Literal["new", "open", "save", "save_as", "info", "reduce", "remove_unused", "consolidate"],
@@ -42,11 +46,13 @@ async def ae_project(
     project's path. reduce keeps only comps and what they use, remove_unused drops unused footage, consolidate
     merges duplicate footage; each rewrites the open project, or saves to path when given. removed reports the
     count."""
-    if action in ("new", "open", "save_as") and not path:
-        raise ValueError(f"{action} needs a path")
-    if action == "reduce" and not comps:
-        raise ValueError("reduce needs comps")
-    target = host.absolute(path, ".aep") if path else host.session.project
+    reject_foreign(action, {"discard": discard or None, "overwrite": overwrite or None, "comps": comps or None},
+                   PROJECT_USES.get(action, set()))
+    if action in ("new", "open", "save_as"):
+        need(path or None, "path", action)
+    if action == "reduce":
+        need(comps or None, "comps", action)
+    target =host.absolute(path, ".aep") if path else host.session.project
     if action == "open" and not target.is_file():
         raise FileNotFoundError(f"No project at {target}")
     if action == "new" and target.exists() and not overwrite:
