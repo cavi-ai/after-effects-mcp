@@ -64,7 +64,8 @@ size 28, fades in the same way from 0.9 seconds.
 ```
 
 The result lists `Title_01_0.500s.png`, `Title_02_1.000s.png` and `Title_03_2.500s.png`: the comp name with `/`
-and `:` replaced, the position of the time in `times`, and the time. At 0.5 seconds the bar is sliding in;
+and `:` replaced, the position of the time in `times`, and the time, and carries the three frames as images. At
+0.5 seconds the bar is sliding in;
 at 1 second the headline is rising in and the second line has started; at 2.5 seconds the title is complete.
 
 ## Next
