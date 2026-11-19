@@ -80,6 +80,25 @@ class OnsetTest(unittest.TestCase):
         self.assertEqual(host.onsets(hits, gap=0.6), found[:1] + found[2:])
 
 
+@unittest.skipUnless(shutil.which("ffmpeg"), "ffmpeg is required")
+class CutTest(unittest.TestCase):
+    def test_cuts_are_the_first_frames_of_new_shots(self):
+        root = Path(tempfile.mkdtemp(prefix="ae-cuts-"))
+        self.addCleanup(shutil.rmtree, root)
+        shots = root / "shots.mp4"
+        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i",
+                        "testsrc=d=1:s=320x180:r=30", "-f", "lavfi", "-i", "smptebars=d=1:s=320x180:r=30", "-f",
+                        "lavfi", "-i", "rgbtestsrc=d=1:s=320x180:r=30", "-filter_complex",
+                        "[0][1][2]concat=n=3:v=1:a=0,format=yuv420p", str(shots)], check=True)
+        self.assertEqual(host.cuts(shots), [1.0, 2.0])
+        self.assertEqual(host.cuts(shots, threshold=0.8), [1.0])
+        tone = root / "tone.wav"
+        subprocess.run(["ffmpeg", "-hide_banner", "-loglevel", "error", "-f", "lavfi", "-i", "sine=d=1", str(tone)],
+                       check=True)
+        with self.assertRaisesRegex(ValueError, "tone.wav has no video stream"):
+            host.cuts(tone)
+
+
 class RenderedSequenceTest(unittest.TestCase):
     def setUp(self):
         self.root = Path(tempfile.mkdtemp(prefix="ae-sequence-"))

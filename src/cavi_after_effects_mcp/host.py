@@ -415,6 +415,22 @@ def onsets(path, rise=6.0, floor=-50.0, gap=0.1):
     return found
 
 
+def cuts(path, threshold=0.4):
+    """Seconds into ``path`` where a new shot starts: frames whose FFmpeg scene score, the change from the frame
+    before from 0 to 1, is at least ``threshold``."""
+    path = absolute(path)
+    if not path.is_file():
+        raise FileNotFoundError(f"No video file at {path}")
+    result = run_sync([tool("ffmpeg", "to find cuts"), "-hide_banner", "-nostats", "-i", str(path), "-an", "-vf",
+                       f"select='gte(scene,{threshold})',metadata=mode=print:file=-", "-f", "null", "-"],
+                      600, stdout_limit=64 * 1024 * 1024)
+    if "does not contain any stream" in result.stderr:
+        raise ValueError(f"{path.name} has no video stream")
+    if result.returncode != 0 or result.truncated:
+        raise RuntimeError(f"FFmpeg could not read the video of {path.name}: {diagnostics(result)}")
+    return [float(line.split("pts_time:")[1]) for line in result.stdout.splitlines() if line.startswith("frame:")]
+
+
 SEQUENCE = re.compile(r"\[(#+)\]")
 
 

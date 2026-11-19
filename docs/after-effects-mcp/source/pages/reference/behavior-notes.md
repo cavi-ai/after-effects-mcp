@@ -158,3 +158,7 @@ messages refer to these notes by number.
     `saveFrameToPng` writes black at the first time asked for, at that time again, and the frames after it show the
     scene; a second call shows it from the first frame, with any Renderer. `aerender` rendered 3 frames of such a
     comp short, and the `saveFrameToPng` fallback wrote them (26.5).
+47. Headless, `Layer.doSceneEditDetection` on a video layer of three one-second shots returns `undefined` and adds
+    no markers or layers in `NONE`, `MARKERS` and `SPLIT` modes, with the layer selected and 20 seconds later.
+    FFmpeg's scene score for the same file is 0.88 and 0.69 at the two cuts, so `ae_markers` `cuts` uses FFmpeg
+    (26.5).
