@@ -18,7 +18,8 @@ fades, `ae_sequence_layers`, `ae_import` and `ae_organize` folder paths, `ae_con
 `ae_properties` keyframes, `ae_layer_set` switches and extrusion, parametric mesh layers, environment light
 sources, text box fit and overflow, `ae_fonts` `used` and `ae_font_replace`, menu items by name, `ae_layer_edit`
 `copy`, media replacement controls, `.aep` import, `.c4d` layers with Cineware settings and frames, `ae_comp_new`
-from footage, `ae_layer_parts`, `ae_markers` onsets, and a call that ends when After Effects exits during it. The
+from footage, `ae_layer_parts`, `ae_markers` onsets and cuts, and a call that ends when After Effects exits during
+it. The
 other tools are covered by their input checks; a tool that fails in your install is a bug to report.
 
 Requires Python 3.15 or newer. Only macOS is supported, because the server addresses After Effects over Apple

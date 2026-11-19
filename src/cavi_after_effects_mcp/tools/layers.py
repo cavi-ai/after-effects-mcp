@@ -338,12 +338,14 @@ async def ae_markers(
                                                            "bar.")] = None,
         onsets: Annotated[models.Onsets | None, Field(description="One marker where the level of an audio "
                                                                   "file jumps, found with FFmpeg.")] = None,
+        cuts: Annotated[models.Cuts | None, Field(description="One marker where a video file cuts to a new shot, "
+                                                              "found with FFmpeg.")] = None,
         clear: Annotated[bool, Field(description="Remove the existing markers first.")] = False
 ) -> models.MarkerList:
-    """Set comp or layer markers, a beat grid and/or markers at an audio file's onsets. A call sets at most 5000
-    markers."""
-    if not markers and grid is None and onsets is None:
-        raise ValueError("Give markers, a beat grid or onsets")
+    """Set comp or layer markers, a beat grid and/or markers at an audio file's onsets or a video file's cuts. A
+    call sets at most 5000 markers."""
+    if not markers and grid is None and onsets is None and cuts is None:
+        raise ValueError("Give markers, a beat grid, onsets or cuts")
     if grid is not None and grid.end <= grid.start:
         raise ValueError("The beat grid end must be after start")
     listed = [m.model_dump() for m in markers]
@@ -353,6 +355,10 @@ async def ae_markers(
         found = await asyncio.to_thread(host.onsets, onsets.file, onsets.rise, onsets.floor, onsets.gap)
         listed += [{"time": t + onsets.offset, "comment": onsets.comment, "duration": 0, "chapter": None}
                    for t in found if t + onsets.offset >= 0]
+    if cuts is not None:
+        found = await asyncio.to_thread(host.cuts, cuts.file, cuts.threshold)
+        listed += [{"time": t + cuts.offset, "comment": cuts.comment, "duration": 0, "chapter": None}
+                   for t in found if t + cuts.offset >= 0]
     if len(listed) > host.MAX_MARKERS:
         raise ValueError(f"{len(listed)} markers in one call; the limit is {host.MAX_MARKERS}")
     return await scene("ae_markers", project, {"comp": comp, "layer": layer, "markers": listed, "clear": clear})

@@ -481,6 +481,14 @@ class Onsets(Model):
     comment: str = "onset"
 
 
+class Cuts(Model):
+    file: str = Field(min_length=1, description="Absolute path of a video file")
+    offset: float = Field(0, description="Comp seconds where the file starts; cuts before comp time 0 are dropped")
+    threshold: float = Field(0.4, gt=0, le=1, description="FFmpeg scene score, the change from the frame before "
+                                                          "from 0 to 1, a cut must reach")
+    comment: str = "cut"
+
+
 class MarkerSpec(Model):
     time: float = Field(ge=0)
     comment: str = ""
