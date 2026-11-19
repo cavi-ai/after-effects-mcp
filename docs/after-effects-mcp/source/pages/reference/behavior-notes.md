@@ -153,3 +153,8 @@ messages refer to these notes by number.
     `Title 2`. `AVLayer.addToMotionGraphicsTemplateAs` on a footage layer adds a media replacement control, after
     which `canAddToMotionGraphicsTemplate` is false; `setAlternateSource` on that control in a nested instance
     renders the new footage there only. `importFile` of an `.aep` returns a `FolderItem` holding its items (26.5).
+46. A `.c4d` file imports as footage of its scene's size and length, and a layer of it gets the Cineware effect
+    (`CINEMA 4D Effect`), its Renderer at `Viewport (Draft)`. In the first script call that renders the scene,
+    `saveFrameToPng` writes black at the first time asked for, at that time again, and the frames after it show the
+    scene; a second call shows it from the first frame, with any Renderer. `aerender` rendered 3 frames of such a
+    comp short, and the `saveFrameToPng` fallback wrote them (26.5).

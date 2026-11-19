@@ -20,6 +20,10 @@ function pad(n) {
         count = a.frames;
     }
     if (count > a.max_frames) { caviFail("The range holds " + count + " frames; the limit is " + a.max_frames); }
+    if (caviWarmCineware(comp, a.start, a.warm)) {
+        caviReport({comp: comp.name, fps: comp.frameRate, step: a.step, count: count, warming: true, errors: []});
+        return;
+    }
     if (a.background) { backdrop = caviBackdrop(comp); }
     for (i = 0; i < count; i++) {
         files.push(a.directory + "/frame_" + pad(i + 1) + ".png");

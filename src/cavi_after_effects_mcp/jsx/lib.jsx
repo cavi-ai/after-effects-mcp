@@ -394,6 +394,28 @@ function caviShape(spec) {
     return shape;
 }
 
+// Cineware renders black in the first script call that renders its scene, so for a comp holding a Cineware layer,
+// nested ones included, a call given `file` renders only the frame at `time` there and returns true; the caller
+// waits for that file, removes it and calls again without one.
+function caviWarmCineware(comp, time, file) {
+    if (file === null || !caviHasCineware(comp, {})) { return false; }
+    comp.saveFrameToPng(time, new File(file));
+    return true;
+}
+
+function caviHasCineware(comp, seen) {
+    var i, layer, effects;
+    if (seen[comp.id]) { return false; }
+    seen[comp.id] = true;
+    for (i = 1; i <= comp.numLayers; i++) {
+        layer = comp.layer(i);
+        effects = layer.property("ADBE Effect Parade");
+        if (effects && effects.property("CINEMA 4D Effect")) { return true; }
+        if (layer.source instanceof CompItem && caviHasCineware(layer.source, seen)) { return true; }
+    }
+    return false;
+}
+
 // A solid of the comp's background color under its layers, so frames saved from the comp are not transparent.
 function caviBackdrop(comp) {
     var backdrop = comp.layers.addSolid(comp.bgColor, "cavi-frame-bg", comp.width, comp.height, comp.pixelAspect,

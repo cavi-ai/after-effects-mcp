@@ -70,6 +70,13 @@ function node(prop, path) {
     return out;
 }
 
+// The names from the layer down to prop, as a read of the whole tree reports them.
+function groupPath(prop) {
+    var names = [], p;
+    for (p = prop; p.propertyDepth > 0; p = p.parentProperty) { names.unshift(p.name); }
+    return names.join("/");
+}
+
 function walk(group, path, depth, out, a) {
     var i, child, childPath;
     for (i = 1; i <= group.numProperties && out.nodes.length < a.max_nodes; i++) {
@@ -91,7 +98,7 @@ function walk(group, path, depth, out, a) {
     KEYS = a.keyframes;
     if (a.path !== null) {
         root = caviProp(layer, a.path);
-        base = base + "/" + root.name;
+        base = base + "/" + groupPath(root);
     }
     if (root.propertyType === PropertyType.PROPERTY) {
         out.nodes.push(node(root, base));

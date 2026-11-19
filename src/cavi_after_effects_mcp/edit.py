@@ -125,9 +125,9 @@ def export_frames(project, comp, directory, start, duration, step, alpha, movie,
     directory.mkdir(parents=True, exist_ok=True)
     for old in directory.glob("frame_*.png"):
         old.unlink()
-    report = host.run_template("ae_frame_range", project, {
+    report = warmed("ae_frame_range", project, {
         "comp": comp, "directory": str(directory), "start": start, "duration": duration, "step": step,
-        "background": not alpha, "max_frames": max_frames, "frames": frames}, 3600)
+        "background": not alpha, "max_frames": max_frames, "frames": frames}, directory / ".cineware-warm.png", 3600)
     count = report["count"]
     deadline = time.monotonic() + 60 + count
     while time.monotonic() < deadline:
@@ -153,17 +153,34 @@ def direct_frames(project, comp, frames, alpha):
     for frame in frames:
         Path(frame["file"]).unlink(missing_ok=True)
     try:
-        host.run_template("ae_frame_png", project, {"comp": comp, "frames": frames, "background": not alpha})
+        warmed("ae_frame_png", project, {"comp": comp, "frames": frames, "background": not alpha},
+               Path(frames[0]["file"]).with_name(".cineware-warm.png"))
     except RuntimeError as error:
         if "No comp named" in str(error):
             raise
         return False
-    deadline = time.monotonic() + 30
+    return appeared([Path(f["file"]) for f in frames], 30)
+
+
+def appeared(paths, seconds):
+    """True once every path is a non-empty file, waiting at most ``seconds``."""
+    deadline = time.monotonic() + seconds
     while time.monotonic() < deadline:
-        if all(Path(f["file"]).is_file() and Path(f["file"]).stat().st_size > 0 for f in frames):
+        if all(p.is_file() and p.stat().st_size > 0 for p in paths):
             return True
         time.sleep(0.25)
     return False
+
+
+def warmed(name, project, args, warm, timeout=300):
+    """Run the frame script ``name``; when it rendered only the Cineware warm-up frame to ``warm``, wait for that
+    frame, remove it and run the script again, which then renders the scene."""
+    report = host.run_template(name, project, {**args, "warm": str(warm)}, timeout)
+    if report.get("warming"):
+        appeared([warm], 60)
+        warm.unlink(missing_ok=True)
+        report = host.run_template(name, project, {**args, "warm": None}, timeout)
+    return report
 
 
 def frame_name(comp, index, time):

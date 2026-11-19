@@ -70,6 +70,22 @@ own process group and which ignores SIGTERM. There is no fallback to `saveFrameT
   stops a range that is too long, and `alpha` with `codec: "prores"` writes a `.mov` with alpha. H.264 has no
   alpha.
 
+## Cinema 4D scenes
+
+`ae_import` or `ae_layer_add` with a `.c4d` file gives a footage layer with the Cineware effect. `ae_properties`
+with `path: "Effects/Cineware"` lists its settings, menus with their `items`, and `ae_layer_set` `properties`
+sets them by item text:
+
+```json
+{"tool": "ae_layer_set", "arguments": {"project": "/path/to/ufo.aep", "comp": "Shot", "layer": "Saucer",
+ "properties": {"Effects/Cineware/Renderer": "Viewport", "Effects/Cineware/Display": "Wireframe"}}}
+```
+
+Cineware renders black in the first script call that renders its scene. `ae_frame` and `ae_export_frames`
+therefore render a comp holding a Cineware layer, nested comps included, in two calls: one frame aside, then the
+frames asked for. `ae_render_queue` writes such a comp through its `saveFrameToPng` fallback when `aerender`
+comes back short.
+
 ## PNG sequences in a workspace
 
 `after_effects_render` is the other render tool. It takes a recipe file in the workspace that declares the
