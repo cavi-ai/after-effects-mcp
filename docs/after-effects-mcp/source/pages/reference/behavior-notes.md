@@ -139,3 +139,9 @@ messages refer to these notes by number.
     `AEGP_StreamSuite layer-param-stage: stream is not a PF_Param_LAYER`, which `try` does not catch, and the
     mesh has no size properties, so its size comes from Scale (26.5). An environment light takes a footage, still,
     solid or comp layer as `lightSource` (26.5).
+43. A paragraph box's `boxOverflow` is true while its text does not fit; `boxAutoFitPolicy` `HEIGHT_CURSOR` grows
+    a 300 x 60 box holding three lines at 40 px to 330 px (Arial) or 336 px (Helvetica) tall and clears it, and a
+    `boxInsetSpacing` of 8 then overflows it again. The fit is switched off while `boxVerticalAlignment` is not
+    `TOP`. A text document given a font that is not installed keeps the name, and
+    `Project.usedFonts` lists it with `isSubstitute` true, as for a project opened without its font;
+    `Project.replaceFont` swaps it for an installed font (26.5).

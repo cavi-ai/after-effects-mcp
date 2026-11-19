@@ -211,15 +211,21 @@ async def ae_text_set(
                                  Field(description="Paragraph alignment.")] = None,
         box: Annotated[Annotated[list[float], Field(min_length=2, max_length=2)] | None,
                        Field(description="Paragraph box size [width, height] in pixels.")] = None,
+        box_fit: Annotated[models.BoxFit | None, Field(description=models.BOX_FIT)] = None,
+        box_align: Annotated[models.BoxAlign | None, Field(description=models.BOX_ALIGN)] = None,
+        box_inset: Annotated[Annotated[float, Field(ge=0)] | None,
+                             Field(description="Pixels between a paragraph box and its text on every side.")] = None,
         ranges: Annotated[list[models.TextRange], Field(
             max_length=1000, description="Character ranges [start, end) styled after the whole text, in "
                                          "order.")] = []
 ) -> models.TextChanged:
     """Replace the source text and/or style of an existing text layer, and style character ranges; its animators
-    and keyframes stay."""
+    and keyframes stay. overflow is true when paragraph text does not fit its box."""
     style = {"text": text, "font": font, "size": size, "fill": fill, "stroke": stroke, "stroke_width": stroke_width,
-             "tracking": tracking, "leading": leading, "justification": justification, "box": box}
+             "tracking": tracking, "leading": leading, "justification": justification, "box": box,
+             "box_fit": box_fit, "box_align": box_align, "box_inset": box_inset}
     given(**style, ranges=ranges or None)
+    models.box_fit_check(box_fit, box_align)
     return await scene("ae_text_set", project, {"comp": comp, "layer": layer, **style,
                                                 "ranges": [r.model_dump() for r in ranges]})
 

@@ -247,11 +247,17 @@ def collect(project, folder):
 
 
 def template_render(template, project, texts, footage, renders, discard):
-    """Open ``template``, apply the text and footage edits, save to ``project`` and aerender the named comps."""
+    """Open ``template``, apply the text and footage edits, save to ``project`` and aerender the named comps.
+
+    Returns the outputs and the text layers whose paragraph text does not fit its box.
+    """
     project_op({"action": "open", "path": str(template), "discard": discard, "overwrite": False, "comps": []})
     project_op({"action": "save_as", "path": str(project), "discard": False, "overwrite": True, "comps": []})
+    overflow = []
     for text in texts:
-        host.run_template("ae_text_set", project, text)
+        report = host.run_template("ae_text_set", project, text)
+        if report.get("overflow"):
+            overflow.append({"comp": report["comp"], "layer": report["layer"]})
     for item, file in footage.items():
         host.run_template("ae_footage_replace", project, {"item": item, "file": file})
     names = {r["comp"] for r in renders}
@@ -261,7 +267,7 @@ def template_render(template, project, texts, footage, renders, discard):
     add = [{**r, "locked": False, "time_span": None, "output": None, "settings": None} for r in renders]
     host.run_template("ae_render_queue_set", project, {"add": add, "update": off, "clear": True})
     outputs = [{"comp": r["comp"], "file": r["file"], "frames": None} for r in renders]
-    return render_outputs(project, outputs)["outputs"]
+    return render_outputs(project, outputs)["outputs"], overflow
 
 
 def render_outputs(project, outputs):
