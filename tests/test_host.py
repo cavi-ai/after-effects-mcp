@@ -195,6 +195,92 @@ class MenuValueTest(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("node"), "node is required")
+class PropertyPathTest(unittest.TestCase):
+    def paths(self, path):
+        """The paths ae_properties.jsx reports for ``path`` on a layer Scene > Effects > Cineware > Renderer."""
+        lib = (host.JSX / "lib.jsx").read_text()
+        start = lib.index("function caviProp(")
+        script = ("const $ = {evalFile() {}}; function File() {} const CAVI_LIB = ''; const CAVI_TRANSFORM = {};\n"
+                  "const PropertyType = {PROPERTY: 1, NAMED_GROUP: 3};\n"
+                  "const PropertyValueType = {NO_VALUE: 0, CUSTOM_VALUE: 1, SHAPE: 2, MARKER: 3, TEXT_DOCUMENT: 4};\n"
+                  "function make(name, kids, parent) {\n"
+                  "  const p = {name, matchName: name, parentProperty: parent,\n"
+                  "    propertyDepth: parent ? parent.propertyDepth + 1 : 0,\n"
+                  "    propertyType: kids ? PropertyType.NAMED_GROUP : PropertyType.PROPERTY, propertyValueType: 9,\n"
+                  "    value: 2, numKeys: 0, canSetExpression: false, expression: ''};\n"
+                  "  p.kids = (kids || []).map(k => make(k[0], k[1], p));\n"
+                  "  p.numProperties = p.kids.length;\n"
+                  "  p.property = ref => (typeof ref === 'number' ? p.kids[ref - 1] : p.kids.find(k => k.name === ref)) || null;\n"
+                  "  return p;\n"
+                  "}\n"
+                  "const layer = make('Scene', [['Effects', [['Cineware', [['Renderer']]]]]], null);\n"
+                  "let report = null;\n"
+                  "function caviFail(message) { throw new Error(message); }\n"
+                  "function caviComp() { return {name: 'C'}; }\n"
+                  "function caviLayer() { return layer; }\n"
+                  "function caviMenuItems() { return null; }\n"
+                  "function caviReport(r) { report = r; }\n"
+                  "const CAVI_ARGS = JSON.parse(process.argv[1]);\n"
+                  + lib[start:lib.index("\n}\n", start) + 3] + (host.JSX / "ae_properties.jsx").read_text() +
+                  "\nprocess.stdout.write(JSON.stringify(report.properties.map(p => p.path)));")
+        arguments = {"comp": "C", "layer": "Scene", "path": path, "depth": 4, "max_nodes": 100, "time": None,
+                     "keyframes": False}
+        out = subprocess.run(["node", "-e", script, json.dumps(arguments)], capture_output=True, text=True,
+                             check=True)
+        return json.loads(out.stdout)
+
+    def test_a_read_from_a_group_reports_paths_from_the_layer(self):
+        for path in (None, "Effects", "Effects/Cineware", "Effects/Cineware/Renderer"):
+            with self.subTest(path=path):
+                self.assertEqual(self.paths(path), ["Scene/Effects/Cineware/Renderer"])
+
+
+@unittest.skipUnless(shutil.which("node"), "node is required")
+class CinewareFrameTest(unittest.TestCase):
+    def frames(self, cineware):
+        """The files ae_frame_png.jsx writes when it is called as edit.warmed calls it, on a comp that renders black
+        at the first time of the first call when it holds a Cineware layer, as After Effects 26.5 does."""
+        lib = (host.JSX / "lib.jsx").read_text()
+        functions = ""
+        for name in ("caviWarmCineware", "caviHasCineware"):
+            if f"function {name}(" in lib:
+                start = lib.index(f"function {name}(")
+                functions += lib[start:lib.index("\n}\n", start) + 3]
+        script = ("const $ = {evalFile() {}}; function File(path) { this.path = path; } const CAVI_LIB = '';\n"
+                  "function CompItem() {}\n"
+                  "const [cineware, args, source] = JSON.parse(process.argv[1]);\n"
+                  "const written = {};\n"
+                  "let CAVI_ARGS = null, report = null, calls = 0, first = null;\n"
+                  "const effects = {property: name => (cineware && name === 'CINEMA 4D Effect' ? {} : null)};\n"
+                  "const layer = {property: name => (name === 'ADBE Effect Parade' ? effects : null), source: null};\n"
+                  "const comp = Object.assign(new CompItem(), {id: 1, name: 'C', numLayers: 1, layer: () => layer,\n"
+                  "  saveFrameToPng(time, file) {\n"
+                  "    if (first === null) { first = time; }\n"
+                  "    written[file.path] = cineware && calls === 1 && time === first ? 'black' : 'scene at ' + time;\n"
+                  "  }});\n"
+                  "function caviComp() { return comp; }\n"
+                  "function caviFail(message) { throw new Error(message); }\n"
+                  "function caviReport(r) { report = r; }\n"
+                  + functions +
+                  "function call(a) { CAVI_ARGS = a; calls++; eval(source); }\n"
+                  "call(args);\n"
+                  "if (report.warming) { call(Object.assign({}, args, {warm: null})); }\n"
+                  "process.stdout.write(JSON.stringify(written));")
+        arguments = {"comp": "C", "background": False, "warm": "/out/.warm.png",
+                     "frames": [{"time": 0.5, "file": "/out/a.png"}, {"time": 0.6, "file": "/out/b.png"}]}
+        payload = json.dumps([cineware, arguments, (host.JSX / "ae_frame_png.jsx").read_text()])
+        out = subprocess.run(["node", "-e", script, payload], capture_output=True, text=True, check=True)
+        return json.loads(out.stdout)
+
+    def test_the_first_frame_of_a_cineware_comp_shows_the_scene(self):
+        self.assertEqual(self.frames(True), {"/out/.warm.png": "black", "/out/a.png": "scene at 0.5",
+                                             "/out/b.png": "scene at 0.6"})
+
+    def test_a_comp_without_cineware_renders_each_frame_once(self):
+        self.assertEqual(self.frames(False), {"/out/a.png": "scene at 0.5", "/out/b.png": "scene at 0.6"})
+
+
+@unittest.skipUnless(shutil.which("node"), "node is required")
 class ScriptSyntaxTest(unittest.TestCase):
     PARSE = ("const vm = require('vm'), fs = require('fs'); let bad = 0;\n"
              "for (const file of process.argv.slice(1)) {\n"

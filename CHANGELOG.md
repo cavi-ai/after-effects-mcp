@@ -30,6 +30,7 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
   `overwrite` for `open`, and name a missing one as `<name> is required for action=<action>`, through
   `cavi-mcp-core` `need` and `reject_foreign`.
 - The documentation lists the server's error codes and links the `cavi-mcp-core` results and errors contract.
+- The rendering guide covers `.c4d` layers and their Cineware settings.
 
 ### Fixed
 
@@ -38,6 +39,9 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - `ae_template_render` with `texts` sets them instead of failing with `TypeError: undefined is not an object`, and
   each entry takes `ranges` as `ae_text_set` does.
 - `ae_import` lists an imported `.aep` as `type` `project` with its `comps` instead of as footage with no size.
+- `ae_frame` and `ae_export_frames` show a Cineware scene from the first frame instead of a black one.
+- `ae_properties` with `path` reports each property's full path, such as `Layer/Effects/Cineware/Renderer`,
+  instead of dropping the groups above the one read.
 
 ## 0.2.0 - 2026-11-18
 
