@@ -35,7 +35,7 @@ function rangeStyle(doc, r) {
 }
 
 (function () {
-    var a = CAVI_ARGS, comp = caviComp(a.comp), layer = caviLayer(comp, a.layer), source, doc, i, j, ranges = [];
+    var a = CAVI_ARGS, comp = caviComp(a.comp), layer = caviLayer(comp, a.layer), source, doc, i, j, ranges = [], report, box, key;
     if (!(layer instanceof TextLayer)) {
         caviFail("Layer " + layer.name + " is not a text layer");
     }
@@ -54,10 +54,13 @@ function rangeStyle(doc, r) {
     for (j = 0; j < a.ranges.length; j++) {
         ranges.push(rangeStyle(doc, a.ranges[j]));
     }
-    caviReport({comp: comp.name, layer: layer.name, keys: source.numKeys, text: doc.text, font: doc.font, size: doc.fontSize,
+    report = {comp: comp.name, layer: layer.name, keys: source.numKeys, text: doc.text, font: doc.font, size: doc.fontSize,
         tracking: doc.tracking, leading: doc.leading, justification: String(doc.justification),
         box: doc.boxText ? doc.boxTextSize : null, fill: doc.applyFill ? doc.fillColor : null,
         stroke: doc.applyStroke ? doc.strokeColor : null, ranges: ranges,
         animators: layer.property("ADBE Text Properties").property("ADBE Text Animators").numProperties,
-        errors: []});
+        errors: []};
+    box = caviBoxState(doc);
+    for (key in box) { report[key] = box[key]; }
+    caviReport(report);
 })();

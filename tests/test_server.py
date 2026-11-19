@@ -18,7 +18,7 @@ TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effect
          "ae_template_render", "ae_collect", "ae_audio", "ae_time",
          "ae_controls", "ae_project_settings", "ae_sequence_layers", "ae_essential_override",
          "ae_fonts", "ae_expressions", "ae_material", "ae_export_frames", "ae_properties", "ae_organize",
-         "ae_layer_parts", "ae_batch", "ae_render_start", "ae_render_status", "ae_render_cancel"}
+         "ae_layer_parts", "ae_batch", "ae_render_start", "ae_render_status", "ae_render_cancel", "ae_font_replace"}
 
 
 class PackageTest(unittest.TestCase):
@@ -118,6 +118,10 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_text_set", base, "at least one"),
             ("ae_text_set", {**base, "ranges": [{"start": 6, "end": 5, "size": 10}]}, "ends at or before its start"),
             ("ae_text_set", {**base, "ranges": [{"start": 0, "end": 5}]}, "Range 0-5 sets no style"),
+            ("ae_text_set", {**base, "box_fit": "cursor", "box_align": "center"},
+             "box_fit grows a box only with box_align top"),
+            ("ae_text_set", {**base, "box_fit": "tall"}, "'none', 'cursor', 'bounds' or 'baseline'"),
+            ("ae_font_replace", {"project": "/x.aep", "font": "", "to": "Georgia"}, "at least 1 character"),
             ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "split"},
              "time is required for action=split"),
             ("ae_layer_edit", {"project": "/x.aep", "comp": "a", "layers": [1], "action": "reorder"},
@@ -199,6 +203,10 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_mogrt_export", {"project": "/x.aep", "comp": "a", "file": "/x/t.mogrt"}, "writes no file"),
             ("ae_template_render", {"template": "relative.aep", "project": "/x.aep",
                                     "renders": [{"comp": "a", "file": "/x/o.mov"}]}, "absolute path"),
+            ("ae_template_render", {"template": "/x/t.aep", "project": "/x.aep",
+                                    "renders": [{"comp": "a", "file": "/x/o.mov"}],
+                                    "texts": [{"comp": "a", "layer": "T", "box_fit": "cursor",
+                                               "box_align": "bottom"}]}, "box_fit grows a box only with box_align top"),
             ("ae_project", {"action": "reduce", "path": "/x.aep"}, "comps is required for action=reduce"),
             ("ae_project", {"action": "remove_unused"}, "needs a path"),
             ("ae_collect", {"project": "/x.aep", "folder": "relative"}, "absolute path"),
