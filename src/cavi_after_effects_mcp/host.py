@@ -161,31 +161,60 @@ def require_finite(value, where="arguments"):
             require_finite(item, f"{where}[{index}]")
 
 
+def running():
+    """The After Effects that scripts run in as (pid, has_window): the headless instance, else the one with its
+    window, else (None, False)."""
+    headless, ui = processes()
+    if headless:
+        return headless[0], False
+    return (ui[0], True) if ui else (None, False)
+
+
+def caught(code, failure):
+    """``code`` with its errors caught and written to ``failure``: an uncaught error opens a dialog in After Effects
+    with its window that holds the call until it times out."""
+    return ("try { app.beginSuppressDialogs(); } catch (caviNoDialogs) {}\n"
+            f"try {{\n{code}\n}} catch (caviError) {{\n"
+            f"    var caviFailure = new File({json.dumps(str(failure))});\n"
+            "    caviFailure.encoding = 'UTF-8';\n"
+            "    caviFailure.open('w'); caviFailure.write(String(caviError)); caviFailure.close();\n"
+            "}\n"
+            "try { app.endSuppressDialogs(false); } catch (caviNoDialogs) {}")
+
+
 def do_script(code, timeout):
-    """Run ExtendScript in the headless instance; DoScript answers 0 on success, 1 on any failure."""
-    with ACCESS:
-        headless, _ = processes()
-        if not headless:
+    """Run ExtendScript in the running After Effects, started headless when none runs; an error in ``code`` fails
+    the call as ``After Effects script failed: 1``, DoScript's answer to an error.
+
+    The caught code never answers 1 itself, so a 1 without a written error is After Effects with its window refusing
+    every script while a dialog is open in it.
+    """
+    with ACCESS, tempfile.TemporaryDirectory(prefix="cavi-ae-") as folder:
+        pid, window = running()
+        if pid is None:
             launch()
-            headless, _ = processes()
+            pid, window = running()
+        failure = Path(folder) / "failure.txt"
         # The terminology of DoScript compiles only against a literal application name.
         name = application().stem.replace("\\", "\\\\").replace('"', '\\"')
         command = ["osascript", "-e", "on run argv", "-e", f"with timeout of {timeout} seconds",
                    "-e", f'tell application "{name}" to set answer to DoScript (item 1 of argv)',
-                   "-e", "end timeout", "-e", "return answer", "-e", "end run", code]
-        returncode, out, err = run_watched(command, timeout + 30, headless[0])
+                   "-e", "end timeout", "-e", "return answer", "-e", "end run", caught(code, failure)]
+        returncode, out, err = run_watched(command, timeout + 30, pid)
+        if not returncode and failure.exists():
+            raise RuntimeError("After Effects script failed: 1")
+    if window and not returncode and out.strip() == "1":
+        raise OperationRejected(f"After Effects (pid {pid}) ran no script; close the dialog open in it, then call "
+                                "again", code="AE_DIALOG_OPEN")
     if returncode or out.strip() != "0":
         raise RuntimeError("After Effects script failed: " + (err.strip() or out.strip() or f"exit {returncode}"))
 
 
 def launch():
-    """Start one headless After Effects (-noui) and wait until it answers scripts."""
+    """Start one headless After Effects (-noui) unless one runs, with or without its window, and wait until it
+    answers scripts."""
     with ACCESS:
-        headless, ui = processes()
-        if ui:
-            raise OperationRejected(f"After Effects is running with its UI (pid {ui[0]}); quit it first",
-                                    code="AE_UI_RUNNING")
-        if not headless:
+        if running()[0] is None:
             result = run_sync(["open", "-n", "-g", str(application()), "--args", "-noui"], 60)
             if result.returncode:
                 raise RuntimeError("After Effects did not launch: " + diagnostics(result))

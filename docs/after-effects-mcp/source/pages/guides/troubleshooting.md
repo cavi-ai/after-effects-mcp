@@ -1,8 +1,9 @@
 # Troubleshooting
 
-## "After Effects is running with its UI (pid N); quit it first"
+## "After Effects (pid N) ran no script; close the dialog open in it"
 
-The server only drives a headless instance it starts. Quit the After Effects window, then call `ae_launch`.
+After Effects with its window runs no script while a dialog is open in it, such as an error or a settings
+dialog. Close the dialog in After Effects, then call again. Nothing ran, so the project is as it was.
 
 ## "After Effects (pid N) exited during the call"
 

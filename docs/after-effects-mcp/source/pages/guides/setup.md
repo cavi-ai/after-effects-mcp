@@ -38,11 +38,14 @@ Call `ae_status`. It reports the application path, its version, the `aerender` p
 running After Effects, split into headless and UI instances. An application that is not installed is reported
 in `error` rather than raised.
 
-Call `ae_launch` to start the headless instance. Every other tool starts it when it is not running, so this is
-only needed to see the start-up cost on its own.
+Call `ae_launch` to start the headless instance. Every other tool starts it when no After Effects is running, so
+this is only needed to see the start-up cost on its own.
 
 ## One instance at a time
 
-The server drives a headless instance it starts itself. If After Effects is already running with its window,
-`ae_launch` stops with the pid and asks you to quit it first; the server never takes over a window. Quit the
-headless instance from Activity Monitor when you are done, or leave it running for the next call.
+The server runs its scripts in one After Effects: a headless instance when one runs, else After Effects running
+with its window, else a headless instance it starts. With the window open you watch each change happen in the
+project open there. A call that targets another project opens it in the window, and is refused while the open
+project has unsaved changes, so save your work first. While a dialog is open in the window, calls are refused
+until you close it. Quit the headless instance from Activity Monitor when you are done, or leave it running for
+the next call.

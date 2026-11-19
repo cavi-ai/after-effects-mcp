@@ -19,7 +19,8 @@ async def ae_status() -> models.Status:
 
 @mcp.tool(annotations=WRITES)
 async def ae_launch() -> models.Status:
-    """Start headless After Effects (-noui) and wait until it answers scripts."""
+    """Start headless After Effects (-noui), or use the one already running with its window, and wait until it
+    answers scripts."""
     return await asyncio.to_thread(host.launch)
 
 

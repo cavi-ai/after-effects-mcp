@@ -14,7 +14,7 @@ the output files, before calling again.
 
 | `code` | `outcome` | When |
 |---|---|---|
-| `AE_UI_RUNNING` | `rejected` | After Effects is running with its UI. Quit it, then call `ae_launch`. |
+| `AE_DIALOG_OPEN` | `rejected` | After Effects with its window ran no script because a dialog is open in it. Close it, then call again. |
 | `AE_PROJECT_UNSAVED` | `rejected` | The open project has unsaved changes and the call targets another project. Save it, or run the tool on the open path. |
 | `AE_SCRIPT_REFUSED` | `rejected` | A typed tool's script failed and the project was reloaded as saved before the call. |
 | `AE_RENDER_BUSY` | `rejected` | A background render is running. Wait for it with `ae_render_status` or stop it with `ae_render_cancel`. |

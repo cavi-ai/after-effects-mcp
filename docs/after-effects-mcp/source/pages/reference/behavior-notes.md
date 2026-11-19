@@ -20,8 +20,8 @@ messages refer to these notes by number.
    channel at threshold 70, in 8 and 16 bpc.
 6. `ae_effect_add` on a 3D layer and `ae_layer_add` with `motion_blur` on a 3D rectangle shape are refused with a
    message, before the call that would abort After Effects, while the comp renderer is `ADBE Calder`.
-7. Every script call watches the headless pid: if After Effects exits during the call it fails at once with that
-   message instead of waiting for the timeout. A call with no headless instance starts one.
+7. Every script call watches the pid it runs in: if After Effects exits during the call it fails at once with that
+   message instead of waiting for the timeout. A call with no After Effects running starts a headless instance.
 8. `output_module` templates seen: `High Quality`, `High Quality with Alpha`, `Lossless`, `Lossless with Alpha`,
    `Alpha Only`, `H.264 - Match Render Settings - 15 Mbps`, `Photoshop`, `TIFF Sequence with Alpha`. Render queue
    status names are `QUEUED`, `UNQUEUED`, `DONE` and so on.
@@ -161,4 +161,11 @@ messages refer to these notes by number.
 47. Headless, `Layer.doSceneEditDetection` on a video layer of three one-second shots returns `undefined` and adds
     no markers or layers in `NONE`, `MARKERS` and `SPLIT` modes, with the layer selected and 20 seconds later.
     FFmpeg's scene score for the same file is 0.88 and 0.69 at the two cuts, so `ae_markers` `cuts` uses FFmpeg
+    (26.5).
+48. After Effects running with its window answers `DoScript` with `0` on success, as headless does, and its
+    scripts write files with "Allow Scripts to Write Files and Access Network" off. An error that leaves a script
+    uncaught, even after `app.beginSuppressDialogs()`, opens an error dialog that holds the Apple Event until it
+    times out; while any dialog is open, every `DoScript` answers `1` at once and runs nothing. A script sent while
+    a startup dialog is open opens "Unable to execute script. Scripting Plugin is not installed." So the server
+    runs every script inside a `catch` that writes the error to a file, and a `1` from the window means a dialog
     (26.5).
