@@ -8,6 +8,7 @@ import time
 from pathlib import Path
 
 from cavi_mcp_core.proc import diagnostics, run_sync
+from cavi_mcp_core.workspace import remove_scratch
 
 from . import host
 
@@ -112,7 +113,7 @@ def fallback_movie(project, item, entry):
         export_frames(project, item["comp"], work, entry["span_start"], entry["span_duration"], 1, False, movie,
                       codec, entry["frames"], frames=entry["frames"])
     finally:
-        shutil.rmtree(work, ignore_errors=True)
+        remove_scratch(work)
     return host.frame_count(movie)
 
 
@@ -222,7 +223,7 @@ def render_frames(project, comp, times, directory, alpha=False, use_direct=True)
             out.append({"time": t, "file": str(png)})
         return out
     finally:
-        shutil.rmtree(work, ignore_errors=True)
+        remove_scratch(work)
 
 
 def copy_footage(files, folder):

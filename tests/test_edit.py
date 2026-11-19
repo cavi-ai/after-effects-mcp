@@ -171,6 +171,25 @@ class FrameNameTest(unittest.TestCase):
             self.assertEqual({f.parent for f in files}, {directory})
             self.assertTrue(all(f.is_file() for f in files))
 
+    def test_the_render_scratch_folder_is_removed_with_a_read_only_folder_in_it(self):
+        def application(name, project, args, timeout=300):
+            return {"enabled": []}
+
+        def aerender(*args):
+            for work in directory.glob("frames-*"):
+                locked = work / "cache"
+                locked.mkdir(exist_ok=True)
+                (locked / "entry").touch()
+                locked.chmod(0o500)
+
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder) / "frames"
+            with (mock.patch.object(host, "run_template", application), mock.patch.object(host, "aerender", aerender),
+                  mock.patch.object(edit, "RENDER_RETRY_SECONDS", 0)):
+                with self.assertRaisesRegex(RuntimeError, "aerender wrote 0 frames"):
+                    edit.render_frames(Path(folder) / "p.aep", "A", [1.0], directory, use_direct=False)
+            self.assertEqual(list(directory.glob("frames-*")), [])
+
 
 class FallbackMovieTest(unittest.TestCase):
     def test_a_format_ffmpeg_cannot_make_from_frames_is_refused_before_any_work(self):
