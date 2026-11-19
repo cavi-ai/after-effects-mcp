@@ -713,6 +713,7 @@ class TextEdit(Model):
     leading: float | None = None
     justification: Literal["left", "center", "right", "full"] | None = None
     box: Annotated[list[float], Field(min_length=2, max_length=2)] | None = None
+    ranges: list[TextRange] = Field([], max_length=1000, description="Character ranges styled after the whole text")
 
 
 class RenderTarget(Model):

@@ -6,8 +6,8 @@
 
 1. It opens the `template` `.aep`. Unsaved changes in the instance stop the call unless `discard` is true.
 2. It sets each entry of `texts` on its text layer (`comp`, `layer`, and any of `text`, `font`, `size`, `fill`,
-   `stroke`, `stroke_width`, `tracking`, `leading`, `justification`, `box`). The layer's animators and keyframes
-   stay.
+   `stroke`, `stroke_width`, `tracking`, `leading`, `justification`, `box`, and `ranges` as in `ae_text_set`).
+   The layer's animators and keyframes stay.
 3. It replaces each `footage` item, by item name, with the file you give.
 4. It saves the result to `project` (a new path, so the template is untouched).
 5. It queues the comps named in `renders` (`comp`, `file`, and optionally `output_module` and

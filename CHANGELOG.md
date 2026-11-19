@@ -23,6 +23,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 - A background render's job record is created once and readable only by its user, through `cavi-mcp-core`
   `journal.create_json`, and read back through `files.load_json`.
+- `ae_template_render` with `texts` sets them instead of failing with `TypeError: undefined is not an object`, and
+  each entry takes `ranges` as `ae_text_set` does.
 
 ## 0.2.0 - 2026-11-18
 
