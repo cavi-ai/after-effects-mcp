@@ -5,6 +5,9 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    # pin-core moves cavi-mcp-core when a release is published.
+    ignore:
+      - dependency-name: cavi-mcp-core
 
   - package-ecosystem: github-actions
     directory: /
