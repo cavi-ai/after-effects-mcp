@@ -10,16 +10,20 @@ sign in or accept terms.
 ## What it does
 
 - Runs your own `.jsx` file with `ae_script`, or one of the typed tools that build and change a project:
-  comps, layers, text, shapes, masks, cameras and lights, keyframes, expressions, effects, text animators,
-  transitions, time remapping, audio levels, markers and project settings. `ae_batch` runs several typed steps
-  in one After Effects call with one save, and rolls all of them back when one fails.
+  comps, layers, text and paragraph boxes, shapes, masks, keyframes, expressions and Expression Controls,
+  effects, text animators, transitions, time remapping, audio levels, markers (beat grids, audio onsets, video
+  cuts) and project settings. `ae_batch` runs several typed steps in one After Effects call with one save, and
+  rolls all of them back when one fails.
+- Builds in 3D: cameras with orbit rigs, lights and environment lights, materials, extruded text and shapes,
+  parametric meshes and `.c4d` layers with their Cineware settings.
 - Inspects what is there: project items, a comp's layers, any layer's property tree and keyframes, installed
-  effects, fonts, render templates and animation presets.
-- Fills templates: opens a template project, sets text layers by name, swaps footage and renders the named
-  comps.
+  effects, the fonts a project uses, render templates and animation presets.
+- Fills templates: opens a template project or imports an `.aep`, sets text layers by name, swaps footage,
+  copies layers between comps, adds Essential Graphics and media replacement controls, replaces missing fonts
+  and renders the named comps.
 - Delivers: aerender of a saved render queue with frame counts checked, one queue entry rendered in the
-  background with its progress (`ae_render_start`), single frames, frame sequences and H.264 or ProRes movies
-  written without `aerender`.
+  background with its progress (`ae_render_start`), single frames returned as images, frame sequences and H.264
+  or ProRes movies written without `aerender`.
 
 ## How a call works
 
@@ -42,6 +46,7 @@ alternative. See [Troubleshooting](../guides/troubleshooting.md).
 
 ## Where to go next
 
-- [Setup](../guides/setup.md), then [Your first comp](../guides/first-comp.md).
+- [Setup](../guides/setup.md), then [Your first comp](../guides/first-comp.md) and
+  [Building and animating](../guides/building-and-animating.md).
 - The [tool reference](../reference/tools.md) lists every tool with its parameters and results.
 - [Version and support](../release/version-and-support.md) says what was checked natively.

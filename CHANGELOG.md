@@ -32,6 +32,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
   `cavi-mcp-core` `need` and `reject_foreign`.
 - The documentation lists the server's error codes and links the `cavi-mcp-core` results and errors contract.
 - The rendering guide covers `.c4d` layers and their Cineware settings.
+- A Building and animating guide covers effects, layer switches and parts, masks, controls and expressions,
+  time, edits and markers, 3D, and comp and project settings; the README and overview list every tool area.
 
 ### Fixed
 

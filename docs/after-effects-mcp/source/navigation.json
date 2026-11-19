@@ -13,6 +13,7 @@
       "pages": [
         { "title": "Setup", "path": "guides/setup.md" },
         { "title": "Your first comp", "path": "guides/first-comp.md" },
+        { "title": "Building and animating", "path": "guides/building-and-animating.md" },
         { "title": "Templates and Essential Graphics", "path": "guides/templates-and-essential-graphics.md" },
         { "title": "Rendering and the fallback", "path": "guides/rendering.md" },
         { "title": "Troubleshooting", "path": "guides/troubleshooting.md" }
