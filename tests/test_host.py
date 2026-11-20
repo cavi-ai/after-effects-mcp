@@ -223,6 +223,49 @@ class MenuValueTest(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("node"), "node is required")
+class MeshOptionsTest(unittest.TestCase):
+    def mesh_options(self, kind, mesh, bevel):
+        """caviMeshOptions from lib.jsx on a ``kind`` mesh layer: its report and the streams' values afterwards."""
+        source = (host.JSX / "lib.jsx").read_text()
+        start = source.index("var CAVI_SLICE")
+        end = source.index("\n}\n", source.index("function caviMeshSet(")) + 3
+        script = ("function caviFail(message) { throw new Error(message); }\n"
+                  "const TYPES = ['CUBE', 'SPHERE', 'PLANE', 'CYLINDER', 'CONE', 'TORUS'];\n"
+                  "const ParametricMeshType = Object.fromEntries(TYPES.map((t, i) => [t, 6812 + i]));\n"
+                  "class ParametricMeshLayer {}\n" + source[start:end] +
+                  "const [kind, mesh, bevel] = JSON.parse(process.argv[1]);\n"
+                  "const streams = {};\n"
+                  "function group() { return {property(name) {\n"
+                  "  if (!streams[name]) { streams[name] = {value: 0, setValue(v) { this.value = v; }}; }\n"
+                  "  return streams[name]; }}; }\n"
+                  "const layer = Object.assign(new ParametricMeshLayer(), {name: 'M',\n"
+                  "  parametricMeshType: ParametricMeshType[kind], parametricMeshOptions: group(),\n"
+                  "  parametricBevelOptions: group()});\n"
+                  "let out;\n"
+                  "try { out = caviMeshOptions(layer, mesh, bevel); } catch (error) { out = {error: error.message}; }\n"
+                  "const values = Object.fromEntries(Object.entries(streams).map(([k, s]) => [k, s.value]));\n"
+                  "process.stdout.write(JSON.stringify({out, values}));")
+        run = subprocess.run(["node", "-e", script, json.dumps([kind, mesh, bevel])], capture_output=True, text=True,
+                             check=True)
+        return json.loads(run.stdout)
+
+    def test_options_set_the_streams_of_the_layers_own_mesh_type(self):
+        self.assertEqual(self.mesh_options("SPHERE", {"radius": 150, "slice_end": 270}, None), {
+            "out": {"type": "sphere", "mesh": {"radius": 150, "slice_end": 270}, "bevel": {}},
+            "values": {"ADBE SphereRadiusStrm": 150, "ADBE SphereEndAngleStrm": 270}})
+        self.assertEqual(self.mesh_options("CONE", {"top_cap": False}, {"bottom_radius": 12}), {
+            "out": {"type": "cone", "mesh": {"top_cap": False}, "bevel": {"bottom_radius": 12}},
+            "values": {"ADBE ConeTopCapStrm": 0, "ADBE ConeBevelBottomRadiusStrm": 12}})
+
+    def test_an_option_the_mesh_type_lacks_is_refused_before_any_change(self):
+        self.assertEqual(self.mesh_options("SPHERE", {"radius": 150, "width": 400}, None), {
+            "out": {"error": "A sphere mesh has no mesh option width; it has radius, sides, slice_caps, slice_start, "
+                             "slice_end, invert_slice, smoothing_angle"}, "values": {}})
+        self.assertEqual(self.mesh_options("TORUS", {"caps": False}, {"radius": 5}), {
+            "out": {"error": "A torus mesh has no Bevel Options"}, "values": {}})
+
+
+@unittest.skipUnless(shutil.which("node"), "node is required")
 class PropertyPathTest(unittest.TestCase):
     def paths(self, path):
         """The paths ae_properties.jsx reports for ``path`` on a layer Scene > Effects > Cineware > Renderer."""

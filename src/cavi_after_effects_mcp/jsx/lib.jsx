@@ -440,3 +440,79 @@ function caviRenderer(comp, renderer) {
     }
     comp.renderer = renderer;
 }
+
+// Each mesh type's Mesh Options and Bevel Options: the matchName of an option's stream is "ADBE <Type><part>Strm".
+var CAVI_SLICE = {slice_caps: "SliceCaps", slice_start: "StartAngle", slice_end: "EndAngle", invert_slice: "InvertSlice",
+    smoothing_angle: "SmoothingAngle"};
+var CAVI_MESH = {
+    CUBE: {mesh: {width: "Width", height: "Height", depth: "Depth", smoothing_angle: "SmoothingAngle"},
+        bevel: {radius: "BevelRadius", sides: "BevelSides"}},
+    SPHERE: {mesh: {radius: "Radius", sides: "Sides"}, slice: true, bevel: null},
+    PLANE: {mesh: {width: "Width", length: "Length", corner_radius: "CornerRadius", corner_sides: "CornerSides"},
+        bevel: null},
+    CYLINDER: {mesh: {radius: "Radius", height: "Height", sides: "Sides", top_cap: "TopCap", bottom_cap: "BottomCap"},
+        slice: true, bevel: {radius: "BevelRadius", sides: "BevelSides"}},
+    CONE: {mesh: {top_radius: "TopRadius", bottom_radius: "BottomRadius", height: "Height", sides: "Sides",
+        top_cap: "TopCap", bottom_cap: "BottomCap"}, slice: true, bevel: {top_radius: "BevelTopRadius",
+        top_sides: "BevelTopSides", bottom_radius: "BevelBottomRadius", bottom_sides: "BevelBottomSides"}},
+    TORUS: {mesh: {ring_radius: "RingRadius", pipe_radius: "PipeRadius", ring_sides: "RingSides",
+        pipe_sides: "PipeSides", caps: "Caps"}, slice: true, bevel: null}
+};
+
+// The option names of a mesh type's Mesh Options ("mesh") or Bevel Options ("bevel") and their stream parts.
+function caviMeshStreams(kind, what) {
+    var entry = CAVI_MESH[kind], streams = {}, name;
+    if (entry[what] === null) { return null; }
+    for (name in entry[what]) { if (entry[what].hasOwnProperty(name)) { streams[name] = entry[what][name]; } }
+    if (what === "mesh" && entry.slice) {
+        for (name in CAVI_SLICE) { if (CAVI_SLICE.hasOwnProperty(name)) { streams[name] = CAVI_SLICE[name]; } }
+        if (kind === "TORUS") { delete streams.slice_caps; }
+    }
+    return streams;
+}
+
+// Sets a parametric mesh layer's Mesh Options and Bevel Options through its own type's streams, since every mesh
+// layer holds the streams of all six types under the same names. Returns the type and the values read back.
+function caviMeshOptions(layer, mesh, bevel) {
+    var kinds = ["CUBE", "SPHERE", "PLANE", "CYLINDER", "CONE", "TORUS"], kind = null, i, out;
+    if (typeof ParametricMeshLayer === "undefined" || !(layer instanceof ParametricMeshLayer)) {
+        caviFail("Layer " + layer.name + " is not a parametric mesh layer; mesh and bevel need one");
+    }
+    for (i = 0; i < kinds.length; i++) {
+        if (layer.parametricMeshType === ParametricMeshType[kinds[i]]) { kind = kinds[i]; }
+    }
+    out = {type: kind.toLowerCase(), mesh: {}, bevel: {}};
+    caviMeshCheck(kind, "mesh", mesh);
+    caviMeshCheck(kind, "bevel", bevel);
+    caviMeshSet(layer, kind, "mesh", mesh, out.mesh);
+    caviMeshSet(layer, kind, "bevel", bevel, out.bevel);
+    return out;
+}
+
+function caviMeshCheck(kind, what, values) {
+    var streams = caviMeshStreams(kind, what), name, names = [];
+    if (values === null) { return; }
+    if (streams === null) { caviFail("A " + kind.toLowerCase() + " mesh has no Bevel Options"); }
+    for (name in streams) { if (streams.hasOwnProperty(name)) { names.push(name); } }
+    for (name in values) {
+        if (values.hasOwnProperty(name) && values[name] !== null && !streams.hasOwnProperty(name)) {
+            caviFail("A " + kind.toLowerCase() + " mesh has no " + what + " option " + name + "; it has " + names.join(", "));
+        }
+    }
+}
+
+// Checkbox options are 0/1 streams: a boolean is set as 1 or 0 and read back as a boolean.
+function caviMeshSet(layer, kind, what, values, out) {
+    var streams = caviMeshStreams(kind, what), type = kind.charAt(0) + kind.substring(1).toLowerCase(), name, group,
+        stream, value;
+    if (values === null) { return; }
+    group = what === "mesh" ? layer.parametricMeshOptions : layer.parametricBevelOptions;
+    for (name in values) {
+        if (values.hasOwnProperty(name) && values[name] !== null) {
+            value = values[name];
+            stream = group.property("ADBE " + type + streams[name] + "Strm");
+            stream.setValue(typeof value === "boolean" ? (value ? 1 : 0) : value);
+            out[name] = typeof value === "boolean" ? stream.value === 1 : stream.value;
+        }
+    }
+}

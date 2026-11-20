@@ -58,7 +58,8 @@ function report(layer) {
 }
 
 (function () {
-    var a = CAVI_ARGS, comp = caviComp(a.comp), layer = caviLayer(comp, a.layer), path, applied = [], values = {}, matte, prop, parent;
+    var a = CAVI_ARGS, comp = caviComp(a.comp), layer = caviLayer(comp, a.layer), path, applied = [], values = {}, matte, prop, parent,
+        meshed = null;
     // A locked layer refuses every other change, so unlock first and lock last.
     if (a.locked === false) { layer.locked = false; }
     if (a.three_d !== null) { layer.threeDLayer = a.three_d; }
@@ -97,8 +98,9 @@ function report(layer) {
             values[path] = prop.value;
         }
     }
+    if (a.mesh !== null || a.bevel !== null) { meshed = caviMeshOptions(layer, a.mesh, a.bevel); }
     if (a.locked === true) { layer.locked = true; }
-    caviReport({comp: comp.name, layer: describeLayer(layer), properties_set: applied, values: values, solo: layer.solo, shy: layer.shy,
+    caviReport({comp: comp.name, layer: describeLayer(layer), mesh: meshed, properties_set: applied, values: values, solo: layer.solo, shy: layer.shy,
         locked: layer.locked, label: layer.label, stretch: layer.stretch, start_time: layer.startTime,
         blend_mode: String(layer.blendingMode), motion_blur: layer.motionBlur, switches: report(layer), errors: []});
 })();

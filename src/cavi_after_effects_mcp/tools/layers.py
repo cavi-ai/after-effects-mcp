@@ -133,15 +133,19 @@ async def ae_layer_set(
                                                 "Effects/Glow/Glow Threshold or Geometry Options/Extrusion Depth "
                                                 "(3D text and shapes in Advanced 3D or Cinema 4D comps). A menu "
                                                 "takes its item text, as ae_properties lists items, or its 1-based "
-                                                "index.")] = None
+                                                "index.")] = None,
+        mesh: Annotated[models.MeshOptions | None, Field(description=models.MESH)] = None,
+        bevel: Annotated[models.BevelOptions | None, Field(description=models.BEVEL)] = None
 ) -> models.LayerChanged:
     """Change an existing layer: switches, label, timing, stretch, blend mode, parent, 3D, motion blur, track
-    matte, collapse, guide, auto-orient, quality, sampling, adjustment and static property values."""
+    matte, collapse, guide, auto-orient, quality, sampling, adjustment, static property values and a parametric
+    mesh's mesh and bevel options."""
     given(name=name, enabled=enabled, solo=solo, shy=shy, locked=locked, label=label, in_point=in_point,
           out_point=out_point, start_time=start_time, stretch=stretch, blend_mode=blend_mode, parent=parent,
           three_d=three_d, motion_blur=motion_blur, track_matte=track_matte,
           collapse_transformation=collapse_transformation, guide=guide, auto_orient=auto_orient, quality=quality,
-          sampling=sampling, adjustment=adjustment, properties=properties, no_parent=True if no_parent else None)
+          sampling=sampling, adjustment=adjustment, properties=properties, mesh=mesh, bevel=bevel,
+          no_parent=True if no_parent else None)
     if stretch == 0:
         raise ValueError("stretch cannot be 0")
     if no_parent and parent is not None:
@@ -152,7 +156,8 @@ async def ae_layer_set(
             "no_parent": no_parent, "three_d": three_d, "motion_blur": motion_blur,
             "track_matte": track_matte.model_dump() if isinstance(track_matte, TrackMatte) else track_matte,
             "collapse_transformation": collapse_transformation, "guide": guide, "auto_orient": auto_orient,
-            "quality": quality, "sampling": sampling, "adjustment": adjustment, "properties": properties or {}}
+            "quality": quality, "sampling": sampling, "adjustment": adjustment, "properties": properties or {},
+            "mesh": mesh.model_dump() if mesh else None, "bevel": bevel.model_dump() if bevel else None}
     return await scene("ae_layer_set", project, args)
 
 

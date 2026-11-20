@@ -30,7 +30,7 @@ function textLayer(comp, a) {
 }
 
 (function () {
-    var a = CAVI_ARGS, comp = caviComp(a.comp), layer, kind = a.kind, item, w, h, rect, fitted = null;
+    var a = CAVI_ARGS, comp = caviComp(a.comp), layer, kind = a.kind, item, w, h, rect, fitted = null, meshed = null;
     if (kind === "solid" || kind === "adjustment") {
         w = a.width || comp.width; h = a.height || comp.height;
         layer = comp.layers.addSolid(a.color, a.name, w, h, 1, comp.duration);
@@ -86,7 +86,8 @@ function textLayer(comp, a) {
         layer.setTrackMatte(caviLayer(comp, a.track_matte.layer),
             caviEnum(TrackMatteType, a.track_matte.type, "track matte type"));
     }
+    if (a.mesh !== null || a.bevel !== null) { meshed = caviMeshOptions(layer, a.mesh, a.bevel); }
     caviReport({comp: comp.name, layer: {index: layer.index, name: layer.name, kind: kind, three_d: caviIs3D(layer),
-        in_point: layer.inPoint, out_point: layer.outPoint, parent: layer.parent ? layer.parent.name : null, fit_scale: fitted},
-        errors: []});
+        in_point: layer.inPoint, out_point: layer.outPoint, parent: layer.parent ? layer.parent.name : null, fit_scale: fitted,
+        mesh: meshed}, errors: []});
 })();
