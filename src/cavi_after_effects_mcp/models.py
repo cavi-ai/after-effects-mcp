@@ -864,6 +864,11 @@ class TextSelector(Model):
     amount: str | None = Field(None, description="expression: the Amount expression, 0 to 100")
 
 
+FontAxes = dict[Annotated[str, Field(min_length=4, max_length=4)], float]
+FONT_AXES = ("Variable font axes by 4-character tag, such as {\"wght\": 800}; each starts at the font's default. "
+             "The text's font must have each axis (After Effects 26.0+).")
+
+
 class AnimatorProperties(Model):
     opacity: float | None = Field(None, ge=0, le=100)
     position: Vector | None = None
@@ -879,6 +884,7 @@ class AnimatorProperties(Model):
     skew: float | None = None
     skew_axis: float | None = None
     character_offset: float | None = None
+    font_axes: FontAxes | None = Field(None, description=FONT_AXES)
 
 
 class TextAnimator(Model):

@@ -52,6 +52,34 @@ function addSelector(layer, animator, s) {
     }
 }
 
+// A variable font axis is added by its tag and starts at the font's default; the font of the text must have it.
+function addFontAxes(layer, index, axes) {
+    var font = layer.property("ADBE Text Properties").property("ADBE Text Document").value.fontObject, data, have = {},
+        names = [], i, tag, prop, out = {};
+    if (typeof animatorAt(layer, index).property("ADBE Text Animator Properties").addVariableFontAxis !== "function") {
+        caviFail("Variable font axes need After Effects 26.0 or later");
+    }
+    data = font ? font.designAxesData : null;
+    for (i = 0; data && i < data.length; i++) {
+        have[data[i].tag] = true;
+        names.push(data[i].tag + " " + data[i].min + " to " + data[i].max);
+    }
+    for (tag in axes) {
+        if (axes.hasOwnProperty(tag) && !have.hasOwnProperty(tag)) {
+            caviFail("Font " + font.postScriptName + (names.length ? " has no variable axis " + tag + "; its axes are " +
+                names.join(", ") : " is not a variable font; it has no axis " + tag));
+        }
+    }
+    for (tag in axes) {
+        if (axes.hasOwnProperty(tag)) {
+            prop = animatorAt(layer, index).property("ADBE Text Animator Properties").addVariableFontAxis(tag);
+            prop.setValue(axes[tag]);
+            out[tag] = prop.value;
+        }
+    }
+    return out;
+}
+
 function maskIndex(layer, ref) {
     var parade = layer.property("ADBE Mask Parade"), i;
     if (typeof ref === "number") { return ref; }
@@ -62,7 +90,8 @@ function maskIndex(layer, ref) {
 }
 
 (function () {
-    var a = CAVI_ARGS, comp = caviComp(a.comp), layer = caviLayer(comp, a.layer), i, j, spec, index, name, value, report = [], opts;
+    var a = CAVI_ARGS, comp = caviComp(a.comp), layer = caviLayer(comp, a.layer), i, j, spec, index, name, value, report = [], opts,
+        axes, entry;
     if (!(layer instanceof TextLayer)) {
         caviFail("Layer " + layer.name + " is not a text layer");
     }
@@ -71,8 +100,11 @@ function maskIndex(layer, ref) {
         layer.property("ADBE Text Properties").property("ADBE Text Animators").addProperty("ADBE Text Animator");
         index = layer.property("ADBE Text Properties").property("ADBE Text Animators").numProperties;
         if (spec.name) { animatorAt(layer, index).name = spec.name; }
+        axes = null;
         for (name in spec.properties) {
-            if (spec.properties.hasOwnProperty(name) && spec.properties[name] !== null) {
+            if (name === "font_axes" && spec.properties[name] !== null) {
+                axes = addFontAxes(layer, index, spec.properties[name]);
+            } else if (spec.properties.hasOwnProperty(name) && spec.properties[name] !== null) {
                 value = spec.properties[name];
                 if (name === "position" && value.length === 2) { value = [value[0], value[1], 0]; }
                 if (name === "scale" && value.length === 2) { value = [value[0], value[1], 100]; }
@@ -80,7 +112,9 @@ function maskIndex(layer, ref) {
             }
         }
         for (j = 0; j < spec.selectors.length; j++) { addSelector(layer, index, spec.selectors[j]); }
-        report.push({name: animatorAt(layer, index).name, selectors: animatorAt(layer, index).property("ADBE Text Selectors").numProperties});
+        entry = {name: animatorAt(layer, index).name, selectors: animatorAt(layer, index).property("ADBE Text Selectors").numProperties};
+        if (axes !== null) { entry.font_axes = axes; }
+        report.push(entry);
     }
     if (a.path !== null) {
         opts = layer.property("ADBE Text Properties").property("ADBE Text Path Options");

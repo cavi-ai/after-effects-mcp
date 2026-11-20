@@ -172,3 +172,8 @@ messages refer to these notes by number.
     a startup dialog is open opens "Unable to execute script. Scripting Plugin is not installed." So the server
     runs every script inside a `catch` that writes the error to a file, and a `1` from the window means a dialog
     (26.5).
+49. `addVariableFontAxis(tag)` on a text animator's `ADBE Text Animator Properties` adds `Font Axis Weight`
+    (`ADBE Text VF Axis 1`) for `wght`, starting at the axis default of the text's font, such as 400 for
+    KefaIII-Regular, and a value past the axis range is clamped to it: 900 reads back 800. An axis the font lacks
+    fails with `Variable Font Axis was not found on current font.` `TextDocument.fontObject.designAxesData`
+    lists a variable font's axes as `{min, max, default, name, tag}` (27.0).

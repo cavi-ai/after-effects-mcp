@@ -266,6 +266,51 @@ class MeshOptionsTest(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("node"), "node is required")
+class FontAxesTest(unittest.TestCase):
+    KEFA = [{"min": 300, "max": 800, "default": 400, "name": "Weight", "tag": "wght"}]
+
+    def font_axes(self, font, data, axes, api=True):
+        """addFontAxes from ae_text_animator.jsx on text in ``font``: its report and the axes added with values."""
+        source = (host.JSX / "ae_text_animator.jsx").read_text()
+        functions = ""
+        for name in ("animatorAt", "addFontAxes"):
+            start = source.index(f"function {name}(")
+            functions += source[start:source.index("\n}\n", start) + 3]
+        script = ("function caviFail(message) { throw new Error(message); }\n" + functions +
+                  "const [font, data, axes, api] = JSON.parse(process.argv[1]);\n"
+                  "const added = [];\n"
+                  "const props = {};\n"
+                  "if (api) { props.addVariableFontAxis = tag => {\n"
+                  "  const p = {value: 400, setValue(v) { this.value = v; }}; added.push([tag, p]); return p; }; }\n"
+                  "const doc = {fontObject: {postScriptName: font, designAxesData: data === null ? undefined : data}};\n"
+                  "const animator = {property: n => n === 'ADBE Text Animator Properties' ? props : null};\n"
+                  "const text = {property: n => n === 'ADBE Text Document' ? {value: doc}\n"
+                  "  : n === 'ADBE Text Animators' ? {property: i => i === 1 ? animator : null} : null};\n"
+                  "const layer = {property: n => n === 'ADBE Text Properties' ? text : null};\n"
+                  "let out;\n"
+                  "try { out = addFontAxes(layer, 1, axes); } catch (error) { out = {error: error.message}; }\n"
+                  "process.stdout.write(JSON.stringify({out, added: added.map(([t, p]) => [t, p.value])}));")
+        run = subprocess.run(["node", "-e", script, json.dumps([font, data, axes, api])], capture_output=True,
+                             text=True, check=True)
+        return json.loads(run.stdout)
+
+    def test_an_axis_of_the_font_is_added_and_set(self):
+        self.assertEqual(self.font_axes("KefaIII-Regular", self.KEFA, {"wght": 800}),
+                         {"out": {"wght": 800}, "added": [["wght", 800]]})
+
+    def test_an_axis_the_font_lacks_is_refused_with_the_fonts_axes(self):
+        self.assertEqual(self.font_axes("KefaIII-Regular", self.KEFA, {"wght": 800, "wdth": 100}), {
+            "out": {"error": "Font KefaIII-Regular has no variable axis wdth; its axes are wght 300 to 800"},
+            "added": []})
+        self.assertEqual(self.font_axes("ArialMT", None, {"wght": 800}), {
+            "out": {"error": "Font ArialMT is not a variable font; it has no axis wght"}, "added": []})
+
+    def test_axes_before_after_effects_26_are_refused(self):
+        self.assertEqual(self.font_axes("KefaIII-Regular", self.KEFA, {"wght": 800}, api=False)["out"],
+                         {"error": "Variable font axes need After Effects 26.0 or later"})
+
+
+@unittest.skipUnless(shutil.which("node"), "node is required")
 class PropertyPathTest(unittest.TestCase):
     def paths(self, path):
         """The paths ae_properties.jsx reports for ``path`` on a layer Scene > Effects > Cineware > Renderer."""
