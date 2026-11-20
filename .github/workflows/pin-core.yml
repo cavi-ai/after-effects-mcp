@@ -2,6 +2,10 @@ name: pin-core
 
 on:
   workflow_dispatch:
+    inputs:
+      version:
+        description: cavi-mcp-core version to lock; the newest when empty
+        required: false
   repository_dispatch:
     types: [core-released]
 
@@ -25,12 +29,15 @@ jobs:
         with:
           python-version: "3.15"
       - id: sync
+        env:
+          VERSION: ${{ github.event.client_payload.version || inputs.version }}
         run: |
           locked() {
             python3 -c 'import tomllib; print(next(p["version"] for p in tomllib.load(open("uv.lock", "rb"))["package"] if p["name"] == "cavi-mcp-core"))'
           }
           from=$(locked)
-          uv lock --upgrade-package cavi-mcp-core
+          # A named version the index does not serve yet fails the run instead of keeping the old lock.
+          uv lock --upgrade-package "cavi-mcp-core${VERSION:+==$VERSION}"
           to=$(locked)
           if [ "$from" != "$to" ]; then
             echo "branch=bot/pin-core-$to" >> "$GITHUB_OUTPUT"
