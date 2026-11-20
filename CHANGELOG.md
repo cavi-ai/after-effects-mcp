@@ -4,6 +4,15 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 ## Unreleased
 
+### Fixed
+
+- `ae_export_frames` waits until every PNG has its bytes; a frame still empty when the last file appeared failed
+  the call with `After Effects wrote 30 of 30 frames`.
+
+### Changed
+
+- The support page names After Effects 27.0.0 as the checked application.
+
 ## 0.3.0 - 2026-11-19
 
 ### Added
