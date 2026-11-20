@@ -4,6 +4,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 ## Unreleased
 
+## 0.3.0 - 2026-11-19
+
 ### Added
 
 - `ae_layer_add` `kind` `mesh` adds a parametric cube, sphere, plane, cylinder, cone or torus (`mesh_type`), sized
