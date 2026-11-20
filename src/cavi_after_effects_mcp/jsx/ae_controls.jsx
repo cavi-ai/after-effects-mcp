@@ -44,8 +44,9 @@ function control(layer, name) {
     for (i = 0; i < a.links.length; i++) {
         spec = a.links[i];
         control(host, spec.control);
-        // The control's one parameter by index, since its display name is translated on other installs.
-        expr = 'thisComp.layer("' + host.name.replace(/"/g, '\\"') + '").effect("' + spec.control.replace(/"/g, '\\"') + '")(1)';
+        // The control's one parameter by index, since its display name is translated on other installs. The names
+        // are quoted as JSON strings, which are expression string literals with backslashes and quotes escaped.
+        expr = "thisComp.layer(" + caviStringify(host.name) + ").effect(" + caviStringify(spec.control) + ")(1)";
         if (spec.scale !== 1) { expr = "(" + expr + ") * " + spec.scale; }
         if (spec.offset !== 0) { expr = "(" + expr + ") + " + spec.offset; }
         if (spec.axis !== null) {
