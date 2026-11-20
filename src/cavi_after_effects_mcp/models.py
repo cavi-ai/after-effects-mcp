@@ -54,6 +54,46 @@ class TrackMatte(Model):
     type: Literal["alpha", "alpha_inverted", "luma", "luma_inverted"] = "alpha"
 
 
+class MeshOptions(Model):
+    """Mesh Options of a parametric mesh layer; each mesh type takes its own subset."""
+    width: float | None = Field(None, gt=0, description="cube, plane")
+    height: float | None = Field(None, gt=0, description="cube, cone, cylinder")
+    depth: float | None = Field(None, gt=0, description="cube")
+    length: float | None = Field(None, gt=0, description="plane")
+    radius: float | None = Field(None, gt=0, description="sphere, cylinder")
+    top_radius: float | None = Field(None, ge=0, description="cone")
+    bottom_radius: float | None = Field(None, ge=0, description="cone")
+    ring_radius: float | None = Field(None, gt=0, description="torus")
+    pipe_radius: float | None = Field(None, gt=0, description="torus")
+    corner_radius: float | None = Field(None, ge=0, description="plane")
+    sides: int | None = Field(None, ge=3, description="sphere, cone, cylinder")
+    ring_sides: int | None = Field(None, ge=3, description="torus")
+    pipe_sides: int | None = Field(None, ge=3, description="torus")
+    corner_sides: int | None = Field(None, ge=1, description="plane")
+    top_cap: bool | None = Field(None, description="cone, cylinder")
+    bottom_cap: bool | None = Field(None, description="cone, cylinder")
+    caps: bool | None = Field(None, description="torus")
+    slice_caps: bool | None = Field(None, description="sphere, cone, cylinder")
+    slice_start: float | None = Field(None, description="Degrees; sphere, cone, cylinder, torus")
+    slice_end: float | None = Field(None, description="Degrees; sphere, cone, cylinder, torus")
+    invert_slice: bool | None = Field(None, description="sphere, cone, cylinder, torus")
+    smoothing_angle: float | None = Field(None, ge=0, description="Degrees; all but plane")
+
+
+class BevelOptions(Model):
+    """Bevel Options of a cube, cylinder (radius, sides) or cone (top and bottom) mesh layer."""
+    radius: float | None = Field(None, ge=0)
+    sides: int | None = Field(None, ge=1)
+    top_radius: float | None = Field(None, ge=0)
+    top_sides: int | None = Field(None, ge=1)
+    bottom_radius: float | None = Field(None, ge=0)
+    bottom_sides: int | None = Field(None, ge=1)
+
+
+MESH = "Parametric mesh layers: Mesh Options (After Effects 26.3+)."
+BEVEL = "Parametric cube, cylinder and cone layers: Bevel Options (After Effects 26.3+)."
+
+
 class LayerSpec(Model):
     comp: str = Field(min_length=1)
     kind: Literal["solid", "text", "footage", "shape_rect", "null", "camera", "light", "adjustment", "model", "comp",
@@ -77,7 +117,9 @@ class LayerSpec(Model):
     fit: bool = Field(True, description="Model layers: scale so its largest extent times the square root of 3 (a rotation-safe bound) is 60% of the comp height, centered; false keeps the raw import")
     light_type: Literal["point", "spot", "parallel", "ambient", "environment"] = "point"
     mesh_type: Literal["cube", "sphere", "plane", "cylinder", "cone", "torus"] = Field(
-        "cube", description="Parametric 3D mesh for kind mesh (After Effects 26.3+); size it with transform scale")
+        "cube", description="Parametric 3D mesh for kind mesh (After Effects 26.3+); size it with mesh")
+    mesh: MeshOptions | None = Field(None, description=MESH)
+    bevel: BevelOptions | None = Field(None, description=BEVEL)
     transform: Transform = Transform()
     three_d: bool = False
     in_point: float | None = None
@@ -92,6 +134,8 @@ class LayerSpec(Model):
     def visible(self):
         if self.kind == "shape_rect" and self.fill is None and self.stroke is None:
             raise ValueError("A shape_rect needs fill or stroke; color applies only to solids")
+        if self.kind != "mesh" and (self.mesh is not None or self.bevel is not None):
+            raise ValueError("mesh and bevel apply only to kind mesh")
         return self
 
 
@@ -356,6 +400,7 @@ class ProjectState(Script):
 class LayerChanged(Script):
     comp: str
     layer: dict[str, Any]
+    mesh: dict[str, Any] | None = Field(None, description="Mesh type and the mesh and bevel values set")
     properties_set: list[str]
     values: dict[str, Any]
 

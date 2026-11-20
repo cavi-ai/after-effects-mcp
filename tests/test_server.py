@@ -111,6 +111,8 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_layer_set", {**base, "quality": "high"}, "'best', 'draft' or 'wireframe'"),
             ("ae_layer_add", {"project": "/x.aep", "layer": {"comp": "a", "kind": "mesh", "name": "m",
                                                              "mesh_type": "pyramid"}}, "'cube', 'sphere', 'plane'"),
+            ("ae_layer_add", {"project": "/x.aep", "layer": {"comp": "a", "kind": "solid", "name": "s",
+                                                             "mesh": {"width": 400}}}, "apply only to kind mesh"),
             ("ae_camera", {"project": "/x.aep", "comp": "a", "light": {"type": "point", "source": "Sky"}},
              "source lights only an environment light"),
             ("ae_comp_new", {"project": "/x.aep", "name": "a", "width": 64}, "needs width, height and duration"),

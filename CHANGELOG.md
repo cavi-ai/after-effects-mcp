@@ -4,6 +4,11 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 ## Unreleased
 
+### Added
+
+- `ae_layer_add` and `ae_layer_set` `mesh` and `bevel` set a parametric mesh's Mesh Options and Bevel Options, such
+  as a cube's `width` or a sphere's `radius`, for its own type, and report the values read back.
+
 ### Fixed
 
 - `ae_export_frames` waits until every PNG has its bytes; a frame still empty when the last file appeared failed
