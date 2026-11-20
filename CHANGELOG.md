@@ -8,6 +8,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 - `ae_layer_add` and `ae_layer_set` `mesh` and `bevel` set a parametric mesh's Mesh Options and Bevel Options, such
   as a cube's `width` or a sphere's `radius`, for its own type, and report the values read back.
+- `ae_text_animator` `font_axes`, and `font_axes` in an animator's `properties`, animate variable font axes by tag,
+  such as `{"wght": 800}`; an axis the font lacks is refused with the font's axes and ranges.
 
 ### Fixed
 

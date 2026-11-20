@@ -10,7 +10,7 @@ still change. Every change is recorded in the repository
 ## Checked application
 
 After Effects 27.0.0 on macOS, headless: launch, `ae_project` `new`, creating a comp, adding a text layer, a text
-animator, a beat grid of markers, a parametric mesh layer and its mesh and bevel options, PNG frames, inspecting a
+animator and its variable font axes, a beat grid of markers, a parametric mesh layer and its mesh and bevel options, PNG frames, inspecting a
 comp, writing an H.264 movie from frames, `ae_script` and reporting the open project. Checked in 26.5.0: the same,
 and `ae_template_render` with and without `variants`, `ae_render_queue` against its queue
 entries (movies, image sequences and a re-render), `ae_render_start`, `ae_render_status` and `ae_render_cancel`,

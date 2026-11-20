@@ -96,6 +96,7 @@ async def ae_text_animator(
         scale: Annotated[models.Vector | None, Field(description="Animated scale in percent.")] = None,
         blur: Annotated[models.Vector | None, Field(description="Animated blur.")] = None,
         rotation: Annotated[float | None, Field(description="Animated rotation in degrees.")] = None,
+        font_axes: Annotated[models.FontAxes | None, Field(description=models.FONT_AXES)] = None,
         start: Annotated[float, Field(ge=0, description="When the range selector starts opening, comp "
                                                         "seconds.")] = 0,
         duration: Annotated[float, Field(gt=0, description="How long it takes to open, in seconds.")] = 1,
@@ -106,9 +107,9 @@ async def ae_text_animator(
         path: Annotated[models.TextPath | None, Field(description="Text on a path from a layer mask.")] = None
 ) -> models.TextAnimated:
     """Add a text animator whose range selector opens over the text, or full animators with several selectors
-    (range, wiggly, expression), and/or put the text on a mask path."""
+    (range, wiggly, expression), and/or put the text on a mask path. Animators can drive variable font axes."""
     properties = {"opacity": opacity, "position": position, "tracking": tracking, "scale": scale,
-                  "blur": blur, "rotation": rotation}
+                  "blur": blur, "rotation": rotation, "font_axes": font_axes}
     listed = [a.model_dump() for a in animators]
     if not listed and any(v is not None for v in properties.values()):
         listed = [{"name": name, "properties": properties, "selectors": [

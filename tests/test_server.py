@@ -259,6 +259,7 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
         model = {"comp": "a", "kind": "model", "name": "m", "file": "/m.stl"}
         calls = [
             ("ae_text_animator", base, "at least one animator"),
+            ("ae_text_animator", {**base, "font_axes": {"wg": 800}}, "at least 4 characters"),
             ("ae_controls", base, "controls or links"),
             ("ae_project_settings", {"project": "/x.aep"}, "at least one"),
             ("ae_project_settings", {"project": "/x.aep", "bits_per_channel": 12}, "bits_per_channel"),
