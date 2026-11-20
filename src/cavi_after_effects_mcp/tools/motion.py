@@ -66,7 +66,9 @@ async def ae_effect_add(
         match_name: Annotated[str, Field(description="Effect matchName, as ae_effects lists it.")],
         params: Annotated[dict[str, Any] | None, Field(description="Parameter values by name or matchName; a "
                                                                    "menu takes its item text or 1-based "
-                                                                   "index.")] = None,
+                                                                   "index, and a layer parameter its layer "
+                                                                   "index or {layer, stage} (" + models.STAGE +
+                                                                   ").")] = None,
         name: Annotated[str | None, Field(description="Name for the effect instance.")] = None
 ) -> models.EffectAdded:
     """Add an effect by matchName (e.g. ADBE Glo2) and set parameters by name or matchName."""

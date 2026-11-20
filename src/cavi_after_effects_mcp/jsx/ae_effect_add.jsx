@@ -1,7 +1,7 @@
 $.evalFile(new File(CAVI_LIB));
 
 (function () {
-    var a = CAVI_ARGS, comp = caviComp(a.comp), layer = caviLayer(comp, a.layer), effect, name, applied = [];
+    var a = CAVI_ARGS, comp = caviComp(a.comp), layer = caviLayer(comp, a.layer), effect, name, applied = [], value;
     caviGuard3D(comp, layer, "an effect");
     effect = layer.property("ADBE Effect Parade").addProperty(a.match_name);
     if (!effect) {
@@ -10,7 +10,12 @@ $.evalFile(new File(CAVI_LIB));
     if (a.name) { effect.name = a.name; }
     for (name in a.params) {
         if (a.params.hasOwnProperty(name)) {
-            effect.property(name).setValue(caviMenuValue(effect.property(name), a.params[name]));
+            value = a.params[name];
+            if (caviIsInput(value)) {
+                caviSetLayerInput(effect.property(name), value);
+            } else {
+                effect.property(name).setValue(caviMenuValue(effect.property(name), value));
+            }
             applied.push(name);
         }
     }

@@ -133,7 +133,9 @@ async def ae_layer_set(
                                                 "Effects/Glow/Glow Threshold or Geometry Options/Extrusion Depth "
                                                 "(3D text and shapes in Advanced 3D or Cinema 4D comps). A menu "
                                                 "takes its item text, as ae_properties lists items, or its 1-based "
-                                                "index.")] = None,
+                                                "index. A layer parameter, such as Effects/Displacement Map/"
+                                                "Displacement Map Layer, takes its layer index or {layer, stage} ("
+                                                + models.STAGE + ").")] = None,
         mesh: Annotated[models.MeshOptions | None, Field(description=models.MESH)] = None,
         bevel: Annotated[models.BevelOptions | None, Field(description=models.BEVEL)] = None
 ) -> models.LayerChanged:

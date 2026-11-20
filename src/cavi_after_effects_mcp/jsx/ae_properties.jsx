@@ -52,9 +52,11 @@ function keyframes(prop) {
 }
 
 function node(prop, path) {
-    var out = {path: path, name: prop.name, match_name: prop.matchName}, items;
+    var out = {path: path, name: prop.name, match_name: prop.matchName}, items, input;
     if (prop.propertyType === PropertyType.PROPERTY) {
         out.value = plain(prop);
+        input = caviLayerInput(prop);
+        if (input !== null) { out.stage = input.stage; }
         items = caviMenuItems(prop);
         if (items !== null) {
             out.items = items;
