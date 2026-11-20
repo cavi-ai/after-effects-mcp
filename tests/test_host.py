@@ -360,6 +360,43 @@ class LayerInputTest(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("node"), "node is required")
+class ControlLinkTest(unittest.TestCase):
+    def linked_names(self, layer, control):
+        """The layer and control names the expression ae_controls.jsx links to Opacity looks up when it runs."""
+        runner = (host.RUNNER).read_text()
+        start = runner.index("function caviStringify(")
+        script = ("const $ = {evalFile() {}}; function File() {} const CAVI_LIB = '';\n" +
+                  runner[start:runner.index("\n}\n", start) + 3] +
+                  "const [name, controlName] = JSON.parse(process.argv[1]);\n"
+                  "const ctrl = {name: controlName, matchName: 'ADBE Slider Control', numProperties: 1};\n"
+                  "const parade = {numProperties: 1, property: r => typeof r === 'number' || r === controlName ? ctrl : null};\n"
+                  "const layer = {name, property: n => n === 'ADBE Effect Parade' ? parade : null};\n"
+                  "const opacity = {expression: '', expressionError: ''};\n"
+                  "let report = null;\n"
+                  "function caviFail(message) { throw new Error(message); }\n"
+                  "function caviComp() { return {name: 'C'}; }\n"
+                  "function caviLayer() { return layer; }\n"
+                  "function caviProp() { return opacity; }\n"
+                  "function caviReport(r) { report = r; }\n"
+                  "const CAVI_ARGS = {comp: 'C', layer: name, controls: [], links: [{control: controlName, layer: null,\n"
+                  "  property: 'Transform/Opacity', scale: 1, offset: 0, axis: null}]};\n" +
+                  (host.JSX / "ae_controls.jsx").read_text() +
+                  "\nconst seen = [];\n"
+                  "const thisComp = {layer: n => { seen.push(n); return {effect: e => { seen.push(e); return () => 50; }}; }};\n"
+                  "let value;\n"
+                  "try { value = eval(opacity.expression); } catch (error) { value = 'error: ' + error.message; }\n"
+                  "process.stdout.write(JSON.stringify({seen, value}));")
+        run = subprocess.run(["node", "-e", script, json.dumps([layer, control])], capture_output=True, text=True,
+                             check=True)
+        return json.loads(run.stdout)
+
+    def test_names_with_backslashes_and_quotes_reach_the_expression_unchanged(self):
+        for layer, control in (("Logo", "Amount"), ("C:\\temp", "Size \"big\""), ("Path\\", "Amount\\")):
+            with self.subTest(layer=layer, control=control):
+                self.assertEqual(self.linked_names(layer, control), {"seen": [layer, control], "value": 50})
+
+
+@unittest.skipUnless(shutil.which("node"), "node is required")
 class PropertyPathTest(unittest.TestCase):
     def paths(self, path):
         """The paths ae_properties.jsx reports for ``path`` on a layer Scene > Effects > Cineware > Renderer."""

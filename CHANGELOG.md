@@ -16,6 +16,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 ### Fixed
 
+- `ae_controls` `links` quote the layer and control names with backslashes escaped; a name holding a backslash
+  linked another name or broke the expression.
 - `ae_export_frames` waits until every PNG has its bytes; a frame still empty when the last file appeared failed
   the call with `After Effects wrote 30 of 30 frames`.
 
