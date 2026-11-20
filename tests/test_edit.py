@@ -2,6 +2,7 @@ import shutil
 import struct
 import subprocess
 import tempfile
+import threading
 import unittest
 import zlib
 from pathlib import Path
@@ -189,6 +190,32 @@ class FrameNameTest(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, "aerender wrote 0 frames"):
                     edit.render_frames(Path(folder) / "p.aep", "A", [1.0], directory, use_direct=False)
             self.assertEqual(list(directory.glob("frames-*")), [])
+
+
+class ExportFramesTest(unittest.TestCase):
+    def test_frames_created_empty_and_written_later_are_returned(self):
+        """After Effects creates each PNG before it writes its bytes."""
+        fills = []
+
+        def application(name, project, args, timeout=300):
+            files = [Path(args["directory"]) / f"frame_{n:05d}.png" for n in range(1, 4)]
+            for f in files:
+                f.touch()
+            fills.append(threading.Timer(0.5, lambda: [png(f, 4, 4) for f in files]))
+            fills[-1].start()
+            return {"count": 3, "fps": 30, "errors": []}
+
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder) / "frames"
+            try:
+                with mock.patch.object(host, "run_template", application):
+                    result = edit.export_frames(Path(folder) / "p.aep", "A", directory, 0, None, 1, False, None,
+                                                "h264", 10)
+            finally:
+                for fill in fills:
+                    fill.join()
+            self.assertEqual(result["frames"], 3)
+            self.assertEqual(result["last"], str(directory / "frame_00003.png"))
 
 
 class FallbackMovieTest(unittest.TestCase):

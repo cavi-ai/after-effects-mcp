@@ -130,11 +130,8 @@ def export_frames(project, comp, directory, start, duration, step, alpha, movie,
         "comp": comp, "directory": str(directory), "start": start, "duration": duration, "step": step,
         "background": not alpha, "max_frames": max_frames, "frames": frames}, directory / ".cineware-warm.png", 3600)
     count = report["count"]
-    deadline = time.monotonic() + 60 + count
-    while time.monotonic() < deadline:
-        if len(list(directory.glob("frame_*.png"))) >= count:
-            break
-        time.sleep(0.25)
+    # Each PNG exists, empty, before After Effects writes its bytes.
+    appeared([directory / f"frame_{n:05d}.png" for n in range(1, count + 1)], 60 + count)
     written = sorted(directory.glob("frame_*.png"))
     if len(written) != count or any(f.stat().st_size == 0 for f in written):
         raise RuntimeError(f"After Effects wrote {len(written)} of {count} frames to {directory}")

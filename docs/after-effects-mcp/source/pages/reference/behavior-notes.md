@@ -117,8 +117,8 @@ messages refer to these notes by number.
     instance when none runs. `ae_script` refuses scripts calling `applyPreset`, `executeCommand` and
     `findMenuCommandId`, which abort After Effects (crash reports show `ApplyPreset` and `DoCommandIfEnabled`).
 38. `ae_export_frames` calls `Comp.saveFrameToPng` once per frame in one script, then waits for the files, because
-    the PNGs land after the script returns. A comp whose frames are 161x91 encodes to H.264 at 160x90 (even sizes
-    only); ProRes 4444 keeps odd sizes and alpha.
+    the PNGs land after the script returns, each first as an empty file (27.0). A comp whose frames are 161x91
+    encodes to H.264 at 160x90 (even sizes only); ProRes 4444 keeps odd sizes and alpha.
 39. `saveFrameToPng` frames match aerender frames: the same frame of a classic 3D comp and of an Advanced 3D comp
     (3D solids and a light) is pixel-identical (PSNR infinite), and a glb model layer under an environment light
     differs by under one level (PSNR 78.6 dB). The queue fallback encodes the queue entry's time span at the
