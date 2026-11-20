@@ -177,3 +177,9 @@ messages refer to these notes by number.
     KefaIII-Regular, and a value past the axis range is clamped to it: 900 reads back 800. An axis the font lacks
     fails with `Variable Font Axis was not found on current font.` `TextDocument.fontObject.designAxesData`
     lists a variable font's axes as `{min, max, default, name, tag}` (27.0).
+50. A layer parameter, such as Displacement Map's `Displacement Map Layer` (`ADBE Displacement Map-0001`), reads
+    `inputLayerAndStage` as `[layer index, stage]`, the stage one of `LayerInputStageType` `SOURCE` (0),
+    `ONLY_MASKS` (-2) and `ALL_EFFECTS` (-1); a new one samples its own layer at `SOURCE`.
+    `getInputStageCycleSafeLimit()` is `ONLY_MASKS` while it samples its own layer, and `ALL_EFFECTS` for another
+    layer. Any of these on a property that is not a layer parameter fails with `AEGP_StreamSuite
+    layer-param-stage: stream is not a PF_Param_LAYER` (27.0).

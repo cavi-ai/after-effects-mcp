@@ -10,6 +10,9 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
   as a cube's `width` or a sphere's `radius`, for its own type, and report the values read back.
 - `ae_text_animator` `font_axes`, and `font_axes` in an animator's `properties`, animate variable font axes by tag,
   such as `{"wght": 800}`; an axis the font lacks is refused with the font's axes and ranges.
+- `ae_effect_add` `params` and `ae_layer_set` `properties` set a layer parameter to `{layer, stage}`, sampling the
+  layer at `source`, `masks` or `effects`, and refuse a stage that makes a render cycle; `ae_properties` reports
+  a layer parameter's `stage`.
 
 ### Fixed
 

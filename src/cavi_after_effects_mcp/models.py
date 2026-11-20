@@ -92,6 +92,8 @@ class BevelOptions(Model):
 
 MESH = "Parametric mesh layers: Mesh Options (After Effects 26.3+)."
 BEVEL = "Parametric cube, cylinder and cone layers: Bevel Options (After Effects 26.3+)."
+STAGE = ("layer by index or name; stage source, masks or effects: the layer before masks and effects, with masks, "
+         "or with masks and effects; After Effects 26.5+")
 
 
 class LayerSpec(Model):

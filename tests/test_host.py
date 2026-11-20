@@ -311,6 +311,55 @@ class FontAxesTest(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("node"), "node is required")
+class LayerInputTest(unittest.TestCase):
+    def layer_input(self, value, limit=-1, layer_param=True, api=True):
+        """caviSetLayerInput from lib.jsx on Displacement Map Layer of layer 1 in a comp of Target and Map, whose
+        cycle-safe stage limit is ``limit``: what it reads back and the setInputLayerAndStage calls."""
+        source = (host.JSX / "lib.jsx").read_text()
+        layer = source.index("function caviLayer(")
+        start = source.index("var CAVI_STAGES")
+        end = source.index("\n}\n", source.index("function caviIsInput(")) + 3
+        script = ("function caviFail(message) { throw new Error(message); }\n"
+                  "const PropertyValueType = {OneD: 1, LAYER_INDEX: 7};\n" +
+                  source[layer:source.index("\n}\n", layer) + 3] + source[start:end] +
+                  "const [value, limit, layerParam, api] = JSON.parse(process.argv[1]);\n"
+                  "const comp = {name: 'C', numLayers: 2, layer: i => layers[i - 1]};\n"
+                  "const layers = [{name: 'Target', index: 1, containingComp: comp},\n"
+                  "  {name: 'Map', index: 2, containingComp: comp}];\n"
+                  "const calls = [];\n"
+                  "const prop = {name: 'Displacement Map Layer', propertyValueType: layerParam ? 7 : 1,\n"
+                  "  propertyDepth: 2, propertyGroup: d => d === 2 ? layers[0] : null, inputLayerAndStage: [1, 0],\n"
+                  "  LayerInputStageType: {SOURCE: 0, ALL_EFFECTS: -1, ONLY_MASKS: -2},\n"
+                  "  getInputStageCycleSafeLimit: () => limit};\n"
+                  "if (api) { prop.setInputLayerAndStage = (l, s) => { calls.push([l, s]); prop.inputLayerAndStage = [l, s]; }; }\n"
+                  "let out;\n"
+                  "try { caviSetLayerInput(prop, value); out = caviLayerInput(prop); }\n"
+                  "catch (error) { out = {error: error.message}; }\n"
+                  "process.stdout.write(JSON.stringify({out, calls}));")
+        run = subprocess.run(["node", "-e", script, json.dumps([value, limit, layer_param, api])],
+                             capture_output=True, text=True, check=True)
+        return json.loads(run.stdout)
+
+    def test_a_layer_by_name_is_set_at_its_stage(self):
+        self.assertEqual(self.layer_input({"layer": "Map", "stage": "masks"}),
+                         {"out": {"layer": 2, "stage": "masks"}, "calls": [[2, 0], [2, -2]]})
+        self.assertEqual(self.layer_input({"layer": None, "stage": "source"})["out"], {"layer": 0, "stage": "source"})
+
+    def test_a_stage_past_the_cycle_safe_limit_is_refused(self):
+        self.assertEqual(self.layer_input({"layer": 1, "stage": "effects"}, limit=-2)["out"], {
+            "error": "Displacement Map Layer at stage effects makes a render cycle; its highest safe stage is masks"})
+
+    def test_a_bad_stage_a_property_that_is_not_a_layer_and_old_after_effects_are_refused(self):
+        self.assertEqual(self.layer_input({"layer": 2, "stage": "comp"}), {"out": {
+            "error": "Displacement Map Layer has no stage comp; its stages are source, masks and effects"},
+            "calls": []})
+        self.assertEqual(self.layer_input({"layer": 2, "stage": "masks"}, layer_param=False)["out"], {
+            "error": "Displacement Map Layer is not a layer parameter; {layer, stage} sets one"})
+        self.assertEqual(self.layer_input({"layer": 2, "stage": "masks"}, api=False)["out"], {
+            "error": "A layer parameter's stage needs After Effects 26.5 or later"})
+
+
+@unittest.skipUnless(shutil.which("node"), "node is required")
 class PropertyPathTest(unittest.TestCase):
     def paths(self, path):
         """The paths ae_properties.jsx reports for ``path`` on a layer Scene > Effects > Cineware > Renderer."""
@@ -335,6 +384,7 @@ class PropertyPathTest(unittest.TestCase):
                   "function caviComp() { return {name: 'C'}; }\n"
                   "function caviLayer() { return layer; }\n"
                   "function caviMenuItems() { return null; }\n"
+                  "function caviLayerInput() { return null; }\n"
                   "function caviReport(r) { report = r; }\n"
                   "const CAVI_ARGS = JSON.parse(process.argv[1]);\n"
                   + lib[start:lib.index("\n}\n", start) + 3] + (host.JSX / "ae_properties.jsx").read_text() +

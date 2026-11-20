@@ -279,6 +279,63 @@ function caviBoxState(doc) {
 }
 
 // Sets a static value; text documents belong to ae_text_set and keyed properties to ae_keyframes.
+// The render stages a layer parameter samples its source layer at, from the source alone to masks and effects.
+var CAVI_STAGES = {source: "SOURCE", masks: "ONLY_MASKS", effects: "ALL_EFFECTS"};
+var CAVI_STAGE_RANK = {source: 0, masks: 1, effects: 2};
+
+function caviStageName(prop, value) {
+    var name;
+    for (name in CAVI_STAGES) {
+        if (CAVI_STAGES.hasOwnProperty(name) && prop.LayerInputStageType[CAVI_STAGES[name]] === value) { return name; }
+    }
+    return String(value);
+}
+
+// A layer parameter's source layer index and stage as {layer, stage}; null for other properties and before
+// After Effects 26.5.
+function caviLayerInput(prop) {
+    var pair;
+    if (prop.propertyValueType !== PropertyValueType.LAYER_INDEX || typeof prop.setInputLayerAndStage !== "function") {
+        return null;
+    }
+    pair = prop.inputLayerAndStage;
+    return {layer: pair[0], stage: caviStageName(prop, pair[1])};
+}
+
+// Sets a layer parameter to {layer, stage}: the source layer by index or name (0 or null for none) and its render
+// stage. A stage past the highest one that renders without a cycle is refused.
+function caviSetLayerInput(prop, value) {
+    var index = 0, name, safe;
+    if (prop.propertyValueType !== PropertyValueType.LAYER_INDEX) {
+        caviFail(prop.name + " is not a layer parameter; {layer, stage} sets one");
+    }
+    if (typeof prop.setInputLayerAndStage !== "function") {
+        caviFail("A layer parameter's stage needs After Effects 26.5 or later");
+    }
+    for (name in value) {
+        if (value.hasOwnProperty(name) && name !== "layer" && name !== "stage") {
+            caviFail(prop.name + " takes {layer, stage}, not " + name);
+        }
+    }
+    if (!CAVI_STAGES.hasOwnProperty(value.stage)) {
+        caviFail(prop.name + " has no stage " + value.stage + "; its stages are source, masks and effects");
+    }
+    if (value.layer !== null && value.layer !== undefined && value.layer !== 0) {
+        index = caviLayer(prop.propertyGroup(prop.propertyDepth).containingComp, value.layer).index;
+    }
+    prop.setInputLayerAndStage(index, prop.LayerInputStageType.SOURCE);
+    safe = caviStageName(prop, prop.getInputStageCycleSafeLimit());
+    if (CAVI_STAGE_RANK[value.stage] > CAVI_STAGE_RANK[safe]) {
+        caviFail(prop.name + " at stage " + value.stage + " makes a render cycle; its highest safe stage is " + safe);
+    }
+    prop.setInputLayerAndStage(index, prop.LayerInputStageType[CAVI_STAGES[value.stage]]);
+}
+
+// A JSON object, not an array: the {layer, stage} form of a layer parameter's value.
+function caviIsInput(value) {
+    return value !== null && typeof value === "object" && !(value instanceof Array);
+}
+
 function caviSetStatic(prop, value) {
     if (prop.propertyType !== PropertyType.PROPERTY) {
         caviFail(prop.name + " is a group; give a property path");
@@ -292,6 +349,10 @@ function caviSetStatic(prop, value) {
     if ((prop.propertyValueType === PropertyValueType.ThreeD_SPATIAL ||
         prop.propertyValueType === PropertyValueType.ThreeD) && value instanceof Array && value.length === 2) {
         value.push(prop.matchName === "ADBE Scale" ? 100 : 0);
+    }
+    if (caviIsInput(value)) {
+        caviSetLayerInput(prop, value);
+        return;
     }
     prop.setValue(caviMenuValue(prop, value));
 }

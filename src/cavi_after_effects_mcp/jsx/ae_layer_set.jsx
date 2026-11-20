@@ -95,7 +95,7 @@ function report(layer) {
             prop = caviProp(layer, path);
             caviSetStatic(prop, a.properties[path]);
             applied.push(path);
-            values[path] = prop.value;
+            values[path] = caviIsInput(a.properties[path]) ? caviLayerInput(prop) : prop.value;
         }
     }
     if (a.mesh !== null || a.bevel !== null) { meshed = caviMeshOptions(layer, a.mesh, a.bevel); }
