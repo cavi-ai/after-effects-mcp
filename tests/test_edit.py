@@ -192,6 +192,45 @@ class FrameNameTest(unittest.TestCase):
             self.assertEqual(list(directory.glob("frames-*")), [])
 
 
+class DirectFramesTest(unittest.TestCase):
+    def test_a_missing_comp_is_raised_and_aerender_is_not_called(self):
+        def application(name, project, args, timeout=300):
+            if name != "ae_frame_png":
+                raise AssertionError(name)
+            raise RuntimeError("After Effects script: No comp named Shot")
+
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder) / "frames"
+            aerender = mock.Mock()
+            with (mock.patch.object(host, "run_template", application),
+                  mock.patch.object(host, "aerender", aerender)):
+                with self.assertRaisesRegex(RuntimeError, "No comp named"):
+                    edit.render_frames(Path(folder) / "p.aep", "Shot", [1.0], directory)
+            aerender.assert_not_called()
+
+    def test_any_other_direct_error_falls_through_to_aerender(self):
+        def application(name, project, args, timeout=300):
+            if name == "ae_frame_png":
+                raise RuntimeError("After Effects script: saveFrameToPng failed")
+            return {"enabled": []}
+
+        with tempfile.TemporaryDirectory() as folder:
+            directory = Path(folder) / "frames"
+            aerender = mock.Mock()
+            with (mock.patch.object(host, "run_template", application),
+                  mock.patch.object(host, "aerender", aerender),
+                  mock.patch.object(edit, "RENDER_RETRY_SECONDS", 0)):
+                with self.assertRaisesRegex(RuntimeError, "aerender wrote 0 frames"):
+                    edit.render_frames(Path(folder) / "p.aep", "A", [1.0], directory)
+            self.assertEqual(aerender.call_count, edit.RENDER_ATTEMPTS)
+
+    def test_cavi_comp_still_fails_with_no_comp_named(self):
+        lib = (host.JSX / "lib.jsx").read_text()
+        start = lib.index("function caviComp(")
+        body = lib[start:lib.index("\n}\n", start)]
+        self.assertIn("No comp named ", body)
+
+
 class ExportFramesTest(unittest.TestCase):
     def test_frames_created_empty_and_written_later_are_returned(self):
         """After Effects creates each PNG before it writes its bytes."""
@@ -216,6 +255,70 @@ class ExportFramesTest(unittest.TestCase):
                     fill.join()
             self.assertEqual(result["frames"], 3)
             self.assertEqual(result["last"], str(directory / "frame_00003.png"))
+
+
+class WarmedTest(unittest.TestCase):
+    def test_a_warming_report_waits_for_bytes_then_runs_the_script_again(self):
+        """The warm file stays empty until its bytes arrive; the second call has no warm path."""
+        order = []
+        calls = []
+        fills = []
+
+        def application(name, project, args, timeout=300):
+            calls.append((name, project, args, timeout))
+            if args["warm"] is not None:
+                warm = Path(args["warm"])
+                warm.touch()
+
+                def fill():
+                    order.append("filled")
+                    warm.write_bytes(b"png")
+
+                fills.append(threading.Timer(0.5, fill))
+                fills[-1].start()
+                return {"warming": True, "errors": []}
+            order.append("second")
+            return {"errors": [], "frames": 1}
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            warm = root / ".cineware-warm.png"
+            project = root / "p.aep"
+            sent = {"comp": "A", "frames": [{"time": 1.0, "file": str(root / "a.png")}]}
+            try:
+                with mock.patch.object(host, "run_template", application):
+                    report = edit.warmed("ae_frame_png", project, sent, warm, 40)
+            finally:
+                for fill in fills:
+                    fill.join()
+            self.assertEqual(order, ["filled", "second"])
+            self.assertEqual(len(calls), 2)
+            self.assertEqual(calls[0][0], "ae_frame_png")
+            self.assertEqual(calls[0][1], project)
+            self.assertEqual(calls[0][2], {**sent, "warm": str(warm)})
+            self.assertEqual(calls[0][3], 40)
+            self.assertIsNone(calls[1][2]["warm"])
+            self.assertEqual(calls[1], ("ae_frame_png", project, {**sent, "warm": None}, 40))
+            self.assertEqual(report, {"errors": [], "frames": 1})
+            self.assertFalse(warm.exists())
+
+    def test_a_report_without_warming_runs_the_script_once(self):
+        calls = []
+
+        def application(name, project, args, timeout=300):
+            calls.append((name, project, args, timeout))
+            return {"errors": [], "frames": 2}
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            warm = root / ".cineware-warm.png"
+            project = root / "p.aep"
+            sent = {"comp": "A"}
+            with mock.patch.object(host, "run_template", application):
+                report = edit.warmed("ae_frame_range", project, sent, warm)
+            self.assertEqual(calls, [("ae_frame_range", project, {**sent, "warm": str(warm)}, 300)])
+            self.assertEqual(report, {"errors": [], "frames": 2})
+            self.assertFalse(warm.exists())
 
 
 class FallbackMovieTest(unittest.TestCase):
