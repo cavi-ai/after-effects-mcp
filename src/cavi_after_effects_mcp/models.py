@@ -955,3 +955,39 @@ class ControlsSet(Script):
     layer: str
     controls: list[str]
     links: list[dict[str, Any]]
+
+
+class LayerBounds(Model):
+    left: float
+    top: float
+    right: float
+    bottom: float
+
+
+class LayoutLayer(Model):
+    layer: str
+    index: int
+    before: LayerBounds
+    after: LayerBounds
+    moved: Annotated[list[float], Field(min_length=2, max_length=2)]
+
+
+class Layout(Script):
+    comp: str
+    action: Literal["align", "distribute", "anchor"]
+    layers: list[LayoutLayer]
+
+
+class StaggerLayer(Model):
+    layer: str
+    index: int
+    offset: float
+    in_point: float
+    out_point: float
+    keys: int
+
+
+class Stagger(Script):
+    comp: str
+    mode: Literal["in_points", "keyframes", "both"]
+    layers: list[StaggerLayer]
