@@ -362,6 +362,14 @@ class Inspect(Script):
     scope: Literal["project", "comp", "queue"]
 
 
+class Preflight(Script):
+    verdict: Literal["pass", "fail"]
+    missing_footage: list[dict[str, Any]]
+    missing_fonts: list[dict[str, Any]]
+    broken_expressions: list[dict[str, Any]]
+    warnings: list[dict[str, Any]]
+
+
 class CompNew(Script):
     comp: str
     renderer: str

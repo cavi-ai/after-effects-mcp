@@ -9,6 +9,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - `ae_keyframes` sets per-axis ease (`ease_in_axes`, `ease_out_axes`) and spatial tangents (`in_tangent`,
   `out_tangent`); one `ease_in` or `ease_out` still applies to every axis. `ae_properties` reads every axis as
   `ease_in_axes` and `ease_out_axes`, and keeps `ease_in` and `ease_out` as the first.
+- `ae_preflight` reports missing footage, substitute fonts and broken expressions, and warns when a comp's width
+  or height is odd. `verdict` is fail when any of those lists is non-empty.
 
 ## 0.4.0 - 2026-11-21
 
