@@ -288,7 +288,7 @@ def template_render(template, project, texts, footage, renders, discard):
 def render_outputs(project, outputs):
     """aerender the queue; a short output is rendered once more by itself, then from saveFrameToPng frames and ffmpeg."""
     report = host.render_queue(project, outputs)
-    for item, entry, made in zip(outputs, report["entries"], report["outputs"], strict=True):
+    for entry, made in zip(report["entries"], report["outputs"], strict=True):
         if made["frames"] == entry["frames"]:
             continue
         # aerender can exit 0 after a crash mid-queue; a short output renders once more with its entry's settings.
@@ -299,6 +299,7 @@ def render_outputs(project, outputs):
         except RuntimeError as error:
             report["failure"] = str(error)
         made["frames"] = host.written(made["file"], report["since"], entry["fps"])
+    for item, entry, made in zip(outputs, report["entries"], report["outputs"], strict=True):
         if made["frames"] == entry["frames"]:
             continue
         try:

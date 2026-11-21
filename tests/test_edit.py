@@ -287,3 +287,25 @@ class RenderOutputsTest(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, r"^R: aerender left 5 of 15 frames \(no error\); "
                                     r"the fallback failed: encoder broke$"):
             self.render([5, 5], fallback)
+
+    def test_retries_all_short_outputs_before_fallback_failure(self):
+        second = {**self.entry, "index": 5, "comp": "S", "file": str(self.root / "second.mov")}
+        outputs = [self.output, {"comp": "S", "file": second["file"], "frames": None}]
+        made = [{"file": entry["file"], "frames": 5} for entry in (self.entry, second)]
+        report = {"project": str(self.project), "entries": [self.entry, second], "outputs": made,
+                  "since": 0, "failure": None}
+        calls = []
+
+        def fallback(*args):
+            calls.append("fallback")
+            raise RuntimeError("encoder broke")
+
+        with (mock.patch.object(host, "render_queue", return_value=report),
+              mock.patch.object(host, "discard"),
+              mock.patch.object(host, "aerender", side_effect=lambda *args: calls.append(args)),
+              mock.patch.object(host, "written", side_effect=[5, 15]),
+              mock.patch.object(edit, "fallback_movie", side_effect=fallback),
+              self.assertRaisesRegex(RuntimeError, "encoder broke")):
+            edit.render_outputs(self.project, outputs)
+        self.assertEqual(calls, [("-project", str(self.project), "-rqindex", "4"),
+                                 ("-project", str(self.project), "-rqindex", "5"), "fallback"])
