@@ -19,7 +19,7 @@ TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effect
          "ae_controls", "ae_project_settings", "ae_sequence_layers", "ae_essential_override",
          "ae_fonts", "ae_expressions", "ae_material", "ae_export_frames", "ae_properties", "ae_organize",
          "ae_layer_parts", "ae_batch", "ae_render_start", "ae_render_status", "ae_render_cancel", "ae_font_replace",
-         "ae_preflight"}
+         "ae_preflight", "ae_footage"}
 
 
 class PackageTest(unittest.TestCase):
@@ -349,6 +349,27 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
                                                                    "layer": 1, "preset": str(preset)})
                 self.assertTrue(reply.is_error)
                 self.assertIn("exits headless After Effects", reply.content[0].text)
+
+
+    async def test_footage_refuses_bad_input_before_calling_after_effects(self):
+        params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
+        calls = [
+            ("ae_footage", {"project": "/x.aep", "action": "interpret", "item": "clip"}, "at least one"),
+            ("ae_footage", {"project": "/x.aep", "action": "proxy", "item": "clip", "file": "relative.png"},
+             "absolute path"),
+            ("ae_footage", {"project": "/x.aep", "action": "proxy", "item": "clip", "clear": True,
+                            "file": "/x/proxy.png"}, "not both"),
+            ("ae_footage", {"project": "/x.aep", "action": "relink"}, "folder is required for action=relink"),
+            ("ae_footage", {"project": "/x.aep", "action": "info"}, "item is required for action=info"),
+            ("ae_footage", {"project": "/x.aep", "action": "info", "item": "clip", "alpha": "ignore"},
+             "Not valid for action=info"),
+        ]
+        async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
+            await client.initialize()
+            for name, arguments, message in calls:
+                reply = await client.call_tool(name, arguments)
+                self.assertTrue(reply.is_error, (name, arguments))
+                self.assertIn(message, reply.content[0].text, (name, arguments))
 
 
 if __name__ == "__main__":

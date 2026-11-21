@@ -393,6 +393,11 @@ class Footage(Script):
     layers_using: int
 
 
+class FootageEdited(Script):
+    action: Literal["info", "interpret", "proxy", "relink"]
+    items: list[dict[str, Any]]
+
+
 class Queue(Script):
     queue: list[dict[str, Any]]
 

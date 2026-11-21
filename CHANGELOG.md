@@ -11,6 +11,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
   `ease_in_axes` and `ease_out_axes`, and keeps `ease_in` and `ease_out` as the first.
 - `ae_preflight` reports missing footage, substitute fonts and broken expressions, and warns when a comp's width
   or height is odd. `verdict` is fail when any of those lists is non-empty.
+- `ae_footage` reports footage interpretation and proxy, sets alpha, conform frame rate and pixel aspect, sets or
+  clears a proxy, and relinks missing footage by file name.
 
 ## 0.4.0 - 2026-11-21
 
