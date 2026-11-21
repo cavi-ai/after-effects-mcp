@@ -4,6 +4,10 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 ## Unreleased
 
+### Fixed
+
+- `ae_effect_add` refuses a text parameter and a parameter that already has keyframes, the same way a static property does.
+
 ## 0.4.0 - 2026-11-21
 
 ### Added

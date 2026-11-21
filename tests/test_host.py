@@ -397,6 +397,92 @@ class ControlLinkTest(unittest.TestCase):
 
 
 @unittest.skipUnless(shutil.which("node"), "node is required")
+class EffectAddTest(unittest.TestCase):
+    def add(self, params, properties):
+        """ae_effect_add.jsx setting ``params`` through caviSetStatic: its report, error and property writes."""
+        source = (host.JSX / "lib.jsx").read_text()
+        fail = source.index("function caviFail(")
+        layer = source.index("function caviLayer(")
+        guard = source.index("function caviGuard3D(")
+        start = source.index("var CAVI_STAGES")
+        end = source.index("\n}\n", source.index("function caviMenuValue(")) + 3
+        script = ("const $ = {evalFile() {}}; function File() {} const CAVI_LIB = ''; const app = {version: '26.5'};\n"
+                  "const PropertyType = {PROPERTY: 1};\n"
+                  "const PropertyValueType = {OneD: 1, TEXT_DOCUMENT: 4, LAYER_INDEX: 7};\n" +
+                  source[fail:source.index("\n}\n", fail) + 3] +
+                  source[layer:source.index("\n}\n", layer) + 3] +
+                  source[guard:source.index("\n}\n", guard) + 3] + source[start:end] +
+                  "const [params, properties] = JSON.parse(process.argv[1]);\n"
+                  "const setValue = [], setStage = [];\n"
+                  "const comp = {name: 'Main', renderer: 'ADBE Classic 3D', numLayers: 2};\n"
+                  "const layers = [{name: 'Title', index: 1, threeDLayer: false, containingComp: comp},\n"
+                  "  {name: 'Map', index: 2, containingComp: comp}];\n"
+                  "comp.layer = i => layers[i - 1];\n"
+                  "const props = {};\n"
+                  "for (const name of Object.keys(properties)) {\n"
+                  "  const spec = properties[name];\n"
+                  "  props[name] = {name, matchName: name, propertyType: PropertyType.PROPERTY,\n"
+                  "    propertyValueType: PropertyValueType[spec.type || 'OneD'], numKeys: spec.numKeys || 0,\n"
+                  "    propertyDepth: 2, value: null, propertyGroup: depth => depth === 2 ? layers[0] : null,\n"
+                  "    LayerInputStageType: {SOURCE: 0, ALL_EFFECTS: -1, ONLY_MASKS: -2},\n"
+                  "    inputLayerAndStage: [0, 0], getInputStageCycleSafeLimit: () => -1,\n"
+                  "    setValue(v) { setValue.push([name, v]); this.value = v; },\n"
+                  "    setInputLayerAndStage(layerIndex, stage) {\n"
+                  "      setStage.push([name, layerIndex, stage]); this.inputLayerAndStage = [layerIndex, stage]; }};\n"
+                  "  if (Object.hasOwn(spec, 'items')) { props[name].propertyParameters = spec.items; }\n"
+                  "}\n"
+                  "const effect = {name: 'Glow', matchName: 'ADBE Glo2', propertyIndex: 1,\n"
+                  "  property: name => props[name] || null};\n"
+                  "layers[0].property = name => name === 'ADBE Effect Parade' ? {addProperty: () => effect} : null;\n"
+                  "let report = null;\n"
+                  "function caviComp() { return comp; }\n"
+                  "function caviReport(value) { report = value; }\n"
+                  "const CAVI_ARGS = {comp: 'Main', layer: 'Title', match_name: 'ADBE Glo2', name: null, params};\n"
+                  "let error = null;\n"
+                  "try {\n" + (host.JSX / "ae_effect_add.jsx").read_text() +
+                  "} catch (failure) { error = failure.message; }\n"
+                  "process.stdout.write(JSON.stringify({report, error, setValue, setStage}));")
+        run = subprocess.run(["node", "-e", script, json.dumps([params, properties])], capture_output=True,
+                             text=True, check=True)
+        return json.loads(run.stdout)
+
+    def test_a_menu_string_parameter_is_stored_as_its_index(self):
+        out = self.add({"Fractal Type": "Dynamic"}, {"Fractal Type": {"items": ["Basic", "(-", "Dynamic"]}})
+        self.assertEqual(out["error"], None)
+        self.assertEqual(out["setValue"], [["Fractal Type", 3]])
+        self.assertEqual(out["setStage"], [])
+        self.assertEqual(out["report"]["params"], ["Fractal Type"])
+
+    def test_a_layer_and_stage_reaches_set_input_layer_and_stage(self):
+        out = self.add({"Displacement Map Layer": {"layer": "Map", "stage": "masks"}},
+                       {"Displacement Map Layer": {"type": "LAYER_INDEX"}})
+        self.assertEqual(out["error"], None)
+        self.assertEqual(out["setValue"], [])
+        self.assertEqual(out["setStage"], [["Displacement Map Layer", 2, 0], ["Displacement Map Layer", 2, -2]])
+        self.assertEqual(out["report"]["params"], ["Displacement Map Layer"])
+
+    def test_a_parameter_with_keyframes_is_refused_without_set_value(self):
+        out = self.add({"Glow Radius": 20}, {"Glow Radius": {"numKeys": 2}})
+        self.assertEqual(out["error"], "Glow Radius has keyframes; use ae_keyframes")
+        self.assertEqual(out["setValue"], [])
+        self.assertEqual(out["setStage"], [])
+        self.assertEqual(out["report"], None)
+
+    def test_a_text_parameter_is_refused(self):
+        out = self.add({"Source Text": "Hello"}, {"Source Text": {"type": "TEXT_DOCUMENT"}})
+        self.assertEqual(out["error"], "Source Text is text; use ae_text_set")
+        self.assertEqual(out["setValue"], [])
+        self.assertEqual(out["setStage"], [])
+        self.assertEqual(out["report"], None)
+
+    def test_parameters_are_assigned_by_cavi_set_static(self):
+        source = (host.JSX / "ae_effect_add.jsx").read_text()
+        self.assertIn("caviSetStatic(", source)
+        self.assertNotIn("caviMenuValue", source)
+        self.assertNotIn("caviSetLayerInput", source)
+
+
+@unittest.skipUnless(shutil.which("node"), "node is required")
 class PropertyPathTest(unittest.TestCase):
     def paths(self, path):
         """The paths ae_properties.jsx reports for ``path`` on a layer Scene > Effects > Cineware > Renderer."""

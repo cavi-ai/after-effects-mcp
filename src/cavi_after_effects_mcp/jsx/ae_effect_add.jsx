@@ -11,11 +11,7 @@ $.evalFile(new File(CAVI_LIB));
     for (name in a.params) {
         if (a.params.hasOwnProperty(name)) {
             value = a.params[name];
-            if (caviIsInput(value)) {
-                caviSetLayerInput(effect.property(name), value);
-            } else {
-                effect.property(name).setValue(caviMenuValue(effect.property(name), value));
-            }
+            caviSetStatic(effect.property(name), value);
             applied.push(name);
         }
     }
