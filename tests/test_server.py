@@ -18,7 +18,8 @@ TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effect
          "ae_template_render", "ae_collect", "ae_audio", "ae_time",
          "ae_controls", "ae_project_settings", "ae_sequence_layers", "ae_essential_override",
          "ae_fonts", "ae_expressions", "ae_material", "ae_export_frames", "ae_properties", "ae_organize",
-         "ae_layer_parts", "ae_batch", "ae_render_start", "ae_render_status", "ae_render_cancel", "ae_font_replace"}
+         "ae_layer_parts", "ae_batch", "ae_render_start", "ae_render_status", "ae_render_cancel", "ae_font_replace",
+         "ae_preflight"}
 
 
 class PackageTest(unittest.TestCase):
@@ -137,6 +138,9 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
              "only with move"),
             ("ae_batch", {"project": "/x.aep", "steps": [{"tool": "ae_inspect"}]},
              "Step 1 (ae_inspect) is not a batchable tool"),
+            ("ae_batch", {"project": "/x.aep", "steps": [{"tool": "ae_preflight"}]},
+             "Step 1 (ae_preflight) is not a batchable tool"),
+            ("ae_preflight", {"project": "relative.aep"}, "absolute path"),
             ("ae_batch", {"project": "/x.aep", "steps": [
                 {"tool": "ae_comp_new", "args": {"name": "a", "width": 64, "height": 36, "duration": 1}},
                 {"tool": "ae_layer_set", "args": {"comp": "a", "layer": 1}}]},
