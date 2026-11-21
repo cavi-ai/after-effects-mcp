@@ -27,17 +27,31 @@ function ease(list) {
     return list && list.length ? {speed: list[0].speed, influence: list[0].influence} : null;
 }
 
+function eases(list) {
+    var out = [], i;
+    if (!list || !list.length) { return null; }
+    for (i = 0; i < list.length; i++) {
+        out.push({speed: list[i].speed, influence: list[i].influence});
+    }
+    return out;
+}
+
 // Keys as {time, value, in_interpolation, out_interpolation, ease_in, ease_out}, with spatial tangents, continuity
 // and roving on spatial properties.
 function keyframes(prop) {
-    var out = [], k, key, last = Math.min(prop.numKeys, KEY_LIMIT);
+    var out = [], k, key, last = Math.min(prop.numKeys, KEY_LIMIT), inList, outList;
     for (k = 1; k <= last; k++) {
         key = {time: prop.keyTime(k), value: plainValue(prop, prop.keyValue(k)),
             in_interpolation: interpolation(prop.keyInInterpolationType(k)),
-            out_interpolation: interpolation(prop.keyOutInterpolationType(k)), ease_in: null, ease_out: null};
+            out_interpolation: interpolation(prop.keyOutInterpolationType(k)), ease_in: null, ease_out: null,
+            ease_in_axes: null, ease_out_axes: null};
         try {
-            key.ease_in = ease(prop.keyInTemporalEase(k));
-            key.ease_out = ease(prop.keyOutTemporalEase(k));
+            inList = prop.keyInTemporalEase(k);
+            outList = prop.keyOutTemporalEase(k);
+            key.ease_in = ease(inList);
+            key.ease_out = ease(outList);
+            key.ease_in_axes = eases(inList);
+            key.ease_out_axes = eases(outList);
         } catch (noEase) { /* properties without temporal ease, such as Source Text */ }
         if (prop.isSpatial) {
             key.in_tangent = prop.keyInSpatialTangent(k);

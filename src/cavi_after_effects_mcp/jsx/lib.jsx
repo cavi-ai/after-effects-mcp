@@ -93,8 +93,16 @@ function caviTransform(layer, spec) {
     }
 }
 
+function caviEaseDimensions(prop) {
+    if (!prop.isSpatial) {
+        if (prop.propertyValueType === PropertyValueType.TwoD) { return 2; }
+        if (prop.propertyValueType === PropertyValueType.ThreeD) { return 3; }
+    }
+    return 1;
+}
+
 function caviEase(prop, key, ease) {
-    var dims = 1, list = [], d;
+    var dims = caviEaseDimensions(prop), list = [], d;
     if (!prop.isSpatial) {
         if (prop.propertyValueType === PropertyValueType.TwoD) {
             dims = 2;
@@ -108,9 +116,53 @@ function caviEase(prop, key, ease) {
     return list;
 }
 
-// Keys as [{time, value, ease_in, ease_out, interpolation}] at distinct times; the tools refuse a repeated time.
+function caviEaseAxes(prop, axes, label) {
+    var dims = caviEaseDimensions(prop), list = [], d;
+    if (axes.length !== dims) {
+        caviFail(label + " needs " + dims + " ease" + (dims === 1 ? "" : "s") + " for " + prop.name + ", not " + axes.length);
+    }
+    for (d = 0; d < axes.length; d++) {
+        list.push(new KeyframeEase(axes[d].speed, axes[d].influence));
+    }
+    return list;
+}
+
+function caviEaseSide(prop, keyIndex, axes, ease, mirrorAxes, mirrorEase, label, mirrorLabel) {
+    if (axes) { return caviEaseAxes(prop, axes, label); }
+    if (ease) { return caviEase(prop, keyIndex, ease); }
+    if (mirrorAxes) { return caviEaseAxes(prop, mirrorAxes, mirrorLabel); }
+    return caviEase(prop, keyIndex, mirrorEase);
+}
+
+function caviCopied(values) {
+    var copy = [], i;
+    for (i = 0; i < values.length; i++) { copy.push(values[i]); }
+    return copy;
+}
+
+function caviSpatialTangents(prop, keys) {
+    var i, k, key, inn, out;
+    for (i = 0; i < keys.length; i++) {
+        key = keys[i];
+        inn = key.in_tangent || null;
+        out = key.out_tangent || null;
+        if (!inn && !out) { continue; }
+        if (!prop.isSpatial) {
+            caviFail(prop.name + " is not spatial; in_tangent and out_tangent set spatial tangents");
+        }
+        if (!inn) { inn = out; }
+        if (!out) { out = inn; }
+        k = prop.nearestKeyIndex(key.time);
+        prop.setSpatialAutoBezierAtKey(k, false);
+        prop.setSpatialContinuousAtKey(k, false);
+        prop.setSpatialTangentsAtKey(k, caviCopied(inn), caviCopied(out));
+    }
+}
+
+// Keys as [{time, value, ease_in, ease_out, ease_in_axes, ease_out_axes, in_tangent, out_tangent, interpolation}]
+// at distinct times; the tools refuse a repeated time. A null axes list copies one ease onto every axis.
 function caviKeys(prop, keys, fallback) {
-    var i, k, key, inEase, outEase, kind, kinds = {LINEAR: KeyframeInterpolationType.LINEAR,
+    var i, k, key, inEase, outEase, inAxes, outAxes, kind, kinds = {LINEAR: KeyframeInterpolationType.LINEAR,
         BEZIER: KeyframeInterpolationType.BEZIER, HOLD: KeyframeInterpolationType.HOLD};
     for (i = 0; i < keys.length; i++) {
         prop.setValueAtTime(keys[i].time, caviMenuValue(prop, keys[i].value));
@@ -123,12 +175,19 @@ function caviKeys(prop, keys, fallback) {
             prop.setInterpolationTypeAtKey(k, kinds[kind], kinds[kind]);
             continue;
         }
+        inAxes = key.ease_in_axes || null;
+        outAxes = key.ease_out_axes || null;
         inEase = key.ease_in || fallback;
         outEase = key.ease_out || fallback;
-        if (inEase || outEase) {
+        if (inAxes || outAxes) {
+            prop.setTemporalEaseAtKey(k,
+                caviEaseSide(prop, k, inAxes, inEase, outAxes, outEase, "ease_in_axes", "ease_out_axes"),
+                caviEaseSide(prop, k, outAxes, outEase, inAxes, inEase, "ease_out_axes", "ease_in_axes"));
+        } else if (inEase || outEase) {
             prop.setTemporalEaseAtKey(k, caviEase(prop, k, inEase || outEase), caviEase(prop, k, outEase || inEase));
         }
     }
+    caviSpatialTangents(prop, keys);
 }
 
 function caviStatus(item) {
