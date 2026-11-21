@@ -14,13 +14,8 @@ function belowZero(time) {
 function shiftSpan(layer, offset) {
     var start = layer.startTime, inn = layer.inPoint, out = layer.outPoint;
     layer.startTime = start + offset;
-    if (offset > 0) {
-        layer.outPoint = out + offset;
-        layer.inPoint = inn + offset;
-    } else {
-        layer.inPoint = inn + offset;
-        layer.outPoint = out + offset;
-    }
+    layer.inPoint = inn + offset;
+    layer.outPoint = out + offset;
 }
 
 function keyedProperties(group, found) {
