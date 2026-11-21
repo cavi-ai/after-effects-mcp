@@ -159,7 +159,8 @@ BATCHABLE = frozenset({
     "ae_essential_graphics", "ae_essential_override", "ae_render_queue_set", "ae_project_settings", "ae_import",
     "ae_footage_replace", "ae_organize",
     "ae_footage",
-    "ae_layout"})
+    "ae_layout",
+    "ae_stagger"})
 
 
 @mcp.tool(annotations=DESTRUCTIVE)

@@ -976,3 +976,18 @@ class Layout(Script):
     comp: str
     action: Literal["align", "distribute", "anchor"]
     layers: list[LayoutLayer]
+
+
+class StaggerLayer(Model):
+    layer: str
+    index: int
+    offset: float
+    in_point: float
+    out_point: float
+    keys: int
+
+
+class Stagger(Script):
+    comp: str
+    mode: Literal["in_points", "keyframes", "both"]
+    layers: list[StaggerLayer]

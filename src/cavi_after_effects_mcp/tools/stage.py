@@ -1,4 +1,4 @@
-"""Place 2D layers in a comp by their bounds."""
+"""Place and time 2D layers in a comp."""
 
 from typing import Annotated, Literal
 
@@ -44,3 +44,21 @@ async def ae_layout(
         need(axis, "axis", action)
     return await scene("ae_layout", project, {"comp": comp, "layers": layers, "action": action, "edge": edge,
                                               "to": to, "axis": axis, "gap": gap, "time": time})
+
+
+@mcp.tool(annotations=WRITES)
+async def ae_stagger(
+        project: Project, comp: Comp,
+        layers: Annotated[list[models.Layer], Field(
+            min_length=1, description="Layers in stagger order, by index or name. The first does not move.")],
+        frames: Annotated[int, Field(
+            description="Whole frames added for each later layer. Negative shifts earlier. 0 is refused.")],
+        mode: Annotated[Literal["in_points", "keyframes", "both"], Field(
+            description="Shift in and out points, every key time, or both.")]
+) -> models.Stagger:
+    """Shift each listed layer by whole frames after the one before it, moving in and out points, keyframes or
+    both. Cameras, lights, 3D layers and locked layers are refused."""
+    if frames == 0:
+        raise ValueError("frames must not be 0")
+    return await scene("ae_stagger", project,
+                       {"comp": comp, "layers": layers, "frames": frames, "mode": mode})
