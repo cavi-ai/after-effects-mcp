@@ -1,6 +1,7 @@
 """Delivery: render queue, renders, frames, templates, Essential Graphics."""
 
 import asyncio
+import csv
 import json
 import time
 from pathlib import Path
@@ -11,7 +12,7 @@ from cavi_mcp_core.media import png_content
 from cavi_mcp_core.server import DESTRUCTIVE, READ_ONLY, WRITES
 from mcp.server.mcpserver import Context
 from mcp.types import CallToolResult, TextContent
-from pydantic import Field
+from pydantic import Field, ValidationError
 
 from .. import edit, host, models
 from .. import render as recipe_render
@@ -160,6 +161,108 @@ async def ae_export_frames(
     return {"project": project, "comp": comp, "directory": directory, **result}
 
 
+_TEXT_FIELDS = tuple(models.TextEdit.model_fields)
+_JSON_FIELDS = frozenset({"fill", "stroke", "box", "ranges"})
+
+
+def _sheet_cell(row, key):
+    value = row.get(key)
+    if not isinstance(value, str):
+        return None
+    text = value.strip()
+    return text or None
+
+
+def _sheet_value(field, cell):
+    if field == "layer" and cell.isascii() and cell.isdigit() and not cell.startswith("0"):
+        return int(cell)
+    if field not in _JSON_FIELDS:
+        return cell
+    try:
+        return json.loads(cell)
+    except json.JSONDecodeError as error:
+        raise ValueError(f"sheet {field} is not JSON") from error
+
+
+def _sheet_text(row):
+    present = {}
+    for field in _TEXT_FIELDS:
+        cell = _sheet_cell(row, field)
+        if cell is not None:
+            present[field] = _sheet_value(field, cell)
+    if not present:
+        return None
+    missing = [field for field in ("comp", "layer") if field not in present]
+    if missing:
+        raise ValueError(f"a text row needs {' and '.join(missing)}")
+    return present
+
+
+def _sheet_variant(data):
+    try:
+        return models.TemplateVariant.model_validate(data)
+    except ValidationError as error:
+        raise ValueError(str(error)) from error
+
+
+def _csv_variants(path):
+    with path.open(newline="", encoding="utf-8-sig") as handle:
+        reader = csv.DictReader(handle, skipinitialspace=True)
+        fields = [name.strip() for name in reader.fieldnames] if reader.fieldnames else []
+        if fields[-1:] == [""]:
+            fields = fields[:-1]
+        if "name" not in fields:
+            raise ValueError("sheet needs a name column")
+        if len(fields) != len(set(fields)):
+            raise ValueError("sheet columns repeat")
+        reader.fieldnames = fields
+        grouped, order = {}, []
+        for row in reader:
+            if not any(_sheet_cell(row, key) for key in row if isinstance(key, str)):
+                continue
+            name = _sheet_cell(row, "name")
+            if not name:
+                raise ValueError("sheet row has an empty name")
+            edit = _sheet_text(row)
+            item, file = _sheet_cell(row, "item"), _sheet_cell(row, "file")
+            if (item is None) != (file is None):
+                raise ValueError("a footage row needs item and file")
+            variant = grouped.get(name)
+            if variant is None:
+                variant = {"name": name, "texts": [], "footage": {}}
+                grouped[name] = variant
+                order.append(name)
+            if edit is not None:
+                variant["texts"].append(edit)
+            if item is not None:
+                variant["footage"][item] = file
+    return [_sheet_variant(grouped[name]) for name in order]
+
+
+def _json_variants(path):
+    try:
+        data = json.loads(path.read_text(encoding="utf-8-sig"))
+    except json.JSONDecodeError as error:
+        raise ValueError(f"sheet is not JSON: {error}") from error
+    if isinstance(data, dict):
+        variants = data.get("variants")
+        if set(data) != {"variants"} or not isinstance(variants, list):
+            raise ValueError('sheet JSON is a list of variants or {"variants": [...]}')
+        data = variants
+    if not isinstance(data, list):
+        raise ValueError('sheet JSON is a list of variants or {"variants": [...]}')
+    return [_sheet_variant(item) for item in data]
+
+
+def sheet_variants(path):
+    suffix = path.suffix.lower()
+    if suffix not in {".csv", ".json"}:
+        raise ValueError(f"A sheet is a .csv or .json file: {path}")
+    if not path.is_file():
+        raise ValueError(f"No sheet at {path}")
+    return _csv_variants(path) if suffix == ".csv" else _json_variants(path)
+
+
 @mcp.tool(annotations=DESTRUCTIVE)
 async def ae_template_render(
         ctx: Context,
@@ -174,15 +277,28 @@ async def ae_template_render(
         variants: Annotated[list[models.TemplateVariant], Field(max_length=500, description="Versions filled and "
                                                                 "rendered one after another, each with its own "
                                                                 "texts and footage; its name replaces {name} in "
-                                                                "project and every renders file.")] = []
+                                                                "project and every renders file.")] = [],
+        sheet: Annotated[str | None, Field(description="Absolute path of a .csv or .json file that supplies "
+                                                       "the variants; sheet or variants, not both. CSV rows "
+                                                       "that share a name are one variant: comp, layer, text "
+                                                       "and the other ae_text_set fields (fill, stroke, box "
+                                                       "and ranges as JSON), plus item and file for footage. "
+                                                       "A whole-number layer is an index. JSON is a list of "
+                                                       "variants or {\"variants\": [...]}.")] = None
 ) -> models.TemplateRendered:
     """Fill a template .aep (text layers and footage by name), save it, and aerender the named comps with frame
-    checks; with variants, once per variant. overflow lists the filled text layers whose paragraph text does not
-    fit its box."""
+    checks; with variants, once per variant. A CSV or JSON sheet supplies the variants. overflow lists
+    the filled text layers whose paragraph text does not fit its box."""
     template, target = host.absolute(template, ".aep"), host.absolute(project, ".aep")
     shared = {name: str(host.absolute(path)) for name, path in footage.items()}
     for render in renders:
         host.absolute(render.file)
+    if sheet is not None and variants:
+        raise ValueError("sheet or variants, not both")
+    if sheet is not None:
+        variants = sheet_variants(host.absolute(sheet))
+        if not variants:
+            raise ValueError("sheet has no variants")
     if not variants:
         outputs, overflow = await asyncio.to_thread(edit.template_render, template, target,
                                                     [t.model_dump() for t in texts], shared,

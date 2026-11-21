@@ -16,6 +16,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - `ae_layout` aligns, distributes or sets the anchor of 2D layers from their bounds, including scale, rotation
   and parents.
 - `ae_stagger` shifts each layer's in and out points and keyframes by whole frames, in the order given.
+- `ae_template_render` `sheet` supplies variants from a CSV or JSON file, then fills and renders each one the way
+  `variants` does.
 
 ## 0.4.0 - 2026-11-21
 

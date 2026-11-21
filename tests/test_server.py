@@ -10,6 +10,8 @@ from pathlib import Path
 from mcp import ClientSession, StdioServerParameters
 from mcp.client.stdio import stdio_client
 
+from cavi_after_effects_mcp.tools.delivery import sheet_variants
+
 TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effects_render", "ae_inspect",
          "ae_comp_new", "ae_layer_add", "ae_keyframes", "ae_effect_add", "ae_text_animator",
          "ae_footage_replace", "ae_render_queue_set", "ae_presets", "ae_preset_apply", "ae_transition",
@@ -216,6 +218,12 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
     async def test_delivery_tools_refuse_bad_input_before_calling_after_effects(self):
         params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
         add = {"comp": "a", "file": "/x/out.mov", "output": {"channels": "RGB+Alpha", "format": "PNG"}}
+        folder = tempfile.TemporaryDirectory()
+        self.addCleanup(folder.cleanup)
+        nameless = Path(folder.name) / "nameless.csv"
+        nameless.write_text("comp,layer,text\nMain,Title,Hello\n", encoding="utf-8")
+        repeated = Path(folder.name) / "repeated.json"
+        repeated.write_text(json.dumps([{"name": "ana"}, {"name": "ana"}]), encoding="utf-8")
         calls = [
             ("ae_render_queue_set", {"project": "/x.aep", "add": [add]}, "format, channels cannot be set"),
             ("ae_render_queue_set", {"project": "/x.aep", "add": [{"comp": "a", "file": "/x/o.mov",
@@ -236,6 +244,19 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_template_render", {"template": "/x/t.aep", "project": "/x/{name}.aep",
                                     "renders": [{"comp": "a", "file": "/x/{name}.mov"}],
                                     "variants": [{"name": "../up"}]}, "String should match pattern"),
+            ("ae_template_render", {"template": "/x/t.aep", "project": "/x/{name}.aep",
+                                    "renders": [{"comp": "a", "file": "/x/out.mov"}],
+                                    "sheet": "/x/sheet.csv", "variants": [{"name": "ana"}]},
+             "sheet or variants, not both"),
+            ("ae_template_render", {"template": "/x/t.aep", "project": "/x/{name}.aep",
+                                    "renders": [{"comp": "a", "file": "/x/out.mov"}],
+                                    "sheet": "relative.csv"}, "absolute path"),
+            ("ae_template_render", {"template": "/x/t.aep", "project": "/x/{name}.aep",
+                                    "renders": [{"comp": "a", "file": "/x/out.mov"}],
+                                    "sheet": str(nameless)}, "name column"),
+            ("ae_template_render", {"template": "/x/t.aep", "project": "/x/{name}.aep",
+                                    "renders": [{"comp": "a", "file": "/x/out.mov"}],
+                                    "sheet": str(repeated)}, "Variant names repeat"),
             ("ae_project", {"action": "reduce", "path": "/x.aep"}, "comps is required for action=reduce"),
             ("ae_project", {"action": "remove_unused"}, "needs a path"),
             ("ae_collect", {"project": "/x.aep", "folder": "relative"}, "absolute path"),
@@ -384,7 +405,6 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
                 self.assertTrue(reply.is_error, (name, arguments))
                 self.assertIn(message, reply.content[0].text, (name, arguments))
 
-
     async def test_footage_refuses_bad_input_before_calling_after_effects(self):
         params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
         calls = [
@@ -404,6 +424,60 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
                 reply = await client.call_tool(name, arguments)
                 self.assertTrue(reply.is_error, (name, arguments))
                 self.assertIn(message, reply.content[0].text, (name, arguments))
+
+
+class SheetVariantTest(unittest.TestCase):
+    def test_csv_rows_that_share_a_name_are_one_variant(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "variants.csv"
+            path.write_text("\n".join([
+                "name,comp,layer,text,font,size,fill,item,file",
+                'ada,Lower,Name,Ada,ArialMT,48,"[1, 0, 0]",Logo,/logos/ada.png',
+                "ada,Lower,Role,Mathematician,,,,,",
+                "alan,Lower,2,Alan,,,,,",
+                "mark,,,,,,,Badge,/logos/badge.png",
+            ]) + "\n", encoding="utf-8")
+            variants = sheet_variants(path)
+        self.assertEqual([variant.name for variant in variants], ["ada", "alan", "mark"])
+        ada, alan, mark = variants
+        self.assertEqual([(item.comp, item.layer, item.text, item.font, item.size, item.fill)
+                          for item in ada.texts],
+                         [("Lower", "Name", "Ada", "ArialMT", 48, [1, 0, 0]),
+                          ("Lower", "Role", "Mathematician", None, None, None)])
+        self.assertEqual(ada.footage, {"Logo": "/logos/ada.png"})
+        self.assertEqual([(text.comp, text.layer, text.text) for text in alan.texts], [("Lower", 2, "Alan")])
+        self.assertEqual(alan.footage, {})
+        self.assertEqual(mark.texts, [])
+        self.assertEqual(mark.footage, {"Badge": "/logos/badge.png"})
+
+    def test_json_list_and_wrapper_match_template_variant(self):
+        with tempfile.TemporaryDirectory() as folder:
+            body = [{"name": "ada", "texts": [{"comp": "Lower", "layer": "Name", "text": "Ada"}]}]
+            listed, wrapped = Path(folder) / "list.json", Path(folder) / "wrap.json"
+            listed.write_text(json.dumps(body), encoding="utf-8")
+            wrapped.write_text(json.dumps({"variants": body}), encoding="utf-8")
+            self.assertEqual(sheet_variants(listed), sheet_variants(wrapped))
+            self.assertEqual(sheet_variants(listed)[0].texts[0].text, "Ada")
+
+    def test_sheet_refuses_an_empty_name_or_a_text_row_without_comp(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            empty = root / "empty.csv"
+            empty.write_text("name,comp,layer,text\n,Lower,Title,Hello\n", encoding="utf-8")
+            missing = root / "missing.csv"
+            missing.write_text("name,layer,text\nada,Title,Hello\n", encoding="utf-8")
+            half = root / "half.csv"
+            half.write_text("name,item\nada,Logo\n", encoding="utf-8")
+            bad = root / "bad.json"
+            bad.write_text(json.dumps([{"name": "../up"}]), encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "empty name"):
+                sheet_variants(empty)
+            with self.assertRaisesRegex(ValueError, "comp"):
+                sheet_variants(missing)
+            with self.assertRaisesRegex(ValueError, "item and file"):
+                sheet_variants(half)
+            with self.assertRaisesRegex(ValueError, "String should match pattern"):
+                sheet_variants(bad)
 
 
 if __name__ == "__main__":
