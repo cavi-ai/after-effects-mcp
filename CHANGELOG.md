@@ -4,6 +4,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 ## Unreleased
 
+## 0.4.0 - 2026-11-21
+
 ### Added
 
 - `ae_layer_add` and `ae_layer_set` `mesh` and `bevel` set a parametric mesh's Mesh Options and Bevel Options, such
