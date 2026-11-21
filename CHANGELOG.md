@@ -4,6 +4,12 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 ## Unreleased
 
+### Added
+
+- `ae_keyframes` sets per-axis ease (`ease_in_axes`, `ease_out_axes`) and spatial tangents (`in_tangent`,
+  `out_tangent`); one `ease_in` or `ease_out` still applies to every axis. `ae_properties` reads every axis as
+  `ease_in_axes` and `ease_out_axes`, and keeps `ease_in` and `ease_out` as the first.
+
 ### Fixed
 
 - `ae_effect_add` refuses a text parameter and a parameter that already has keyframes, the same way a static property does.

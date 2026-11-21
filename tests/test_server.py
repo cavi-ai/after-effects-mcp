@@ -189,6 +189,18 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_camera", {**base, "light": {"type": "spot"}, "rig": True}, "rig needs a camera"),
             ("ae_keyframes", {**base, "layer": 1, "property": "rotation", "expression": "1",
                               "preset": {"kind": "wiggle"}}, "not both"),
+            ("ae_keyframes", {**base, "layer": 1, "property": "position",
+                              "keyframes": [{"time": 0, "value": [0, 0], "ease_in": {"speed": 0, "influence": 33},
+                                             "ease_in_axes": [{"speed": 0, "influence": 80}]}]},
+             "ease_in or ease_in_axes, not both"),
+            ("ae_keyframes", {**base, "layer": 1, "property": "position", "spatial": "linear",
+                              "keyframes": [{"time": 0, "value": [0, 0], "in_tangent": [12, 4]}]},
+             "in_tangent and out_tangent cannot be set with spatial linear"),
+            ("ae_keyframes", {**base, "layer": 1, "property": "scale",
+                              "keyframes": [{"time": 0, "value": [100, 100], "ease_in_axes": [
+                                  {"speed": 0, "influence": 50}, {"speed": 0, "influence": 50},
+                                  {"speed": 0, "influence": 50}, {"speed": 0, "influence": 50}]}]},
+             "at most 3"),
         ]
         async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
             await client.initialize()

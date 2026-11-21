@@ -46,6 +46,16 @@ class Keyframe(Model):
     value: Any
     ease_in: Ease | None = None
     ease_out: Ease | None = None
+    ease_in_axes: list[Ease] | None = Field(None, min_length=1, max_length=3,
+                                             description="One temporal ease per axis; omit and ease_in applies "
+                                                         "to every axis")
+    ease_out_axes: list[Ease] | None = Field(None, min_length=1, max_length=3,
+                                              description="One temporal ease per axis; omit and ease_out applies "
+                                                          "to every axis")
+    in_tangent: list[float] | None = Field(None, min_length=2, max_length=3,
+                                            description="Incoming spatial tangent; 2 or 3 values")
+    out_tangent: list[float] | None = Field(None, min_length=2, max_length=3,
+                                             description="Outgoing spatial tangent; 2 or 3 values")
     interpolation: Literal["linear", "bezier", "hold"] | None = None
 
 
