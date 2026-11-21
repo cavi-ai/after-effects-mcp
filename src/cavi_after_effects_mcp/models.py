@@ -21,6 +21,7 @@ BOX_ALIGN = "Vertical alignment of the text in its paragraph box (After Effects 
 
 def box_fit_check(fit, align):
     """Refuse a box fit that After Effects would switch off: it grows a box only when the text sits at its top."""
+    # The document case is caviBoxCanGrow, after the text's alignment is applied.
     if fit not in (None, "none") and align not in (None, "top"):
         raise ValueError(f"box_fit grows a box only with box_align top, not {align}")
 Vector = Annotated[list[float], Field(min_length=2, max_length=3)]
