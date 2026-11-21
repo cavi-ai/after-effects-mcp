@@ -20,6 +20,10 @@ $.evalFile(new File(CAVI_LIB));
     if (a.restyle) {
         caviRestyle(prop, {hold: a.hold, ease: a.keyframes.length ? null : a.ease, spatial: a.spatial, rove: a.rove});
     }
+    // caviRestyle's bezier path turns auto-bezier on and drops explicit tangents; put them back.
+    if (a.keyframes.length) {
+        caviSpatialTangents(prop, a.keyframes);
+    }
     if (a.expression !== null) {
         prop.expression = a.expression;
         if (a.expression !== "" && prop.expressionError) {

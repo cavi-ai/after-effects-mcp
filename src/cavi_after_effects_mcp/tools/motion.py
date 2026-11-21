@@ -30,11 +30,28 @@ async def ae_keyframes(
         remove: Annotated[Literal["all"] | Annotated[list[float], Field(min_length=2, max_length=2)] | None,
                           Field(description="Drop all keys, or those in [start, end] seconds.")] = None
 ) -> models.Keyframed:
-    """Set keyframes, an expression or an expression preset on a layer property. Without keyframes, easy_ease,
-    ease, hold, spatial and rove restyle the existing keys."""
+    """Set keyframes, an expression or an expression preset on a layer property. A key's ease_in_axes and
+    ease_out_axes set one ease per axis; ease_in and ease_out still apply to every axis. in_tangent and
+    out_tangent set spatial tangents. Without keyframes, easy_ease, ease, hold, spatial and rove restyle
+    the existing keys."""
     if expression is not None and preset is not None:
         raise ValueError("Give an expression or a preset, not both")
     distinct_times("keyframes", keyframes)
+    for key in keyframes:
+        if key.ease_in is not None and key.ease_in_axes is not None:
+            raise ValueError("ease_in or ease_in_axes, not both")
+        if key.ease_out is not None and key.ease_out_axes is not None:
+            raise ValueError("ease_out or ease_out_axes, not both")
+        if key.ease_in_axes is not None and not 1 <= len(key.ease_in_axes) <= 3:
+            raise ValueError(f"ease_in_axes needs 1, 2 or 3 eases, not {len(key.ease_in_axes)}")
+        if key.ease_out_axes is not None and not 1 <= len(key.ease_out_axes) <= 3:
+            raise ValueError(f"ease_out_axes needs 1, 2 or 3 eases, not {len(key.ease_out_axes)}")
+        if spatial == "linear" and (key.in_tangent is not None or key.out_tangent is not None):
+            raise ValueError("in_tangent and out_tangent cannot be set with spatial linear")
+        if key.in_tangent is not None and not 2 <= len(key.in_tangent) <= 3:
+            raise ValueError(f"in_tangent needs 2 or 3 values, not {len(key.in_tangent)}")
+        if key.out_tangent is not None and not 2 <= len(key.out_tangent) <= 3:
+            raise ValueError(f"out_tangent needs 2 or 3 values, not {len(key.out_tangent)}")
     if easy_ease and ease is None:
         ease = Ease(speed=0, influence=33.333)
     restyle = hold or spatial is not None or rove or (ease is not None and not keyframes)
@@ -209,11 +226,12 @@ async def ae_properties(
                                           "evaluated.")] = None,
         keyframes: Annotated[bool, Field(description="List each animated property's keys (up to 1000): time, "
                                                      "value, in and out interpolation, ease_in and ease_out of the "
-                                                     "first dimension, and spatial tangents, continuity and roving "
-                                                     "on spatial properties.")] = False
+                                                     "first axis, ease_in_axes and ease_out_axes for every axis, "
+                                                     "and spatial tangents, continuity and roving on spatial "
+                                                     "properties.")] = False
 ) -> models.Properties:
     """Read a layer's properties as {path, match name, value, key count, expression}; values are the stored
     ones unless time is given. With keyframes, each animated property also lists its keys in the form
-    ae_keyframes takes."""
+    ae_keyframes takes, including per-axis ease and spatial tangents."""
     return await scene("ae_properties", project, {"comp": comp, "layer": layer, "path": path, "depth": depth,
                                                   "max_nodes": max_nodes, "time": time, "keyframes": keyframes}, 120)
