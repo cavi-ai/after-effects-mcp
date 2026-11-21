@@ -495,7 +495,7 @@ def queue_entries(project, outputs):
 
 
 def render_queue(project, outputs):
-    """Render a saved project's queue, then render once more by itself each queued output left incomplete."""
+    """Render a saved project's queue and count the frames written for each output."""
     project = absolute(project, ".aep")
     if not project.is_file():
         raise FileNotFoundError(f"No project at {project}")
@@ -510,20 +510,11 @@ def render_queue(project, outputs):
         aerender("-project", str(project))
     except RuntimeError as error:
         failure = error
-    results = []
-    for item, entry, file in zip(outputs, entries, files, strict=True):
-        again = not rendered(file, entry["frames"], since, entry["fps"])
-        # aerender can exit 0 after a crash mid-queue; a short output renders once more with its entry's settings.
-        if again:
-            discard(file)
-            try:
-                aerender("-project", str(project), "-rqindex", str(entry["index"]))
-            except RuntimeError as error:
-                failure = error
-        results.append({"comp": item["comp"], "file": str(file), "frames": written(file, since, entry["fps"]),
-                        "rerendered": again, "path": "aerender"})
+    results = [{"comp": item["comp"], "file": str(file), "frames": written(file, since, entry["fps"]),
+                "rerendered": False, "path": "aerender"}
+               for item, entry, file in zip(outputs, entries, files, strict=True)]
     return {"project": str(project), "outputs": results, "entries": entries,
-            "failure": str(failure) if failure else None}
+            "failure": str(failure) if failure else None, "since": since}
 
 
 RENDER_JOBS = Path(tempfile.gettempdir()).resolve() / "cavi-after-effects-renders"
