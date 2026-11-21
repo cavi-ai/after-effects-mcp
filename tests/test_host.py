@@ -616,3 +616,210 @@ function caviReport(report) { console.log(JSON.stringify({report, times: layers[
                 layer = result["report"]["layers"][1]
                 self.assertEqual((layer["in_point"], layer["out_point"], layer["keys"]), (inn, out, keys))
                 self.assertEqual(result["times"], [times, times])
+
+
+@unittest.skipUnless(shutil.which("node"), "node is required")
+class ReframeScriptTest(unittest.TestCase):
+    """The packaged script, against a comp model: center shift, parents, and the layers left in place."""
+
+    def run_script(self, aspects, extra=None):
+        source = (host.JSX / "ae_reframe.jsx").read_text()
+        args = json.dumps({"comp": "Title", "aspects": aspects, "time": 0})
+        extra_js = json.dumps(extra)
+        script = r'''
+var EXTRA = __EXTRA__;
+var CAVI_ARGS = __ARGS__;
+var reported = null;
+var items = [];
+var $ = {evalFile: function () {}};
+function File() {}
+var CAVI_LIB = "";
+function CameraLayer() {}
+function LightLayer() {}
+function CompItem() {}
+function caviFail(message) { throw new Error(message); }
+function caviReport(report) { reported = report; }
+function caviComp(name) {
+    var i;
+    for (i = 0; i < items.length; i++) {
+        if (items[i] instanceof CompItem && items[i].name === name) { return items[i]; }
+    }
+    throw new Error("No comp named " + name);
+}
+var app = {project: {
+    get numItems() { return items.length; },
+    item: function (i) { return items[i - 1]; }
+}};
+function makeLayer(spec) {
+    var pos = {
+        value: spec.position.slice(),
+        numKeys: spec.keys ? spec.keys.length : 0,
+        keys: (spec.keys || []).map(function (key) { return key.slice(); }),
+        setValue: function (v) { this.value = v.slice(); },
+        keyValue: function (i) { return this.keys[i - 1].slice(); },
+        setValueAtKey: function (i, v) { this.keys[i - 1] = v.slice(); }
+    };
+    var layer = {
+        name: spec.name, index: spec.index, locked: !!spec.locked,
+        threeDLayer: !!spec.threeD, scale: spec.scale || 1, parent: null, pos: pos,
+        src: {left: -50, top: -50, width: 100, height: 100},
+        property: function (name) {
+            if (name !== "ADBE Transform Group") { throw new Error("group " + name); }
+            return {property: function (prop) {
+                if (prop !== "ADBE Position") { throw new Error("prop " + prop); }
+                return pos;
+            }};
+        },
+        sourceRectAtTime: function () { return this.src; },
+        sourcePointToComp: function (pt) {
+            var origin = this.origin();
+            return [origin[0] + pt[0] * this.scale, origin[1] + pt[1] * this.scale];
+        },
+        compPointToSource: function (pt) {
+            var origin = this.origin();
+            return [(pt[0] - origin[0]) / this.scale, (pt[1] - origin[1]) / this.scale];
+        },
+        origin: function () {
+            if (!this.parent) { return this.pos.value.slice(); }
+            return this.parent.sourcePointToComp(this.pos.value);
+        }
+    };
+    if (spec.kind === "camera") { Object.setPrototypeOf(layer, CameraLayer.prototype); }
+    if (spec.kind === "light") { Object.setPrototypeOf(layer, LightLayer.prototype); }
+    return layer;
+}
+function makeComp(name, width, height) {
+    var comp = {
+        name: name, time: 0, layers: [], _width: width, _height: height, _duration: 10,
+        _frameRate: 24, _pixelAspect: 1.5, _renderer: "ADBE Classic",
+        get numLayers() { return this.layers.length; },
+        layer: function (i) { return this.layers[i - 1]; },
+        get width() { return this._width; },
+        set width(v) { this._width = v; this.wipe(); },
+        get height() { return this._height; },
+        set height(v) { this._height = v; this.wipe(); },
+        wipe: function () {
+            this._duration = -1; this._frameRate = -1; this._pixelAspect = -1; this._renderer = "reset";
+        },
+        get duration() { return this._duration; },
+        set duration(v) { this._duration = v; },
+        get frameRate() { return this._frameRate; },
+        set frameRate(v) { this._frameRate = v; },
+        get pixelAspect() { return this._pixelAspect; },
+        set pixelAspect(v) { this._pixelAspect = v; },
+        get renderer() { return this._renderer; },
+        set renderer(v) { this._renderer = v; },
+        duplicate: function () {
+            var copy = makeComp(this.name, this._width, this._height), map = new Map(), i, layer, cloned;
+            copy._duration = this._duration;
+            copy._frameRate = this._frameRate;
+            copy._pixelAspect = this._pixelAspect;
+            copy._renderer = this._renderer;
+            for (i = 0; i < this.layers.length; i++) {
+                cloned = makeLayer({
+                    name: this.layers[i].name, index: this.layers[i].index,
+                    locked: this.layers[i].locked, threeD: this.layers[i].threeDLayer,
+                    scale: this.layers[i].scale, position: this.layers[i].pos.value,
+                    keys: this.layers[i].pos.numKeys ? this.layers[i].pos.keys : null,
+                    kind: this.layers[i] instanceof CameraLayer ? "camera"
+                        : (this.layers[i] instanceof LightLayer ? "light" : "")
+                });
+                map.set(this.layers[i], cloned);
+                copy.layers.push(cloned);
+            }
+            for (i = 0; i < this.layers.length; i++) {
+                layer = this.layers[i];
+                if (layer.parent) { map.get(layer).parent = map.get(layer.parent); }
+            }
+            return copy;
+        }
+    };
+    Object.setPrototypeOf(comp, CompItem.prototype);
+    items.push(comp);
+    return comp;
+}
+function build() {
+    var comp, box, child, hold, held, mesh, decal;
+    items.length = 0;
+    comp = makeComp("Title", 1920, 1080);
+    box = makeLayer({name: "Box", index: 1, position: [960, 540]});
+    child = makeLayer({name: "Child", index: 2, position: [10, 20]});
+    hold = makeLayer({name: "Hold", index: 3, position: [100, 200], locked: true, scale: 2});
+    held = makeLayer({name: "Held", index: 4, position: [0, 0]});
+    comp.layers.push(box, child, hold, held);
+    comp.layers.push(makeLayer({name: "Cam", index: 5, position: [0, 0], kind: "camera"}));
+    comp.layers.push(makeLayer({name: "Lamp", index: 6, position: [0, 0], kind: "light"}));
+    mesh = makeLayer({name: "Mesh", index: 7, position: [0, 0], threeD: true});
+    decal = makeLayer({name: "Decal", index: 8, position: [5, 6], keys: [[5, 6], [15, 6]]});
+    comp.layers.push(mesh, decal);
+    child.parent = box;
+    held.parent = hold;
+    decal.parent = mesh;
+    if (EXTRA) { makeComp(EXTRA, 16, 16); }
+}
+build();
+''' + source + r'''
+console.log(JSON.stringify({report: reported, comps: items.map(function (comp) {
+    return {name: comp.name, width: comp.width, height: comp.height, duration: comp.duration,
+        fps: comp.frameRate, par: comp.pixelAspect, renderer: comp.renderer,
+        layers: comp.layers.map(function (layer) {
+            return {name: layer.name, value: layer.pos.value, keys: layer.pos.keys};
+        })};
+})}));
+'''
+        script = script.replace("__EXTRA__", extra_js).replace("__ARGS__", args)
+        return subprocess.run(["node", "-e", script], capture_output=True, text=True)
+
+    def test_layers_keep_their_offset_from_the_new_center(self):
+        run = self.run_script(["1920x1080", "1080x1920"])
+        self.assertEqual(run.returncode, 0, run.stderr)
+        result = json.loads(run.stdout)
+        report = result["report"]
+        self.assertEqual(report["comp"], "Title")
+        self.assertEqual(report["errors"], [])
+        self.assertEqual([(c["name"], c["width"], c["height"], c["layers"]) for c in report["comps"]],
+                         [("Title 1920x1080", 1920, 1080, 3), ("Title 1080x1920", 1080, 1920, 3)])
+        same = [dict(entry, comp="Title 1920x1080") for entry in self.left("Title 1920x1080")]
+        tall = [dict(entry, comp="Title 1080x1920") for entry in self.left("Title 1080x1920")]
+        self.assertEqual(report["left"], same + tall)
+        by_name = {comp["name"]: comp for comp in result["comps"]}
+        self.assertEqual(by_name["Title"]["width"], 1920)
+        self.assertEqual(self.layer(by_name["Title"], "Box")["value"], [960, 540])
+        flat = by_name["Title 1920x1080"]
+        self.assertEqual([flat["duration"], flat["fps"], flat["par"], flat["renderer"]],
+                         [10, 24, 1.5, "ADBE Classic"])
+        self.assertEqual(self.layer(flat, "Box")["value"], [960, 540])
+        self.assertEqual(self.layer(flat, "Held")["value"], [0, 0])
+        tall_comp = by_name["Title 1080x1920"]
+        self.assertEqual([tall_comp["duration"], tall_comp["fps"], tall_comp["par"], tall_comp["renderer"]],
+                         [10, 24, 1.5, "ADBE Classic"])
+        self.assertEqual(self.layer(tall_comp, "Box")["value"], [540, 960])
+        self.assertEqual(self.layer(tall_comp, "Child")["value"], [10, 20])
+        self.assertEqual(self.layer(tall_comp, "Hold")["value"], [100, 200])
+        self.assertEqual(self.layer(tall_comp, "Held")["value"], [-210, 210])
+        self.assertEqual(self.layer(tall_comp, "Mesh")["value"], [0, 0])
+        self.assertEqual(self.layer(tall_comp, "Decal")["keys"], [[-415, 426], [-405, 426]])
+
+    def test_unknown_repeated_and_existing_names_are_refused(self):
+        unknown = self.run_script(["4x3"])
+        self.assertNotEqual(unknown.returncode, 0)
+        self.assertIn("Unknown aspect 4x3", unknown.stderr)
+        repeated = self.run_script(["1080x1080", "1080x1080"])
+        self.assertNotEqual(repeated.returncode, 0)
+        self.assertIn("aspects lists 1080x1080 twice", repeated.stderr)
+        named = self.run_script(["1080x1920"], extra="Title 1080x1920")
+        self.assertNotEqual(named.returncode, 0)
+        self.assertIn("A comp named Title 1080x1920 already exists", named.stderr)
+
+    @staticmethod
+    def left(comp):
+        return [
+            {"comp": comp, "layer": "Hold", "index": 3, "reason": "locked"},
+            {"comp": comp, "layer": "Cam", "index": 5, "reason": "camera"},
+            {"comp": comp, "layer": "Lamp", "index": 6, "reason": "light"},
+            {"comp": comp, "layer": "Mesh", "index": 7, "reason": "3d"},
+        ]
+
+    @staticmethod
+    def layer(comp, name):
+        return next(layer for layer in comp["layers"] if layer["name"] == name)

@@ -21,7 +21,8 @@ TOOLS = {"ae_status", "ae_launch", "ae_script", "ae_render_queue", "after_effect
          "ae_controls", "ae_project_settings", "ae_sequence_layers", "ae_essential_override",
          "ae_fonts", "ae_expressions", "ae_material", "ae_export_frames", "ae_properties", "ae_organize",
          "ae_layer_parts", "ae_batch", "ae_render_start", "ae_render_status", "ae_render_cancel", "ae_font_replace",
-         "ae_preflight", "ae_footage", "ae_layout", "ae_stagger"}
+         "ae_preflight", "ae_footage", "ae_layout", "ae_stagger",
+         "ae_reframe"}
 
 
 class PackageTest(unittest.TestCase):
@@ -397,6 +398,21 @@ class ProtocolTest(unittest.IsolatedAsyncioTestCase):
             ("ae_stagger", {**base, "layers": [], "frames": 2, "mode": "keyframes"}, "at least 1"),
             ("ae_stagger", {**base, "layers": [1], "frames": 2, "mode": "slide"},
              "'in_points', 'keyframes' or 'both'"),
+        ]
+        async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
+            await client.initialize()
+            for name, arguments, message in calls:
+                reply = await client.call_tool(name, arguments)
+                self.assertTrue(reply.is_error, (name, arguments))
+                self.assertIn(message, reply.content[0].text, (name, arguments))
+
+    async def test_reframe_refuses_bad_input_before_calling_after_effects(self):
+        params = StdioServerParameters(command=sys.executable, args=["-m", "cavi_after_effects_mcp.server"])
+        base = {"project": "/x.aep", "comp": "a"}
+        calls = [
+            ("ae_reframe", {**base, "aspects": ["4x3"]}, "Unknown aspect"),
+            ("ae_reframe", {**base, "aspects": ["1920x1080", "1920x1080"]}, "lists 1920x1080 twice"),
+            ("ae_reframe", {"project": "relative.aep", "comp": "a"}, "absolute path"),
         ]
         async with stdio_client(params) as (r, w), ClientSession(r, w) as client:
             await client.initialize()
