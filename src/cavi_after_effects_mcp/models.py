@@ -955,3 +955,24 @@ class ControlsSet(Script):
     layer: str
     controls: list[str]
     links: list[dict[str, Any]]
+
+
+class LayerBounds(Model):
+    left: float
+    top: float
+    right: float
+    bottom: float
+
+
+class LayoutLayer(Model):
+    layer: str
+    index: int
+    before: LayerBounds
+    after: LayerBounds
+    moved: Annotated[list[float], Field(min_length=2, max_length=2)]
+
+
+class Layout(Script):
+    comp: str
+    action: Literal["align", "distribute", "anchor"]
+    layers: list[LayoutLayer]

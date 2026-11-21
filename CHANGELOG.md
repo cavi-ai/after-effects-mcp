@@ -13,6 +13,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
   or height is odd. `verdict` is fail when any of those lists is non-empty.
 - `ae_footage` reports footage interpretation and proxy, sets alpha, conform frame rate and pixel aspect, sets or
   clears a proxy, and relinks missing footage by file name.
+- `ae_layout` aligns, distributes or sets the anchor of 2D layers from their bounds, including scale, rotation
+  and parents.
 
 ## 0.4.0 - 2026-11-21
 
