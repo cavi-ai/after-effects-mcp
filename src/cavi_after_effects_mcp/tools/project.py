@@ -160,7 +160,8 @@ BATCHABLE = frozenset({
     "ae_footage_replace", "ae_organize",
     "ae_footage",
     "ae_layout",
-    "ae_stagger"})
+    "ae_stagger",
+    "ae_reframe"})
 
 
 @mcp.tool(annotations=DESTRUCTIVE)

@@ -991,3 +991,23 @@ class Stagger(Script):
     comp: str
     mode: Literal["in_points", "keyframes", "both"]
     layers: list[StaggerLayer]
+
+
+class ReframeComp(Model):
+    name: str
+    width: int
+    height: int
+    layers: int
+
+
+class ReframeLeft(Model):
+    comp: str
+    layer: str
+    index: int
+    reason: Literal["camera", "light", "3d", "locked"]
+
+
+class Reframe(Script):
+    comp: str
+    comps: list[ReframeComp]
+    left: list[ReframeLeft]

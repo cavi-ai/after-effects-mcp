@@ -18,6 +18,7 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 - `ae_stagger` shifts each layer's in and out points and keyframes by whole frames, in the order given.
 - `ae_template_render` `sheet` supplies variants from a CSV or JSON file, then fills and renders each one the way
   `variants` does.
+- `ae_reframe` duplicates a comp at social frame sizes and keeps each 2D layer's offset from the center.
 
 ## 0.4.0 - 2026-11-21
 
