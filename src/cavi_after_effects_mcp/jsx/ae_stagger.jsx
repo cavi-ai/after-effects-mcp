@@ -14,6 +14,9 @@ function belowZero(time) {
 function shiftSpan(layer, offset) {
     var start = layer.startTime, inn = layer.inPoint, out = layer.outPoint;
     layer.startTime = start + offset;
+    if (Math.abs(layer.startTime - (start + offset)) > 0.0000001) {
+        caviFail("Layer " + layer.name + " start time could not move by the requested offset");
+    }
     layer.inPoint = inn + offset;
     layer.outPoint = out + offset;
 }
@@ -150,15 +153,19 @@ function shiftProperty(prop, offset) {
         offset = i * a.frames * comp.frameDuration;
         span = a.mode === "in_points" || a.mode === "both";
         keyed = a.mode === "keyframes" || a.mode === "both";
-        props = keyed ? keyedProperties(layer, []) : [];
+        props = keyedProperties(layer, []);
         if (span && offset !== 0 && belowZero(layer.inPoint + offset)) {
             caviFail("Layer " + layer.name + " in point would move below 0");
         }
         if (keyed && offset !== 0) { refuseKeys(layer, props, offset); }
         keys = 0;
         if (offset !== 0 && span) { shiftSpan(layer, offset); }
-        if (offset !== 0 && keyed) {
-            for (p = 0; p < props.length; p++) { keys += shiftProperty(props[p], offset); }
+        if (offset !== 0) {
+            for (p = 0; p < props.length; p++) {
+                if (a.mode === "both") { keys += props[p].numKeys; }
+                else if (a.mode === "keyframes") { keys += shiftProperty(props[p], offset); }
+                else { shiftProperty(props[p], -offset); }
+            }
         }
         report.push({layer: layer.name, index: layer.index, offset: offset, in_point: layer.inPoint,
             out_point: layer.outPoint, keys: keys});

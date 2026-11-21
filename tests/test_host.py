@@ -574,3 +574,45 @@ class PresetTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+@unittest.skipUnless(shutil.which("node"), "node is required")
+class StaggerTimingTests(unittest.TestCase):
+    def test_stagger_modes_move_span_and_keys(self):
+        source = (host.JSX / "ae_stagger.jsx").read_text()
+        script = r'''
+const mode = process.argv[1];
+const $ = {evalFile() {}}; const File = function() {}; const CAVI_LIB = "";
+const CameraLayer = function() {}, LightLayer = function() {};
+const PropertyType = {PROPERTY: 1};
+function makeLayer(index) {
+  const props = [0, 1].map(() => ({propertyType: 1, times: [1, 2],
+    get numKeys() { return this.times.length; }, keyTime(i) { return this.times[i-1]; },
+    setKeyTime(i, time) { this.times[i-1] = time; this.times.sort((a,b) => a-b); }}));
+  let start = 0;
+  return {name: `Layer ${index}`, index, inPoint: 0, outPoint: 6, numProperties: 2,
+    property(i) { return props[i-1]; }, props,
+    get startTime() { return start; }, set startTime(v) {
+      const delta = v-start; start = v;
+      props.forEach(p => { p.times = p.times.map(t => t+delta); });
+      this.inPoint += delta; this.outPoint += delta;
+    }};
+}
+const layers = [makeLayer(1), makeLayer(2)];
+const CAVI_ARGS = {comp: "C", layers: [1,2], frames: 6, mode};
+function caviComp() { return {name: "C", frameDuration: 1/24}; }
+function caviLayer(comp, i) { return layers[i-1]; }
+function caviFail(message) { throw Error(message); }
+function caviReport(report) { console.log(JSON.stringify({report, times: layers[1].props.map(p => p.times)})); }
+''' + source
+        expected = {
+            "both": (0.25, 6.25, 4, [1.25, 2.25]),
+            "keyframes": (0, 6, 4, [1.25, 2.25]),
+            "in_points": (0.25, 6.25, 0, [1, 2]),
+        }
+        for mode, (inn, out, keys, times) in expected.items():
+            with self.subTest(mode=mode):
+                run = subprocess.run(["node", "-e", script, mode], capture_output=True, text=True, check=True)
+                result = json.loads(run.stdout)
+                layer = result["report"]["layers"][1]
+                self.assertEqual((layer["in_point"], layer["out_point"], layer["keys"]), (inn, out, keys))
+                self.assertEqual(result["times"], [times, times])
