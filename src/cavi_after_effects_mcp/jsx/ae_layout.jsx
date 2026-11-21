@@ -8,14 +8,29 @@ function refuseFlat(layer) {
 }
 
 // Corners of sourceRectAtTime in comp space, so scale, rotation and parents are part of the box.
+// sourceRect is source space. sourcePointToComp is the comp conversion After Effects provides.
+function pointInComp(layer, x, y) {
+    return layer.sourcePointToComp([x, y]);
+}
+
+function sourceVecToComp(layer, dx, dy) {
+    var origin = layer.sourcePointToComp([0, 0]), tip = layer.sourcePointToComp([dx, dy]);
+    return [tip[0] - origin[0], tip[1] - origin[1]];
+}
+
+function compVecToLayer(layer, dx, dy) {
+    var origin = layer.compPointToSource([0, 0]), tip = layer.compPointToSource([dx, dy]);
+    return [tip[0] - origin[0], tip[1] - origin[1]];
+}
+
 function compBounds(layer, time) {
     var rect = layer.sourceRectAtTime(time, false), corners, i, point, box;
     corners = [[rect.left, rect.top], [rect.left + rect.width, rect.top],
         [rect.left, rect.top + rect.height], [rect.left + rect.width, rect.top + rect.height]];
-    point = layer.toComp(corners[0], time);
+    point = pointInComp(layer, corners[0][0], corners[0][1]);
     box = {left: point[0], top: point[1], right: point[0], bottom: point[1]};
     for (i = 1; i < corners.length; i++) {
-        point = layer.toComp(corners[i], time);
+        point = pointInComp(layer, corners[i][0], corners[i][1]);
         if (point[0] < box.left) { box.left = point[0]; }
         if (point[0] > box.right) { box.right = point[0]; }
         if (point[1] < box.top) { box.top = point[1]; }
@@ -113,7 +128,7 @@ function addPositionSpace(layer, dx, dy) {
 function moveBy(layer, dx, dy, time) {
     var space;
     if (dx === 0 && dy === 0) { return [0, 0]; }
-    space = layer.parent ? layer.parent.fromCompVec([dx, dy], time) : [dx, dy];
+    space = layer.parent ? compVecToLayer(layer.parent, dx, dy) : [dx, dy];
     return addPositionSpace(layer, space[0], space[1]);
 }
 
@@ -183,8 +198,8 @@ function writeAnchor(anchor, cx, cy) {
 function centerAnchor(layer, time) {
     var anchor = layer.property("ADBE Transform Group").property("ADBE Anchor Point");
     var rect = layer.sourceRectAtTime(time, false), value = anchor.valueAtTime(time, false);
-    var compDelta = layer.toCompVec([rect.left + rect.width / 2 - value[0], rect.top + rect.height / 2 - value[1]], time);
-    var posDelta = layer.parent ? layer.parent.fromCompVec(compDelta, time) : compDelta;
+    var compDelta = sourceVecToComp(layer, rect.left + rect.width / 2 - value[0], rect.top + rect.height / 2 - value[1]);
+    var posDelta = layer.parent ? compVecToLayer(layer.parent, compDelta[0], compDelta[1]) : compDelta;
     writeAnchor(anchor, rect.left + rect.width / 2, rect.top + rect.height / 2);
     return addPositionSpace(layer, posDelta[0], posDelta[1]);
 }
@@ -204,7 +219,8 @@ function applyTargets(entries, targets, axis, time) {
 }
 
 (function () {
-    var a = CAVI_ARGS, comp = caviComp(a.comp), entries = [], i, layer, ref, order, entry, current, shift, targets, moved;
+    var a = CAVI_ARGS, comp = caviComp(a.comp), savedTime = comp.time, entries = [], i, layer, ref, order, entry, current, shift, targets, moved;
+    comp.time = a.time;
     for (i = 0; i < a.layers.length; i++) {
         layer = caviLayer(comp, a.layers[i]);
         refuseFlat(layer);
@@ -234,5 +250,6 @@ function applyTargets(entries, targets, axis, time) {
         moved.push({layer: entries[i].layer.name, index: entries[i].layer.index, before: entries[i].before,
             after: compBounds(entries[i].layer, a.time), moved: entries[i].moved});
     }
+    comp.time = savedTime;
     caviReport({comp: comp.name, action: a.action, layers: moved, errors: []});
 })();
