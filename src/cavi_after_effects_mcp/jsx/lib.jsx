@@ -134,14 +134,15 @@ function caviEaseSide(prop, keyIndex, axes, ease, mirrorAxes, mirrorEase, label,
     return caviEase(prop, keyIndex, mirrorEase);
 }
 
-function caviCopied(values) {
+function caviCopied(values, dimensions) {
     var copy = [], i;
     for (i = 0; i < values.length; i++) { copy.push(values[i]); }
+    if (dimensions === 3 && copy.length === 2) { copy.push(0); }
     return copy;
 }
 
 function caviSpatialTangents(prop, keys) {
-    var i, k, key, inn, out;
+    var i, k, key, inn, out, dimensions;
     for (i = 0; i < keys.length; i++) {
         key = keys[i];
         inn = key.in_tangent || null;
@@ -153,9 +154,10 @@ function caviSpatialTangents(prop, keys) {
         if (!inn) { inn = out; }
         if (!out) { out = inn; }
         k = prop.nearestKeyIndex(key.time);
+        dimensions = prop.keyInSpatialTangent(k).length;
         prop.setSpatialAutoBezierAtKey(k, false);
         prop.setSpatialContinuousAtKey(k, false);
-        prop.setSpatialTangentsAtKey(k, caviCopied(inn), caviCopied(out));
+        prop.setSpatialTangentsAtKey(k, caviCopied(inn, dimensions), caviCopied(out, dimensions));
     }
 }
 

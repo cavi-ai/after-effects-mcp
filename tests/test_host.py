@@ -912,3 +912,33 @@ console.log(JSON.stringify({report: reported, comps: items.map(function (comp) {
     @staticmethod
     def layer(comp, name):
         return next(layer for layer in comp["layers"] if layer["name"] == name)
+
+@unittest.skipUnless(shutil.which("node"), "node is required")
+class SpatialTangentDimensionsTest(unittest.TestCase):
+    def test_native_dimensions_and_mirrored_sides(self):
+        source = (host.JSX / "lib.jsx").read_text()
+        source = source[source.index("function caviCopied("):source.index("\n// Keys as", source.index("function caviCopied("))]
+        script = r'''
+const cases = [
+  {width: 3, key: {time: 1, in_tangent: [-20,-10], out_tangent: [30,15]}},
+  {width: 3, key: {time: 1, in_tangent: [1,2,3]}},
+  {width: 3, key: {time: 1, out_tangent: [4,5]}},
+  {width: 2, key: {time: 1, in_tangent: [6,7], out_tangent: [8,9]}}
+];
+const results = cases.map(({width, key}) => {
+  const original = JSON.stringify(key); let result;
+  const prop = {isSpatial: true, nearestKeyIndex() {return 1}, keyInSpatialTangent() {return Array(width).fill(0)},
+    setSpatialAutoBezierAtKey() {}, setSpatialContinuousAtKey() {},
+    setSpatialTangentsAtKey(k, inn, out) {result = [inn, out]}};
+  caviSpatialTangents(prop, [key]);
+  return {result, unchanged: original === JSON.stringify(key)};
+});
+console.log(JSON.stringify(results));
+'''
+        run = subprocess.run(["node", "-e", source + script], capture_output=True, text=True, check=True)
+        self.assertEqual(json.loads(run.stdout), [
+            {"result": [[-20, -10, 0], [30, 15, 0]], "unchanged": True},
+            {"result": [[1, 2, 3], [1, 2, 3]], "unchanged": True},
+            {"result": [[4, 5, 0], [4, 5, 0]], "unchanged": True},
+            {"result": [[6, 7], [8, 9]], "unchanged": True},
+        ])

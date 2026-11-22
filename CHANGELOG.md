@@ -22,6 +22,7 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 ### Fixed
 
+- `ae_keyframes` pads two-value spatial tangents with zero when the property requires three values.
 - `ae_effect_add` refuses a text parameter and a parameter that already has keyframes, the same way a static property does.
 
 ## 0.4.0 - 2026-11-21
