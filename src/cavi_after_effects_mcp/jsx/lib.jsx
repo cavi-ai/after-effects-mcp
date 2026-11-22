@@ -271,6 +271,11 @@ function describeLayer(layer) {
 var CAVI_JUSTIFY = {LEFT: ParagraphJustification.LEFT_JUSTIFY, CENTER: ParagraphJustification.CENTER_JUSTIFY,
     RIGHT: ParagraphJustification.RIGHT_JUSTIFY, FULL: ParagraphJustification.FULL_JUSTIFY_LASTLINE_LEFT};
 
+// models.box_fit_check is the argument gate. This sees the alignment on the document.
+function caviBoxCanGrow(fit, align) {
+    return fit === null || fit === undefined || fit === "none" || align === "top";
+}
+
 // Applies the TextDocument fields present in s (font, size, fill, stroke, stroke_width, tracking, leading,
 // justification, box); fields that are null or absent are left alone.
 function caviTextStyle(doc, s) {
@@ -300,8 +305,9 @@ function caviTextStyle(doc, s) {
     // Alignment first: After Effects switches the fit off unless the text sits at the top of its box.
     if (has("box_align")) { doc.boxVerticalAlignment = caviEnum(caviBoxAligns(), s.box_align, "box alignment"); }
     if (has("box_fit")) {
-        if (s.box_fit !== "none" && doc.boxVerticalAlignment !== BoxVerticalAlignment.TOP) {
-            caviFail("box_fit grows a box only with box_align top; the text is aligned " + caviNameOf(caviBoxAligns(), doc.boxVerticalAlignment));
+        var aligned = caviNameOf(caviBoxAligns(), doc.boxVerticalAlignment);
+        if (!caviBoxCanGrow(s.box_fit, aligned)) {
+            caviFail("box_fit grows a box only with box_align top; the text is aligned " + aligned);
         }
         doc.boxAutoFitPolicy = caviEnum(caviBoxFits(), s.box_fit, "box fit");
     }
