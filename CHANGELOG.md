@@ -4,6 +4,8 @@ Versions come from git tags; a pull request adds its lines under Unreleased and 
 
 ## Unreleased
 
+## 0.5.0 - 2026-11-22
+
 ### Added
 
 - `ae_keyframes` sets per-axis ease (`ease_in_axes`, `ease_out_axes`) and spatial tangents (`in_tangent`,
